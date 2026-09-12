@@ -1,7 +1,6 @@
-using Fusion;
+ï»¿using Fusion;
 using Fusion.Sockets;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,7 +8,8 @@ using UnityEngine;
 public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Network Prefabs")]
-    [SerializeField] private NetworkPrefabRef ballPrefab;
+    [SerializeField] private NetworkPrefabRef PlayerJaunePrefab;
+    [SerializeField] private NetworkPrefabRef PlayerRougePrefab;
 
     [Header("Spawn Positions")]
     [SerializeField] private Transform[] player1SpawnPoints;
@@ -17,39 +17,23 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private Dictionary<PlayerRef, List<NetworkObject>> _spawnedBalls = new Dictionary<PlayerRef, List<NetworkObject>>();
     private bool _hasSpawned = false;
-    private bool _isRegistered = false;
     private NetworkRunner _runner;
-
-    // private NetworkRunner Runner => FindObjectOfType<NetworkRunner>();
-
 
     private void Start()
     {
-        Debug.Log("[GameSpawner] Start() exécuté !");
+        Debug.Log("[GameSpawner] Start() exÃ©cutÃ© !");
 
-        // Recherche du NetworkRunner persistant dans la scène
+        // Recherche du NetworkRunner dans la scÃ¨ne
         _runner = FindObjectOfType<NetworkRunner>();
 
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-            Debug.Log($"[GameSpawner] Runner trouvé. IsMaster: {_runner.IsSharedModeMasterClient}");
+            Debug.Log($"[GameSpawner] Runner trouvÃ© et enregistrÃ©. IsMaster: {_runner.IsSharedModeMasterClient}");
         }
         else
         {
-            Debug.LogError("[GameSpawner] ERREUR : Aucun NetworkRunner trouvé dans la GameScene !");
-        }
-    }
-
-    private void Update()
-    {
-        // On s'enregistre dès que le Runner devient disponible dans la scène
-        if (!_isRegistered && _runner != null)
-        {
-            _isRegistered = true;
-            _runner.AddCallbacks(this);
-            Debug.Log($"[GameSpawner] Enregistré auprès du NetworkRunner. IsMaster: {_runner.IsSharedModeMasterClient}");
-
+            Debug.LogError("[GameSpawner] ERREUR : Aucun NetworkRunner trouvÃ© dans la GameScene !");
         }
     }
 
@@ -63,45 +47,46 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnSceneLoadDone(NetworkRunner runner)
     {
-        Debug.Log("[GameSpawner] Callback OnSceneLoadDone reçu !");
-        TrySpawnBalls();
+        Debug.Log("[GameSpawner] Callback OnSceneLoadDone reÃ§u !");
+        TrySpawnBalls(runner);
     }
 
-    private void TrySpawnBalls()
+    private void TrySpawnBalls(NetworkRunner runner)
     {
         if (_hasSpawned) return;
 
-        Debug.Log($"[GameSpawner] TrySpawnBalls - Runner: {(_runner != null)}, IsMaster: {_runner?.IsSharedModeMasterClient}, Players: {_runner?.ActivePlayers.Count()}");
-
+        // âœ… CORRECTIF : en Shared Mode, StateAuthority == InputAuthority == celui qui appelle Spawn().
+        // Il est donc IMPOSSIBLE de donner l'autoritÃ© au joueur 2 en spawnant depuis le master.
+        // -> Chaque client doit spawn SES PROPRES boules, localement, une fois la scÃ¨ne chargÃ©e.
         _hasSpawned = true;
-        var players = _runner.ActivePlayers.ToList();
 
-        if (players.Count > 0)
-        {
-            SpawnForPlayer(players[0], player1SpawnPoints);
-        }
+        bool isMaster = runner.IsSharedModeMasterClient;
+        Transform[] spawnPoints = isMaster ? player1SpawnPoints : player2SpawnPoints;
+        NetworkPrefabRef boulePrefab = isMaster ? PlayerJaunePrefab : PlayerRougePrefab;
 
-        if (players.Count > 1)
-        {
-            SpawnForPlayer(players[1], player2SpawnPoints);
-        }
+        Debug.Log($"[GameSpawner] Je spawn mes propres boules - LocalPlayer: {runner.LocalPlayer.PlayerId}, IsMaster: {isMaster}");
+
+        SpawnForPlayer(runner, runner.LocalPlayer, spawnPoints, boulePrefab);
     }
 
-    private void SpawnForPlayer(PlayerRef player, Transform[] spawnPoints)
+    private void SpawnForPlayer(NetworkRunner runner, PlayerRef player, Transform[] spawnPoints, NetworkPrefabRef boulePrefab)
     {
         List<NetworkObject> playerBalls = new List<NetworkObject>();
-        Debug.Log($"On essai de spawn {player.PlayerId}");
+
         foreach (Transform spawnPoint in spawnPoints)
         {
-            NetworkObject ball = _runner.Spawn(ballPrefab, spawnPoint.position, Quaternion.identity, player);
+            // âœ… Spawn avec InputAuthority = le joueur propriÃ©taire
+            NetworkObject ball = runner.Spawn(boulePrefab, spawnPoint.position, Quaternion.identity, player);
             playerBalls.Add(ball);
-            Debug.Log($"[GameSpawner] Spawned {playerBalls.Count} balls for player {player.PlayerId}");
+
+            Debug.Log($"[GameSpawner] Boule spawned pour joueur {player.PlayerId} - InputAuthority: {player.PlayerId}");
         }
-        
+
         _spawnedBalls.Add(player, playerBalls);
+        Debug.Log($"[GameSpawner] Total boules pour joueur {player.PlayerId}: {playerBalls.Count}");
     }
 
-    // --- Implémentation des callbacks INetworkRunnerCallbacks (Fusion 2.1.2) ---
+    // --- ImplÃ©mentation des callbacks INetworkRunnerCallbacks (Fusion 2.1.2) ---
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInput(NetworkRunner runner, NetworkInput input) { }

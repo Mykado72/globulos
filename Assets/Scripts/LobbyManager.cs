@@ -72,7 +72,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         _runner.AddCallbacks(this);
         _runner.ProvideInput = true;
 
-        UpdateStatus("Recherche d'un adversaire...");
+        UpdateStatus("Recherche d'un adversaire avec du charisme...");
         // Récupère l'index de la scène actuelle (LobbyScene)
         int currentSceneIndex = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex;
 
@@ -82,7 +82,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             SessionName = "", // Session aléatoire
             PlayerCount = MAX_PLAYERS,
             Scene = SceneRef.FromIndex(currentSceneIndex), // <-- Définit la scène initiale pour le Runner
-            SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+            // SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
         };
 
         var result = await _runner.StartGame(startGameArgs);
