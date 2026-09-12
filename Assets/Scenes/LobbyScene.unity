@@ -1200,7 +1200,8 @@ MonoBehaviour:
   nicknameInput: {fileID: 1460968149}
   playButton: {fileID: 1703565070}
   statusText: {fileID: 1150031957}
-  gameSceneName: {fileID: 102900000, guid: f60a36e664af13d4f9058f194665f763, type: 3}
+  gameSceneName: GameScene
+  sceneAsset: {fileID: 102900000, guid: f60a36e664af13d4f9058f194665f763, type: 3}
 --- !u!4 &1609862376
 Transform:
   m_ObjectHideFlags: 0
