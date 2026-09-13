@@ -102,12 +102,12 @@ Rigidbody2D:
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
   m_Mass: 1
-  m_LinearDrag: 0.05
+  m_LinearDrag: 0.5
   m_AngularDrag: 1
   m_GravityScale: 0
   m_Material: {fileID: 6200000, guid: eed95a684a63afd4b94c2c28cc9209ac, type: 2}
   m_Interpolate: 0
-  m_SleepingMode: 1
+  m_SleepingMode: 0
   m_CollisionDetection: 1
   m_Constraints: 0
 --- !u!58 &2384234035569668972
@@ -125,7 +125,7 @@ CircleCollider2D:
   m_UsedByComposite: 0
   m_Offset: {x: 0, y: 0}
   serializedVersion: 2
-  m_Radius: 60
+  m_Radius: 50
 --- !u!114 &1185025127651573696
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,8 +159,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1dace3796fdcdb94ebddfb6ebc554ec9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxForce: 100
-  forceMultiplier: 10
+  maxForce: 1000
+  maxDragDistanceFraction: 0.35
   arrowShaftSprite: {fileID: 0}
   arrowHeadSprite: {fileID: 0}
   aimColor: {r: 1, g: 0.5, b: 0, a: 1}
@@ -170,7 +170,60 @@ MonoBehaviour:
   headSizeFraction: 0.05
   thicknessFraction: 0.015
   fallbackViewHeight: 10
+  fallDuration: 1.5
+  shrinkStartTime: 0.5
+  fallCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  rotateCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  totalRotation: 720
   _IsAiming: 0
+  _IsDead: 0
+  forceMultiplier: 10
 --- !u!114 &7197317456238439236
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -191,7 +244,7 @@ MonoBehaviour:
   PhysicsSettings:
     ForecastEnabled: 1
     DebugPhysics: 0
-    GravityForecast: 2
+    GravityForecast: 1
     MaxExtrapolationTime: 0.15
     MinLinearDetectedError: 0.02
     MinAngularDetectedError: 3

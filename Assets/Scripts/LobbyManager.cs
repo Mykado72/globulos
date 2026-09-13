@@ -72,7 +72,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         _runner.AddCallbacks(this);
         _runner.ProvideInput = true;
 
-        UpdateStatus("Recherche d'un adversaire avec du charisme...");
+        UpdateStatus("Recherche d'un adversaire avec du charisme... pas facile à trouver...");
         // Récupère l'index de la scène actuelle (LobbyScene)
         int currentSceneIndex = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex;
 
@@ -115,11 +115,18 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         int currentPlayers = runner.ActivePlayers.Count();
-        UpdateStatus($"Joueurs dans le salon : {currentPlayers}/{MAX_PLAYERS}");
+        string playerNicknames = "Personne";
+        foreach(var p in runner.ActivePlayers)
+        {
+            // Correction : PlayerRef ne possède pas de propriété nickName.
+            // Affiche simplement l'identifiant du joueur.
+            playerNicknames = playerNicknames + " " + p.ToString();
+        } 
+        UpdateStatus($"Joueurs avec du charisme trouvés : {currentPlayers}/{MAX_PLAYERS} : {playerNicknames}");
 
         if (currentPlayers == MAX_PLAYERS)
         {
-            UpdateStatus("Partie trouvée ! Chargement du terrain...");
+            UpdateStatus("Allez Go ! ça va fritter...");
 
             if (runner.IsSharedModeMasterClient)
             {
