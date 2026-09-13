@@ -5,6 +5,8 @@ public class TurnUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text stateText;
+    [SerializeField] private GameObject  panelWIN;
+    [SerializeField] private GameObject panelDRAW;
 
     private void Update()
     {

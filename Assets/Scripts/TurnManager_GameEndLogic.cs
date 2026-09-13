@@ -128,11 +128,11 @@ public partial class TurnManager
     private IEnumerator ReloadSceneAfterDelay(string result, int winner = -1, int loser = -1)
     {
         // Attendre 2 secondes pour que les animations de chute aient le temps de jouer
-        yield return new WaitForSeconds(3f);
+        yield return new WaitForSeconds(2f);
 
         if (result == "WIN")
         {
-            Debug.Log($"[TurnManager] 🔄 Reloading scene... Gagnant: Joueur {winner}");            
+            Debug.Log($"[TurnManager] 🔄 Reloading scene... Gagnant: Joueur {winner}");
         }
         else if (result == "DRAW")
         {

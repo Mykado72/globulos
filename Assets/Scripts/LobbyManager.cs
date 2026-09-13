@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Fusion;
@@ -8,9 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
+
 
 public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 {
@@ -21,19 +19,21 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
 
     [SerializeField] private string gameSceneName = "GameScene";
+    [SerializeField] private NetworkPrefabRef playerDataPrefab; // âœ… Prefab avec NetworkObject + PlayerData
 
-    #if UNITY_EDITOR
 
-        [SerializeField] private SceneAsset sceneAsset;
+#if UNITY_EDITOR
 
-        private void OnValidate()
+    [SerializeField] private SceneAsset sceneAsset;
+
+    private void OnValidate()
+    {
+        if (sceneAsset != null)
         {
-            if (sceneAsset != null)
-            {
-                gameSceneName = sceneAsset.name;
-            }
+            gameSceneName = sceneAsset.name;
         }
-    #endif
+    }
+#endif
 
     [Header("Matchmaking Settings")]
 
@@ -62,7 +62,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         playButton.interactable = false;
         nicknameInput.interactable = false;
-        UpdateStatus("Initialisation du réseau...");
+        UpdateStatus("Initialisation du rï¿½seau...");
 
         if (_runner == null)
         {
@@ -72,16 +72,16 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         _runner.AddCallbacks(this);
         _runner.ProvideInput = true;
 
-        UpdateStatus("Recherche d'un adversaire avec du charisme... pas facile à trouver...");
-        // Récupère l'index de la scène actuelle (LobbyScene)
+        UpdateStatus("Recherche d'un adversaire avec du charisme...");
+        // Rï¿½cupï¿½re l'index de la scï¿½ne actuelle (LobbyScene)
         int currentSceneIndex = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex;
 
         var startGameArgs = new StartGameArgs()
         {
             GameMode = GameMode.Shared,
-            SessionName = "", // Session aléatoire
+            SessionName = "", // Session alï¿½atoire
             PlayerCount = MAX_PLAYERS,
-            Scene = SceneRef.FromIndex(currentSceneIndex), // <-- Définit la scène initiale pour le Runner
+            Scene = SceneRef.FromIndex(currentSceneIndex), // <-- Dï¿½finit la scï¿½ne initiale pour le Runner
             // SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
         };
 
@@ -89,9 +89,23 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         if (!result.Ok)
         {
-            UpdateStatus($"<color=red>Échec : {result.ShutdownReason}</color>");
+            UpdateStatus($"<color=red>ï¿½chec : {result.ShutdownReason}</color>");
             ResetUI();
+            return;
         }
+
+        // Spawn du PlayerData local : persiste ï¿½ travers le changement de
+        // scï¿½ne (Lobby -> GameScene) et sera lisible par tous les clients via
+        // Runner.GetPlayerObject(). On le fait juste aprï¿½s StartGame, une fois
+        // qu on est bien connectï¿½ et qu on connait notre LocalPlayer.
+        NetworkObject playerDataObj = _runner.Spawn(
+            playerDataPrefab,
+            Vector3.zero,
+            Quaternion.identity,
+            _runner.LocalPlayer);
+
+        PlayerData playerData = playerDataObj.GetComponent<PlayerData>();
+        playerData.SetNickname(nickname);
     }
 
     private void UpdateStatus(string message)
@@ -109,28 +123,21 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     // =========================================================================
-    // CALLBACKS GÉRÉS
+    // CALLBACKS Gï¿½Rï¿½S
     // =========================================================================
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         int currentPlayers = runner.ActivePlayers.Count();
-        string playerNicknames = "Personne";
-        foreach(var p in runner.ActivePlayers)
-        {
-            // Correction : PlayerRef ne possède pas de propriété nickName.
-            // Affiche simplement l'identifiant du joueur.
-            playerNicknames = playerNicknames + " " + p.ToString();
-        } 
-        UpdateStatus($"Joueurs avec du charisme trouvés : {currentPlayers}/{MAX_PLAYERS} : {playerNicknames}");
+        UpdateStatus($"Joueurs dans le salon : {currentPlayers}/{MAX_PLAYERS}");
 
         if (currentPlayers == MAX_PLAYERS)
         {
-            UpdateStatus("Allez Go ! ça va fritter...");
+            UpdateStatus("Partie trouvï¿½e ! Chargement du terrain...");
 
             if (runner.IsSharedModeMasterClient)
             {
-                // Récupère l'index de la scène dans le Build Settings
+                // Rï¿½cupï¿½re l'index de la scï¿½ne dans le Build Settings
                 int sceneIndex = UnityEngine.SceneManagement.SceneUtility.GetBuildIndexByScenePath(gameSceneName);
 
                 if (sceneIndex >= 0)
@@ -139,7 +146,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
                 }
                 else
                 {
-                    Debug.LogError($"[LobbyManager] La scène '{gameSceneName}' n'a pas été trouvée dans les Build Settings !");
+                    Debug.LogError($"[LobbyManager] La scï¿½ne '{gameSceneName}' n'a pas ï¿½tï¿½ trouvï¿½e dans les Build Settings !");
                 }
             }
         }
@@ -147,14 +154,15 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        UpdateStatus("L'adversaire s'est déconnecté.");
+        UpdateStatus("L'adversaire s'est dï¿½connectï¿½.");
     }
 
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
-        UpdateStatus($"Déconnecté ({shutdownReason}).");
+        UpdateStatus($"Dï¿½connectï¿½ ({shutdownReason}).");
         ResetUI();
     }
+
 
     // =========================================================================
     // CALLBACKS OBLIGATOIRES FUSION 2.1.2 (SIGNATURES EXACTES)

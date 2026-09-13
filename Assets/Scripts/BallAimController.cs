@@ -1,11 +1,11 @@
 ﻿using Fusion;
-using UnityEngine;
+using Fusion.Addons.Physics;
 using System.Collections;
+using UnityEngine;
 
-[RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(Collider2D))]
 [RequireComponent(typeof(NetworkObject))]
-[RequireComponent(typeof(NetworkTransform))]
+
 public class BallAimController : NetworkBehaviour
 {
     [Header("Aim Settings")]
@@ -15,8 +15,8 @@ public class BallAimController : NetworkBehaviour
     [Header("Arrow Visual Settings")]
     [SerializeField] private Sprite arrowShaftSprite;
     [SerializeField] private Sprite arrowHeadSprite;
-    [SerializeField] private Color aimColor = new Color(1, 0.5f, 0, 1); // Orange
-    [SerializeField] private Color activeColor = new Color(1, 0, 0, 1); // Rouge
+    [SerializeField] private Color aimColor = new Color(1, 0.5f, 0, 1);
+    [SerializeField] private Color activeColor = new Color(1, 0, 0, 1);
     [SerializeField] private int arrowSortingOrder = 20;
 
     [SerializeField, Range(0.01f, 1f)] private float maxArrowLengthFraction = 0.35f;
@@ -26,14 +26,18 @@ public class BallAimController : NetworkBehaviour
 
     [Header("Fall Animation Settings")]
     [SerializeField] private float fallDuration = 1.5f;
-    [SerializeField] private float shrinkStartTime = 0.5f; // Commence à rétrécir après 0.5s
+    [SerializeField] private float shrinkStartTime = 0.5f;
     [SerializeField] private AnimationCurve fallCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     [SerializeField] private AnimationCurve rotateCurve = AnimationCurve.Linear(0, 0, 1, 1);
-    [SerializeField] private float totalRotation = 720f; // 2 rotations complètes
+    [SerializeField] private float totalRotation = 720f;
 
-    // ✅ État de la bille synchronisé via le réseau
+    // ✅ État synchronisé via le réseau
     [Networked] public bool IsAiming { get; set; }
-    [Networked] public bool IsDead { get; set; } // ✅ NOUVEAU : état mort/vivant
+    [Networked] public bool IsDead { get; set; }
+    [Networked] public bool IsMoving { get; set; }
+
+    [SerializeField] private float stationaryVelocityThreshold = 0.15f;
+    [SerializeField] private int forceMultiplier = 1;
 
     private Rigidbody2D _rb;
     private Camera _mainCamera;
@@ -48,20 +52,19 @@ public class BallAimController : NetworkBehaviour
     private Vector2 _startDragPos;
     private Vector2 _bufferedForce;
 
-    [SerializeField]
-    private int forceMultiplier;
-
-    // Sprites générés une seule fois et partagés par toutes les instances de boules
     private static Sprite _cachedShaftSprite;
     private static Sprite _cachedHeadSprite;
 
     public override void Spawned()
     {
-        Debug.Log($"[BallAimController] Spawned() - HasInputAuthority: {HasInputAuthority}, InputAuthority: {GetComponent<NetworkObject>().InputAuthority}");
-
         _rb = GetComponent<Rigidbody2D>();
         _networkObject = GetComponent<NetworkObject>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
+
+        // ✅ FIX : on logue HasStateAuthority (le concept fiable en Shared Mode) plutôt que
+        // HasInputAuthority. En Shared Mode, l'Input Authority n'est pas utilisée par Fusion ;
+        // c'est la State Authority qui détermine qui possède réellement l'objet.
+        Debug.Log($"[BallAimController] Spawned() - HasStateAuthority: {HasStateAuthority}, StateAuthority: {_networkObject.StateAuthority.PlayerId}, InputAuthority: {_networkObject.InputAuthority.PlayerId}, LocalPlayer: {Runner.LocalPlayer.PlayerId}");
 
         ConfigureArrowVisual();
 
@@ -75,8 +78,18 @@ public class BallAimController : NetworkBehaviour
             return;
         }
 
-        IsDead = false; // ✅ NOUVEAU : on commence vivant
-        Debug.Log($"[BallAimController] ✅ Setup complet - HasInputAuthority: {HasInputAuthority}, InputAuthority PlayerRef: {_networkObject.InputAuthority}");
+        Debug.Log($"[BallAimController] ✅ Setup complet");
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        // ✅ En Client/Server, le serveur gère la physique automatiquement
+        // NetworkRigidbody synchronise tout
+
+        if (_rb != null)
+        {
+            IsMoving = !IsDead && _rb.velocity.sqrMagnitude > stationaryVelocityThreshold;
+        }
     }
 
     public override void Render()
@@ -85,9 +98,12 @@ public class BallAimController : NetworkBehaviour
         {
             if (TurnManager.Instance.CurrentState == TurnManager.TurnState.Resolution)
             {
-                if (_bufferedForce != Vector2.zero && HasInputAuthority)
+                // ✅ FIX : on vérifie HasStateAuthority (et non plus HasInputAuthority) puisque
+                // c'est la State Authority qui a le droit d'appliquer la force sur son propre
+                // Rigidbody2D en Shared Mode.
+                if (_bufferedForce != Vector2.zero && HasStateAuthority)
                 {
-                    RPC_ApplyForce(_bufferedForce);
+                    ApplyForce(_bufferedForce);
                     _bufferedForce = Vector2.zero;
                 }
             }
@@ -112,7 +128,7 @@ public class BallAimController : NetworkBehaviour
         _headRenderer.sortingOrder = arrowSortingOrder + 1;
         _headRenderer.enabled = false;
 
-        Debug.Log("[BallAimController] Flèche (sprites étirables) configurée ✅");
+        Debug.Log("[BallAimController] Flèche configurée ✅");
     }
 
     private static Sprite GetOrCreateShaftSprite()
@@ -161,14 +177,10 @@ public class BallAimController : NetworkBehaviour
 
     private void OnMouseDown()
     {
-        if (_mainCamera == null)
-        {
-            Debug.LogError("[BallAimController] OnMouseDown : Camera est null !");
-            return;
-        }
-
-        // ✅ Ne pas pouvoir viser si la bille est morte
-        if (!HasInputAuthority || IsDead) return;
+        Debug.Log($"[BallAimController] ✅ Aiming started 1");
+        // ✅ FIX : HasStateAuthority remplace HasInputAuthority. C'est le check fiable en
+        // Shared Mode pour savoir "est-ce que c'est MA bille".
+        if (_mainCamera == null || !HasStateAuthority || IsDead) return;
 
         if (TurnManager.Instance != null && TurnManager.Instance.IsTurnBased)
         {
@@ -179,12 +191,12 @@ public class BallAimController : NetworkBehaviour
         _startDragPos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
         UpdateAimVisual(Vector2.zero);
 
-        Debug.Log($"[BallAimController] ✅ Aiming started! (Autorité: {_networkObject.InputAuthority}) - Vue caméra (hauteur monde): {GetViewHeight():F2}");
+        Debug.Log($"[BallAimController] ✅ Aiming started 2");
     }
 
     private void OnMouseDrag()
     {
-        if (!IsAiming || !HasInputAuthority || IsDead) return;
+        if (!IsAiming || !HasStateAuthority || IsDead) return;
         if (_mainCamera == null) return;
 
         Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
@@ -235,7 +247,6 @@ public class BallAimController : NetworkBehaviour
         float parentAngle = transform.eulerAngles.z;
         float localAngle = angle - parentAngle;
 
-        Vector2 dir = clampedForce.normalized;
         Quaternion rot = Quaternion.Euler(0f, 0f, localAngle);
 
         _shaftTransform.localPosition = Vector3.zero;
@@ -254,7 +265,7 @@ public class BallAimController : NetworkBehaviour
 
     private void OnMouseUp()
     {
-        if (!IsAiming || !HasInputAuthority || IsDead) return;
+        if (!IsAiming || !HasStateAuthority || IsDead) return;
 
         IsAiming = false;
         _shaftRenderer.enabled = false;
@@ -274,7 +285,7 @@ public class BallAimController : NetworkBehaviour
         else
         {
             Debug.Log($"[BallAimController] ✅ Shoot! Force: {forceToApply.magnitude:F2}");
-            RPC_ApplyForce(forceToApply);
+            ApplyForce(forceToApply);
         }
     }
 
@@ -282,51 +293,58 @@ public class BallAimController : NetworkBehaviour
     {
         if (_bufferedForce != Vector2.zero)
         {
-            RPC_ApplyForce(_bufferedForce);
+            ApplyForce(_bufferedForce);
             _bufferedForce = Vector2.zero;
         }
     }
 
-    [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
-    private void RPC_ApplyForce(Vector2 force)
+    // ✅ FIX : plus besoin de RPC pour appliquer la force. L'ancien code utilisait
+    // [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)], mais l'Input Authority
+    // n'est pas un concept utilisé par Fusion en Shared Mode (voir doc officielle :
+    // "Input Authority is specific to Server Modes ... and is not applicable in Shared
+    // Server Mode"). Désormais, chaque bille est spawnée directement par son propriétaire
+    // (voir GameSpawner corrigé), qui est donc déjà State Authority sur sa propre bille :
+    // on peut appliquer la force en local directement, et NetworkRigidbody2D se charge
+    // de répliquer le résultat aux autres clients.
+    private void ApplyForce(Vector2 force)
     {
+        if (!HasStateAuthority)
+        {
+            Debug.LogWarning("[BallAimController] ⚠️ Tentative d'application de force sans State Authority, ignorée.");
+            return;
+        }
+
         if (_rb != null)
         {
             _rb.AddForce(force, ForceMode2D.Impulse);
-            Debug.Log($"[BallAimController] Force appliquée via RPC: {force}");
+            Debug.Log($"[BallAimController] Force appliquée : {force}");
         }
     }
 
-    // ✅ NOUVEAU : Détection de collision avec un but
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // Vérifier si on entre en collision avec un "Goal" (but)
         if (collision.CompareTag("Goal") && !IsDead)
         {
-            Debug.Log($"[BallAimController] 🎯 Bille entrée dans un but! PlayerRef: {_networkObject.InputAuthority}");
+            Debug.Log($"[BallAimController] 🎯 Bille entrée dans un but!");
 
-            // Désactiver les inputs immédiatement
             IsAiming = false;
             _shaftRenderer.enabled = false;
             _headRenderer.enabled = false;
 
-            // Appeler la RPC pour synchroniser l'animation de chute sur tous les clients
             RPC_PlayFallAnimation();
         }
     }
 
-    // ✅ NOUVEAU : RPC pour synchroniser l'animation de chute
     [Rpc(RpcSources.All, RpcTargets.All)]
     private void RPC_PlayFallAnimation()
     {
         StartCoroutine(FallAnimationCoroutine());
     }
 
-    // ✅ NOUVEAU : Coroutine pour l'animation de chute (rotation + rétrécissement + disparition)
     private IEnumerator FallAnimationCoroutine()
     {
         IsDead = true;
-        _rb.isKinematic = true; // Arrêter la physique
+        _rb.isKinematic = true;
         _rb.velocity = Vector2.zero;
 
         float elapsedTime = 0f;
@@ -337,16 +355,13 @@ public class BallAimController : NetworkBehaviour
             elapsedTime += Time.deltaTime;
             float t = elapsedTime / fallDuration;
 
-            // ✅ Rotation progressive : 0° -> totalRotation (720°)
             float currentRotation = rotateCurve.Evaluate(t) * totalRotation;
             transform.Rotate(Vector3.forward, currentRotation - (rotateCurve.Evaluate(t - Time.deltaTime / fallDuration) * totalRotation));
 
-            // ✅ Rétrécissement à partir de shrinkStartTime
             float shrinkRatio = Mathf.Max(0f, t - shrinkStartTime) / (1f - shrinkStartTime);
             float scale = Mathf.Lerp(1f, 0f, shrinkRatio);
             transform.localScale = startScale * scale;
 
-            // ✅ Changement d'alpha (transparence) : fade out
             float alpha = fallCurve.Evaluate(t);
             Color color = _spriteRenderer.color;
             color.a = 1f - alpha;
@@ -355,17 +370,8 @@ public class BallAimController : NetworkBehaviour
             yield return null;
         }
 
-        // ✅ Faire disparaître la bille
         gameObject.SetActive(false);
-        /*
-        // ✅ Vérifier si le joueur n'a plus de billes vivantes
-        if (TurnManager.Instance != null)
-        {
-            TurnManager.Instance.CheckGameEnd();
-        }
-        */
     }
 
-    // ✅ Getter pour vérifier si la bille est vivante
     public bool IsAlive => !IsDead;
 }
