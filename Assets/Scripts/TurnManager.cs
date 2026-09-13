@@ -29,6 +29,12 @@ public partial class TurnManager : NetworkBehaviour
     [Networked] private TickTimer ResolutionSettleTimer { get; set; }
     [Networked] public int CurrentTurnNumber { get; set; }
 
+    // ✅ AJOUT : Résultat de la partie, répliqué à tous les clients pour piloter l'UI
+    // (panelWIN / panelDRAW dans TurnUI). Valeurs :
+    //   -1 = pas de gagnant défini / match nul
+    //  >=0 = PlayerId du gagnant
+    [Networked] public int WinnerPlayerId { get; set; }
+
     public static TurnManager Instance { get; private set; }
 
     public override void Spawned()
@@ -38,6 +44,7 @@ public partial class TurnManager : NetworkBehaviour
         if (HasStateAuthority)
         {
             IsTurnBased = defaultTurnBasedMode;
+            WinnerPlayerId = -1;
 
             if (IsTurnBased)
             {
@@ -89,7 +96,12 @@ public partial class TurnManager : NetworkBehaviour
 
             case TurnState.CheckResult:
                 CheckGameEnd();
-                StartNewTurn();
+                // ✅ Si CheckGameEnd() a fait passer l'état à Finished (victoire/égalité),
+                // on ne relance pas un nouveau tour par-dessus.
+                if (CurrentState == TurnState.CheckResult)
+                {
+                    StartNewTurn();
+                }
                 break;
         }
     }

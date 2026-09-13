@@ -61,9 +61,6 @@ public class BallAimController : NetworkBehaviour
         _networkObject = GetComponent<NetworkObject>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
 
-        // ✅ FIX : on logue HasStateAuthority (le concept fiable en Shared Mode) plutôt que
-        // HasInputAuthority. En Shared Mode, l'Input Authority n'est pas utilisée par Fusion ;
-        // c'est la State Authority qui détermine qui possède réellement l'objet.
         Debug.Log($"[BallAimController] Spawned() - HasStateAuthority: {HasStateAuthority}, StateAuthority: {_networkObject.StateAuthority.PlayerId}, InputAuthority: {_networkObject.InputAuthority.PlayerId}, LocalPlayer: {Runner.LocalPlayer.PlayerId}");
 
         ConfigureArrowVisual();
@@ -177,7 +174,6 @@ public class BallAimController : NetworkBehaviour
 
     private void OnMouseDown()
     {
-        Debug.Log($"[BallAimController] ✅ Aiming started 1");
         // ✅ FIX : HasStateAuthority remplace HasInputAuthority. C'est le check fiable en
         // Shared Mode pour savoir "est-ce que c'est MA bille".
         if (_mainCamera == null || !HasStateAuthority || IsDead) return;
@@ -190,8 +186,6 @@ public class BallAimController : NetworkBehaviour
         IsAiming = true;
         _startDragPos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
         UpdateAimVisual(Vector2.zero);
-
-        Debug.Log($"[BallAimController] ✅ Aiming started 2");
     }
 
     private void OnMouseDrag()
@@ -298,14 +292,6 @@ public class BallAimController : NetworkBehaviour
         }
     }
 
-    // ✅ FIX : plus besoin de RPC pour appliquer la force. L'ancien code utilisait
-    // [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)], mais l'Input Authority
-    // n'est pas un concept utilisé par Fusion en Shared Mode (voir doc officielle :
-    // "Input Authority is specific to Server Modes ... and is not applicable in Shared
-    // Server Mode"). Désormais, chaque bille est spawnée directement par son propriétaire
-    // (voir GameSpawner corrigé), qui est donc déjà State Authority sur sa propre bille :
-    // on peut appliquer la force en local directement, et NetworkRigidbody2D se charge
-    // de répliquer le résultat aux autres clients.
     private void ApplyForce(Vector2 force)
     {
         if (!HasStateAuthority)

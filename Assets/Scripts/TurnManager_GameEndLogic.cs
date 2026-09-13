@@ -32,7 +32,12 @@ public partial class TurnManager
             NetworkObject netObj = ball.GetComponent<NetworkObject>();
             if (netObj == null) continue;
 
-            PlayerRef owner = netObj.InputAuthority;
+            // ✅ FIX : on utilise StateAuthority, pas InputAuthority. Depuis la correction
+            // de GameSpawner, chaque client spawne et possède (State Authority) ses propres
+            // billes ; c'est donc StateAuthority qui identifie fiablement le propriétaire
+            // d'une bille en Shared Mode (l'InputAuthority n'est pas utilisée par Fusion
+            // dans ce mode réseau).
+            PlayerRef owner = netObj.StateAuthority;
 
             if (!aliveBallsPerPlayer.ContainsKey(owner))
             {
@@ -94,14 +99,18 @@ public partial class TurnManager
         foreach (BallAimController ball in allBalls)
         {
             NetworkObject netObj = ball.GetComponent<NetworkObject>();
-            if (netObj != null && netObj.InputAuthority != loser && ball.IsAlive)
+            // ✅ FIX : StateAuthority au lieu de InputAuthority (voir CheckGameEnd)
+            if (netObj != null && netObj.StateAuthority != loser && ball.IsAlive)
             {
-                winner = netObj.InputAuthority;
+                winner = netObj.StateAuthority;
                 break;
             }
         }
 
         Debug.Log($"[TurnManager] 🎊 FIN DE PARTIE! Gagnant: Joueur {winner.PlayerId}, Perdant: Joueur {loser.PlayerId}");
+
+        // ✅ Renseigne le résultat répliqué : TurnUI l'utilise pour afficher panelWIN
+        WinnerPlayerId = winner.IsRealPlayer ? winner.PlayerId : -1;
 
         // ✅ Arrêter le gameplay
         IsTurnBased = false;
@@ -116,6 +125,9 @@ public partial class TurnManager
     {
         Debug.Log($"[TurnManager] 🤝 MATCH NUL! Les deux joueurs n'ont plus de billes en même temps!");
 
+        // ✅ Renseigne le résultat répliqué : TurnUI l'utilise pour afficher panelDRAW
+        WinnerPlayerId = -1;
+
         // ✅ Arrêter le gameplay
         IsTurnBased = false;
         CurrentState = TurnState.Finished;
@@ -124,10 +136,10 @@ public partial class TurnManager
         StartCoroutine(ReloadSceneAfterDelay(result: "DRAW", winner: -1, loser: -1));
     }
 
-    // ✅ Recharger la scène avec un petit délai pour voir les animations
+    // ✅ Recharger la scène avec un petit délai pour voir les animations ET le panel de résultat
     private IEnumerator ReloadSceneAfterDelay(string result, int winner = -1, int loser = -1)
     {
-        // Attendre 2 secondes pour que les animations de chute aient le temps de jouer
+        // Attendre pour que les animations de chute ET le panel WIN/DRAW aient le temps d'être vus
         yield return new WaitForSeconds(2f);
 
         if (result == "WIN")
@@ -145,19 +157,5 @@ public partial class TurnManager
         // été appelé -> InvalidOperationException sur les propriétés [Networked])
         int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
         Runner.LoadScene(SceneRef.FromIndex(currentSceneIndex));
-    }
-
-    private void ShowGameOverUI(PlayerRef winner, PlayerRef loser)
-    {
-        // ✅ À implémenter : afficher un écran de fin de partie avec le gagnant
-        // Pour l'instant, simple log
-        Debug.Log($"[TurnManager] Afficher l'écran de fin: Joueur {winner.PlayerId} a gagné!");
-
-        // Exemple : tu peux activate un Canvas avec le résultat
-        // var gameOverPanel = FindObjectOfType<GameOverPanel>();
-        // if (gameOverPanel != null)
-        // {
-        //     gameOverPanel.ShowResult(winner);
-        // }
     }
 }

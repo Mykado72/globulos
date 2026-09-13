@@ -162,7 +162,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         UpdateStatus($"D�connect� ({shutdownReason}).");
         ResetUI();
     }
-
+     
 
     // =========================================================================
     // CALLBACKS OBLIGATOIRES FUSION 2.1.2 (SIGNATURES EXACTES)
