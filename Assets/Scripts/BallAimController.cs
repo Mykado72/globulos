@@ -10,7 +10,7 @@ public class BallAimController : NetworkBehaviour
 {
     [Header("Aim Settings")]
     [SerializeField] private float maxForce = 15f;
-    [SerializeField, Range(0.5f, 2f)] private float maxDragDistanceFraction = 0.35f;
+    [SerializeField, Range(0.25f, 1.0f)] private float maxDragDistanceFraction = 0.5f;
 
     [Header("Arrow Visual Settings")]
     [SerializeField] private Sprite arrowShaftSprite;
@@ -19,7 +19,7 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private Color activeColor = new Color(1, 0, 0, 1);
     [SerializeField] private int arrowSortingOrder = 20;
 
-    [SerializeField, Range(0.01f, 1f)] private float maxArrowLengthFraction = 1.0f;
+    [SerializeField, Range(0.01f, 10f)] private float maxArrowLengthFraction = 10.0f;
     [SerializeField, Range(0.001f, 0.2f)] private float headSizeFraction = 0.05f;
     [SerializeField, Range(0.0005f, 0.1f)] private float thicknessFraction = 0.015f;
     [SerializeField] private float fallbackViewHeight = 10f;
@@ -30,6 +30,13 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private AnimationCurve fallCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     [SerializeField] private AnimationCurve rotateCurve = AnimationCurve.Linear(0, 0, 1, 1);
     [SerializeField] private float totalRotation = 720f;
+
+    [Header("Bounce Effects Settings")]
+    [SerializeField] private float bounceForceThreshold = 1f;
+    [SerializeField] private float squashDuration = 0.15f;
+    [SerializeField] private float squashAmount = 0.7f;
+    [SerializeField] private float stretchAmount = 1.2f;
+    [SerializeField] private float flashDuration = 0.08f;
 
     // ✅ État synchronisé via le réseau
     [Networked] public bool IsAiming { get; set; }
@@ -51,6 +58,7 @@ public class BallAimController : NetworkBehaviour
 
     private Vector2 _startDragPos;
     private Vector2 _bufferedForce;
+    private Vector3 originalScale;
 
     private static Sprite _cachedShaftSprite;
     private static Sprite _cachedHeadSprite;
@@ -60,6 +68,7 @@ public class BallAimController : NetworkBehaviour
         _rb = GetComponent<Rigidbody2D>();
         _networkObject = GetComponent<NetworkObject>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
+        originalScale = transform.localScale;
 
         Debug.Log($"[BallAimController] Spawned() - HasStateAuthority: {HasStateAuthority}, StateAuthority: {_networkObject.StateAuthority.PlayerId}, InputAuthority: {_networkObject.InputAuthority.PlayerId}, LocalPlayer: {Runner.LocalPlayer.PlayerId}");
 
@@ -352,6 +361,59 @@ public class BallAimController : NetworkBehaviour
         HideAimVisual();
     }
 
+    // ✅ NOUVEAU : Gestion des collisions pour les effets de rebond
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (IsDead) return;
+
+        // Vérifie si le rebond est assez violent
+        if (_rb.velocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
+        {
+            Debug.Log($"[BallAimController] 💥 Rebond! Velocity: {_rb.velocity.magnitude}");
+
+            // Lance tous les effets en parallèle
+            StartCoroutine(SquashAnimationCoroutine());
+            // StartCoroutine(FlashCoroutine());
+        }
+    }
+
+    // ✅ Animation d'écrasement (Squash)
+    private IEnumerator SquashAnimationCoroutine()
+    {        
+        float elapsedTime = 0f;
+
+        while (elapsedTime < squashDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float t = elapsedTime / squashDuration;
+
+            // Courbe sinusoïdale pour un mouvement naturel
+            float squash = Mathf.Lerp(1f, squashAmount, Mathf.Sin(t * Mathf.PI));
+
+            // Écrase Y, étire X pour conserver le volume
+            float scaleX = originalScale.x * stretchAmount * (1f - (1f - squash) / 5f);
+            float scaleY = originalScale.y * squash;
+
+            transform.localScale = new Vector3(scaleX, scaleY, originalScale.z);
+
+            yield return null;
+        }
+
+        // Retour à l'état normal
+        transform.localScale = originalScale;
+    }
+
+    // ✅ Flash blanc au rebond
+    private IEnumerator FlashCoroutine()
+    {
+        Color originalColor = _spriteRenderer.color;
+        _spriteRenderer.color = Color.white;
+
+        yield return new WaitForSeconds(flashDuration);
+
+        _spriteRenderer.color = originalColor;
+    }
+
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.CompareTag("Goal") && !IsDead)
@@ -400,10 +462,6 @@ public class BallAimController : NetworkBehaviour
             yield return null;
         }
 
-        // ❌ SUPPRIME CETTE LIGNE :
-        // gameObject.SetActive(false);
-
-        // ✅ À la place, désactive juste le collider pour éviter les collisions
         Collider2D collider = GetComponent<Collider2D>();
         if (collider != null)
             collider.enabled = false;
