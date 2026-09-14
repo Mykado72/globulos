@@ -15,21 +15,18 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private Transform[] player2SpawnPoints;
 
     private Dictionary<PlayerRef, List<NetworkObject>> _spawnedBalls = new Dictionary<PlayerRef, List<NetworkObject>>();
-
-    // ✅ FIX : ce flag est maintenant LOCAL à chaque client (chacun spawne pour lui-même),
-    // et non plus un flag "un seul spawn global fait par le master".
-    private bool _hasSpawnedLocally = false;
-
+    private bool _hasSpawned = false;
     private NetworkRunner _runner;
 
     private void Start()
     {
         Debug.Log("[GameSpawner] Start() exécuté !");
 
-        // Vérifier que les prefabs sont assignés
-        if (PlayerJaunePrefab == null || PlayerRougePrefab == null)
+        // ✅ Vérifier que les prefabs sont assignés
+        if (PlayerJaunePrefab== null || PlayerRougePrefab== null)
         {
             Debug.LogError("[GameSpawner] ❌ ERREUR CRITIQUE : Les NetworkPrefabRef ne sont pas assignés dans l'inspecteur !");
+            Debug.LogError("[GameSpawner] ❌ Assigne PlayerJaunePrefab et PlayerRougePrefab dans l'inspecteur du GameSpawner");
             enabled = false;
             return;
         }
@@ -55,7 +52,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-            Debug.Log($"[GameSpawner] ✅ Runner trouvé et enregistré. IsMaster: {_runner.IsSharedModeMasterClient}");
+            Debug.Log($"[GameSpawner] ✅ Runner trouvé et enregistré.");
         }
         else
         {
@@ -72,61 +69,43 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    // ✅ FIX : OnSceneLoadDone se déclenche indépendamment sur CHAQUE client, dès que SA PROPRE
-    // scène a fini de charger. On n'a donc plus besoin d'attendre que "le master spawne pour tout
-    // le monde" : chaque client spawne directement ses propres billes ici.
     public void OnSceneLoadDone(NetworkRunner runner)
     {
-        Debug.Log("[GameSpawner] ✅ Callback OnSceneLoadDone reçu ! Je spawne mes propres billes.");
-        SpawnMyBalls(runner);
+        Debug.Log("[GameSpawner] ✅ Callback OnSceneLoadDone reçu !");
+        TrySpawnBalls(runner);
     }
 
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    private void TrySpawnBalls(NetworkRunner runner)
     {
-        Debug.Log($"[GameSpawner] 👤 Joueur rejoint : {player.PlayerId}");
-
-        // Si un joueur rejoint APRÈS que notre scène a déjà chargé (cas rare), on s'assure
-        // quand même d'avoir spawné nos propres billes.
-        if (player == runner.LocalPlayer)
+        if (_hasSpawned)
         {
-            SpawnMyBalls(runner);
-        }
-    }
-
-    // ✅ FIX PRINCIPAL :
-    // Avant, seul le Master spawnait les billes des DEUX joueurs (runner.Spawn appelé par
-    // le Master pour player0 ET player1). Or en Shared Mode :
-    //   - "Runner.Spawn() ne peut être appelé que par le client qui a l'intention de devenir
-    //      la State Authority de l'objet spawné" (doc Fusion 2 Shared).
-    //   - "L'Input Authority n'est pas applicable en Shared Mode" (doc Fusion 2 - NetworkObject).
-    // Résultat : le Master devenait State Authority sur TOUTES les billes (jaunes ET rouges),
-    // et le champ InputAuthority qu'on essayait d'assigner à la volée n'était pas fiable
-    // pour déterminer qui contrôle quoi. D'où le bug : la 1ère instance contrôlait les
-    // mauvaises billes, et la 2ème instance n'avait jamais State Authority sur rien.
-    //
-    // Le fix : CHAQUE client appelle lui-même runner.Spawn() pour SES PROPRES billes.
-    // Il en devient alors automatiquement State Authority, ce qui est le concept fiable
-    // à utiliser en Shared Mode (voir BallAimController : HasStateAuthority).
-    private void SpawnMyBalls(NetworkRunner runner)
-    {
-        if (_hasSpawnedLocally)
-        {
-            Debug.LogWarning("[GameSpawner] ⚠️ J'ai déjà spawné mes billes, on ignore l'appel");
+            Debug.LogWarning("[GameSpawner] ⚠️ Les boules ont déjà été spawnées, on ignore l'appel");
             return;
         }
 
-        _hasSpawnedLocally = true;
+        // ✅ En SHARED MODE : les DEUX clients spawent leurs propres boules
+        _hasSpawned = true;
 
-        // Critère fiable et documenté par Photon pour distinguer les deux joueurs :
-        // le Master Client (celui qui a créé la session) joue Jaune, l'autre joue Rouge.
-        bool isMaster = runner.IsSharedModeMasterClient;
+        // 🔍 En Shared Mode, détecte quel joueur JE SUIS via ParrelSync
+        bool isClone = false;
+#if UNITY_EDITOR
+        isClone = ParrelSync.ClonesManager.IsClone();
+#endif
 
-        Transform[] spawnPoints = isMaster ? player1SpawnPoints : player2SpawnPoints;
-        NetworkPrefabRef prefab = isMaster ? PlayerJaunePrefab : PlayerRougePrefab;
+        Debug.Log($"[GameSpawner] Je suis le clone ? {isClone}");
 
-        Debug.Log($"[GameSpawner] Je suis {(isMaster ? "Master (Jaune)" : "Client (Rouge)")} - LocalPlayer: {runner.LocalPlayer.PlayerId}");
-
-        SpawnForPlayer(runner, runner.LocalPlayer, spawnPoints, prefab);
+        // Je suis l'instance principale = Joueur 0 (Jaune)
+        if (!isClone)
+        {
+            Debug.Log($"[GameSpawner] Je suis Joueur 0 (Jaune)");
+            SpawnForPlayer(runner, runner.LocalPlayer, player1SpawnPoints, PlayerJaunePrefab);
+        }
+        // Je suis le clone = Joueur 1 (Rouge)
+        else
+        {
+            Debug.Log($"[GameSpawner] Je suis Joueur 1 (Rouge)");
+            SpawnForPlayer(runner, runner.LocalPlayer, player2SpawnPoints, PlayerRougePrefab);
+        }
     }
 
     private void SpawnForPlayer(NetworkRunner runner, PlayerRef player, Transform[] spawnPoints, NetworkPrefabRef boulePrefab)
@@ -157,11 +136,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 Debug.Log($"[GameSpawner] Tentative de spawn à la position {spawnPoint.position}");
                 Debug.Log($"  - Joueur: {player.PlayerId}");
-                Debug.Log($"  - Prefab: {(boulePrefab == PlayerJaunePrefab ? "Jaune" : "Rouge")}");
 
-                // ✅ On spawne pour SOI (player == runner.LocalPlayer) : on devient
-                // automatiquement State Authority sur cet objet, ce qui est exactement
-                // ce dont BallAimController a besoin (HasStateAuthority).
                 NetworkObject ball = runner.Spawn(
                     boulePrefab,
                     spawnPoint.position,
@@ -176,7 +151,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                 }
 
                 playerBalls.Add(ball);
-                Debug.Log($"[GameSpawner] ✅ Boule spawned pour joueur {player.PlayerId} - StateAuthority: {ball.StateAuthority.PlayerId} - InputAuthority: {ball.InputAuthority.PlayerId}");
+                Debug.Log($"[GameSpawner] ✅ Boule spawned pour joueur {player.PlayerId}");
             }
             catch (Exception ex)
             {
@@ -190,46 +165,97 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
-        _spawnedBalls[player] = playerBalls;
+        _spawnedBalls.Add(player, playerBalls);
         Debug.Log($"[GameSpawner] ✅ {playerBalls.Count} boule(s) spawnée(s) pour joueur {player.PlayerId}");
     }
 
+    // ✅ NOUVEAU : Récupère le nickname depuis PlayerData
+    private string GetPlayerNickname(PlayerRef player)
+    {
+        if (player.IsNone)
+            return "Inconnu";
+
+        // Cherche le PlayerData de ce joueur
+        PlayerData[] allPlayerDatas = FindObjectsOfType<PlayerData>();
+
+        foreach (PlayerData playerData in allPlayerDatas)
+        {
+            NetworkObject netObj = playerData.GetComponent<NetworkObject>();
+            if (netObj != null && netObj.StateAuthority == player)
+            {
+                // ✅ Trouve le nickname dans PlayerData
+                return playerData.Nickname;  // À adapter selon le nom de ta variable
+            }
+        }
+
+        return $"Joueur {player.PlayerId}";  // Fallback
+    }
+
     // --- Implémentation des callbacks INetworkRunnerCallbacks ---
+
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        string playerName = PlayerNamesManager.Instance?.GetPlayerName(player) ?? $"Joueur {player.PlayerId}";
+        Debug.Log($"[GameSpawner] 👤 {playerName} a rejoint");
+        UIManager.Instance?.ShowMessage($"✅ {playerName} a rejoint la partie", 3f);
+    }
+
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"[GameSpawner] 👤 Joueur parti : {player.PlayerId}");
+        string playerName = PlayerNamesManager.Instance?.GetPlayerName(player) ?? $"Joueur {player.PlayerId}";
+        Debug.Log($"[GameSpawner] 👤 {playerName} a quitté");
+        UIManager.Instance?.ShowMessage($"❌ {playerName} a quitté la partie!", 5f);
+    }
+
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        string playerName = PlayerNamesManager.Instance?.GetPlayerName(runner.LocalPlayer) ?? "Vous";
+        Debug.Log($"[GameSpawner] 🌐 {playerName} déconnecté: {reason}");
+        UIManager.Instance?.ShowMessagePermanent($"⚠️ {playerName} déconnecté: {reason}");
     }
 
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
+
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
         Debug.Log($"[GameSpawner] 🛑 NetworkRunner arrêté : {shutdownReason}");
+        UIManager.Instance?.ShowMessagePermanent($"🛑 Jeu arrêté : {shutdownReason}");
     }
 
     public void OnConnectedToServer(NetworkRunner runner)
     {
         Debug.Log("[GameSpawner] 🌐 Connecté au serveur");
-    }
-
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
-    {
-        Debug.Log($"[GameSpawner] 🌐 Déconnecté du serveur : {reason}");
+        UIManager.Instance?.ShowMessage("🌐 Connecté au serveur", 2f);
     }
 
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        Debug.Log($"[GameSpawner] ❌ Connexion échouée: {reason}");
+        UIManager.Instance?.ShowMessagePermanent($"❌ Connexion échouée: {reason}");
+    }
+
     public void OnUserSimulationMessage(NetworkRunner runner) { }
+
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) { }
+
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+
     public void OnSceneLoadStart(NetworkRunner runner)
     {
         Debug.Log("[GameSpawner] 📍 Chargement de la scène...");
     }
 
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 }

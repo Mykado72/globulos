@@ -20,7 +20,7 @@ public partial class TurnManager : NetworkBehaviour
     [SerializeField] private float aimDuration = 15f;
 
     [Tooltip("Délai minimum après le début de la Résolution avant de commencer à vérifier si les billes sont arrêtées. Nécessaire car l'application des forces (via Render() + RPC) prend un peu de temps à se propager après le passage en Resolution.")]
-    [SerializeField] private float resolutionSettleDuration = 0.5f;
+    [SerializeField] private float resolutionSettleDuration = 0.2f;
 
     // --- Variables Réseau Synchronisées ---
     [Networked] public NetworkBool IsTurnBased { get; set; }
@@ -30,9 +30,6 @@ public partial class TurnManager : NetworkBehaviour
     [Networked] public int CurrentTurnNumber { get; set; }
 
     // ✅ AJOUT : Résultat de la partie, répliqué à tous les clients pour piloter l'UI
-    // (panelWIN / panelDRAW dans TurnUI). Valeurs :
-    //   -1 = pas de gagnant défini / match nul
-    //  >=0 = PlayerId du gagnant
     [Networked] public int WinnerPlayerId { get; set; }
 
     public static TurnManager Instance { get; private set; }
@@ -75,6 +72,8 @@ public partial class TurnManager : NetworkBehaviour
             case TurnState.Aiming:
                 if (TurnTimer.Expired(Runner))
                 {
+                    // ✅ FIX : Quand le timer expire, force l'arrêt du visage sur TOUS les joueurs
+                    RPC_ForceStopAiming();
                     ExecuteTurnResolution();
                 }
                 break;
@@ -118,16 +117,20 @@ public partial class TurnManager : NetworkBehaviour
         CurrentState = TurnState.Resolution;
         TurnTimer = TickTimer.None;
         ResolutionSettleTimer = TickTimer.CreateFromSeconds(Runner, resolutionSettleDuration);
-        // Plus besoin du foreach ici ! 
-        // Chaque client gère le tir de ses billes de son côté via Render().
-        /*
-        // Déclenche tous les tirs mis en mémoire tampon
-        BallAimController[] balls = FindObjectsOfType<BallAimController>();
-        foreach (var ball in balls)
+    }
+
+    // ✅ NOUVEAU : RPC pour forcer l'arrêt du visage quand le timer arrive à 0
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ForceStopAiming()
+    {
+        Debug.Log("[TurnManager] ⏰ Timer écoulé - Force l'arrêt du visage");
+
+        // Trouve tous les BallAimController et force OnMouseUp()
+        var allBalls = FindObjectsOfType<BallAimController>();
+        foreach (var ball in allBalls)
         {
-            ball.ExecuteBufferedShoot();
+            ball.ForceStopAiming();
         }
-        */
     }
 
     private bool AreAllBallsStopped()

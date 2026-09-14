@@ -78,6 +78,24 @@ public class BallAimController : NetworkBehaviour
         Debug.Log($"[BallAimController] ✅ Setup complet");
     }
 
+    public void ForceStopAiming()
+    {
+        if (!IsAiming) return;
+
+        Debug.Log("[BallAimController] Arrêt forcé du visage");
+
+        IsAiming = false;
+        _shaftRenderer.enabled = false;
+        _headRenderer.enabled = false;
+
+        // Lance le tir buffered s'il existe
+        if (_bufferedForce != Vector2.zero && HasStateAuthority)
+        {
+            ApplyForce(_bufferedForce);
+            _bufferedForce = Vector2.zero;
+        }
+    }
+
     public override void FixedUpdateNetwork()
     {
         // ✅ En Client/Server, le serveur gère la physique automatiquement
@@ -356,7 +374,13 @@ public class BallAimController : NetworkBehaviour
             yield return null;
         }
 
-        gameObject.SetActive(false);
+        // ❌ SUPPRIME CETTE LIGNE :
+        // gameObject.SetActive(false);
+
+        // ✅ À la place, désactive juste le collider pour éviter les collisions
+        Collider2D collider = GetComponent<Collider2D>();
+        if (collider != null)
+            collider.enabled = false;
     }
 
     public bool IsAlive => !IsDead;

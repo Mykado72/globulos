@@ -11,9 +11,6 @@ public partial class TurnManager
     // Cette méthode doit être appelée par BallAimController quand une bille meurt
     public void CheckGameEnd()
     {
-        // if (!HasInputAuthority) return;
-
-        // ✅ Obtenir le GameSpawner pour lister les billes de chaque joueur
         GameSpawner spawner = FindObjectOfType<GameSpawner>();
         if (spawner == null)
         {
@@ -21,28 +18,35 @@ public partial class TurnManager
             return;
         }
 
-        // ✅ Vérifier combien de billes vivantes chaque joueur a
+        // ✅ NOUVEAU : Extraire les joueurs À PARTIR des boules
         Dictionary<PlayerRef, int> aliveBallsPerPlayer = new Dictionary<PlayerRef, int>();
+        HashSet<PlayerRef> allPlayers = new HashSet<PlayerRef>();
 
-        // Parcourir toutes les billes dans la scène
         BallAimController[] allBalls = FindObjectsOfType<BallAimController>();
 
+        // D'abord, enregistrer tous les joueurs (même ceux sans boules vivantes)
         foreach (BallAimController ball in allBalls)
         {
             NetworkObject netObj = ball.GetComponent<NetworkObject>();
             if (netObj == null) continue;
 
-            // ✅ FIX : on utilise StateAuthority, pas InputAuthority. Depuis la correction
-            // de GameSpawner, chaque client spawne et possède (State Authority) ses propres
-            // billes ; c'est donc StateAuthority qui identifie fiablement le propriétaire
-            // d'une bille en Shared Mode (l'InputAuthority n'est pas utilisée par Fusion
-            // dans ce mode réseau).
             PlayerRef owner = netObj.StateAuthority;
+            allPlayers.Add(owner);
 
+            // Initialiser le compteur si pas encore fait
             if (!aliveBallsPerPlayer.ContainsKey(owner))
             {
                 aliveBallsPerPlayer[owner] = 0;
             }
+        }
+
+        // Puis compter les boules vivantes
+        foreach (BallAimController ball in allBalls)
+        {
+            NetworkObject netObj = ball.GetComponent<NetworkObject>();
+            if (netObj == null) continue;
+
+            PlayerRef owner = netObj.StateAuthority;
 
             // ✅ Compter seulement les billes vivantes
             if (ball.IsAlive)
@@ -57,7 +61,7 @@ public partial class TurnManager
             Debug.Log($"  Joueur {kvp.Key.PlayerId}: {kvp.Value} billes vivantes");
         }
 
-        // ✅ Vérifier si un joueur (ou plusieurs) n'a plus de billes vivantes
+        // ✅ Vérifier si un joueur n'a plus de billes vivantes
         int playersWithNoBalls = 0;
         foreach (var kvp in aliveBallsPerPlayer)
         {

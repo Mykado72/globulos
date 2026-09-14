@@ -79,7 +79,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         var startGameArgs = new StartGameArgs()
         {
             GameMode = GameMode.Shared,
-            SessionName = "", // Session al�atoire
+            SessionName = "COGEP",  // Session al�atoire
             PlayerCount = MAX_PLAYERS,
             Scene = SceneRef.FromIndex(currentSceneIndex), // <-- D�finit la sc�ne initiale pour le Runner
             // SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
@@ -104,8 +104,11 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             Quaternion.identity,
             _runner.LocalPlayer);
 
-        PlayerData playerData = playerDataObj.GetComponent<PlayerData>();
+        int localPlayerId = _runner.LocalPlayer.PlayerId;
+        PlayerData playerData = playerDataObj.GetComponent<PlayerData>();        
+        PlayerNamesManager.Instance?.SetPlayerName(localPlayerId, nickname);
         playerData.SetNickname(nickname);
+        playerData.SetPlayerId(localPlayerId);
     }
 
     private void UpdateStatus(string message)
