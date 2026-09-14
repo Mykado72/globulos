@@ -10,7 +10,7 @@ public class BallAimController : NetworkBehaviour
 {
     [Header("Aim Settings")]
     [SerializeField] private float maxForce = 15f;
-    [SerializeField, Range(0.01f, 1f)] private float maxDragDistanceFraction = 0.35f;
+    [SerializeField, Range(0.5f, 2f)] private float maxDragDistanceFraction = 0.35f;
 
     [Header("Arrow Visual Settings")]
     [SerializeField] private Sprite arrowShaftSprite;
@@ -19,7 +19,7 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private Color activeColor = new Color(1, 0, 0, 1);
     [SerializeField] private int arrowSortingOrder = 20;
 
-    [SerializeField, Range(0.01f, 1f)] private float maxArrowLengthFraction = 0.35f;
+    [SerializeField, Range(0.01f, 1f)] private float maxArrowLengthFraction = 1.0f;
     [SerializeField, Range(0.001f, 0.2f)] private float headSizeFraction = 0.05f;
     [SerializeField, Range(0.0005f, 0.1f)] private float thicknessFraction = 0.015f;
     [SerializeField] private float fallbackViewHeight = 10f;
@@ -195,6 +195,16 @@ public class BallAimController : NetworkBehaviour
         // ✅ FIX : HasStateAuthority remplace HasInputAuthority. C'est le check fiable en
         // Shared Mode pour savoir "est-ce que c'est MA bille".
         if (_mainCamera == null || !HasStateAuthority || IsDead) return;
+
+        // ✅ NOUVEAU : Cache les flèches de la boule précédente
+        if (_shaftRenderer != null && _shaftRenderer.enabled)
+        {
+            _shaftRenderer.enabled = false;
+        }
+        if (_headRenderer != null && _headRenderer.enabled)
+        {
+            _headRenderer.enabled = false;
+        }
 
         if (TurnManager.Instance != null && TurnManager.Instance.IsTurnBased)
         {

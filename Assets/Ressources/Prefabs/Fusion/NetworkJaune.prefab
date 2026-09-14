@@ -162,6 +162,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _Nickname: Jaune
+  _PlayerId: 0
 --- !u!114 &5941013327794056758
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -215,7 +216,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxForce: 1500
-  maxDragDistanceFraction: 0.35
+  maxDragDistanceFraction: 1
   arrowShaftSprite: {fileID: 0}
   arrowHeadSprite: {fileID: 0}
   aimColor: {r: 1, g: 0.5, b: 0, a: 1}
