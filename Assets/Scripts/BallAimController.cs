@@ -85,14 +85,18 @@ public class BallAimController : NetworkBehaviour
         Debug.Log("[BallAimController] Arrêt forcé du visage");
 
         IsAiming = false;
-        _shaftRenderer.enabled = false;
-        _headRenderer.enabled = false;
 
-        // Lance le tir buffered s'il existe
+        // ✅ FIX : on ne cache plus la flèche ici. Elle doit rester visible tant que le tir
+        // n'a pas réellement été appliqué (ApplyForce s'en charge). S'il n'y a aucun tir en
+        // attente (le joueur n'a pas assez tiré), on la cache directement.
         if (_bufferedForce != Vector2.zero && HasStateAuthority)
         {
             ApplyForce(_bufferedForce);
             _bufferedForce = Vector2.zero;
+        }
+        else
+        {
+            HideAimVisual();
         }
     }
 
@@ -123,6 +127,14 @@ public class BallAimController : NetworkBehaviour
                 }
             }
         }
+    }
+
+    // ✅ NOUVEAU : point unique pour cacher la flèche, appelé uniquement quand le tir
+    // est réellement parti (dans ApplyForce), et non plus au relâchement de la souris.
+    private void HideAimVisual()
+    {
+        if (_shaftRenderer != null) _shaftRenderer.enabled = false;
+        if (_headRenderer != null) _headRenderer.enabled = false;
     }
 
     private void ConfigureArrowVisual()
@@ -192,19 +204,7 @@ public class BallAimController : NetworkBehaviour
 
     private void OnMouseDown()
     {
-        // ✅ FIX : HasStateAuthority remplace HasInputAuthority. C'est le check fiable en
-        // Shared Mode pour savoir "est-ce que c'est MA bille".
         if (_mainCamera == null || !HasStateAuthority || IsDead) return;
-
-        // ✅ NOUVEAU : Cache les flèches de la boule précédente
-        if (_shaftRenderer != null && _shaftRenderer.enabled)
-        {
-            _shaftRenderer.enabled = false;
-        }
-        if (_headRenderer != null && _headRenderer.enabled)
-        {
-            _headRenderer.enabled = false;
-        }
 
         if (TurnManager.Instance != null && TurnManager.Instance.IsTurnBased)
         {
@@ -213,7 +213,10 @@ public class BallAimController : NetworkBehaviour
 
         IsAiming = true;
         _startDragPos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        UpdateAimVisual(Vector2.zero);
+
+        // ✅ Force l'affichage des flèches
+        _shaftRenderer.enabled = true;
+        _headRenderer.enabled = true;
     }
 
     private void OnMouseDrag()
@@ -290,17 +293,30 @@ public class BallAimController : NetworkBehaviour
         if (!IsAiming || !HasStateAuthority || IsDead) return;
 
         IsAiming = false;
-        _shaftRenderer.enabled = false;
-        _headRenderer.enabled = false;
 
-        if (_mainCamera == null) return;
+        if (_mainCamera == null)
+        {
+            HideAimVisual();
+            return;
+        }
 
         Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
         Vector2 forceToApply = ComputeClampedForce(currentMousePos);
 
+        // ✅ FIX : on fige l'affichage de la flèche sur la force finalement choisie au
+        // relâchement, au lieu de la cacher. Elle restera visible tant que le tir n'est
+        // pas réellement exécuté (voir ApplyForce), ce qui donne au joueur une confirmation
+        // visuelle de son tir pendant le temps d'attente en mode tour par tour.
+        UpdateAimVisual(forceToApply);
+
         bool isTurnBased = TurnManager.Instance != null && TurnManager.Instance.IsTurnBased;
 
-        if (isTurnBased)
+        if (forceToApply == Vector2.zero)
+        {
+            // Rien à tirer (glissé trop court) : pas de tir en attente, on cache direct.
+            HideAimVisual();
+        }
+        else if (isTurnBased)
         {
             _bufferedForce = forceToApply;
         }
@@ -333,6 +349,9 @@ public class BallAimController : NetworkBehaviour
             _rb.AddForce(force, ForceMode2D.Impulse);
             Debug.Log($"[BallAimController] Force appliquée : {force}");
         }
+
+        // ✅ Le tir est parti pour de bon : c'est SEULEMENT maintenant qu'on cache la flèche.
+        HideAimVisual();
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -342,8 +361,7 @@ public class BallAimController : NetworkBehaviour
             Debug.Log($"[BallAimController] 🎯 Bille entrée dans un but!");
 
             IsAiming = false;
-            _shaftRenderer.enabled = false;
-            _headRenderer.enabled = false;
+            HideAimVisual();
 
             RPC_PlayFallAnimation();
         }

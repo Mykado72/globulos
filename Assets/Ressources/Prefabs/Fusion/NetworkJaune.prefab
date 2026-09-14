@@ -216,7 +216,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxForce: 1500
-  maxDragDistanceFraction: 1
+  maxDragDistanceFraction: 2
   arrowShaftSprite: {fileID: 0}
   arrowHeadSprite: {fileID: 0}
   aimColor: {r: 1, g: 0.5, b: 0, a: 1}

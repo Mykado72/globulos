@@ -72,7 +72,17 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnSceneLoadDone(NetworkRunner runner)
     {
         Debug.Log("[GameSpawner] ✅ Callback OnSceneLoadDone reçu !");
-        TrySpawnBalls(runner);
+
+        try
+        {
+            TrySpawnBalls(runner);
+            Debug.Log("[GameSpawner] ✅ TrySpawnBalls terminé sans erreur");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[GameSpawner] ❌ Exception dans TrySpawnBalls: {ex.Message}");
+            Debug.LogError($"[GameSpawner] Stack: {ex.StackTrace}");
+        }
     }
 
     private void TrySpawnBalls(NetworkRunner runner)
