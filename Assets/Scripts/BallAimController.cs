@@ -102,12 +102,10 @@ public class BallAimController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        // ✅ En Client/Server, le serveur gère la physique automatiquement
-        // NetworkRigidbody synchronise tout
-
         if (_rb != null)
         {
-            IsMoving = !IsDead && _rb.velocity.sqrMagnitude > stationaryVelocityThreshold;
+            float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
+            IsMoving = !IsDead && _rb.velocity.sqrMagnitude > thresholdSqr;
         }
     }
 
