@@ -11,23 +11,21 @@ public partial class TurnManager
     // Cette méthode doit être appelée par BallAimController quand une bille meurt
     public void CheckGameEnd()
     {
-        GameSpawner spawner = FindObjectOfType<GameSpawner>();
-        if (spawner == null)
-        {
-            Debug.LogError("[TurnManager] GameSpawner not found!");
-            return;
-        }
+        // ✅ OPTIMISATION : plus de FindObjectOfType<GameSpawner>() (jamais utilisé
+        // au-delà du null-check) ni de FindObjectsOfType<BallAimController>() (scan de
+        // toute la scène à chaque appel). On utilise le registre statique tenu à jour
+        // par BallAimController.Spawned()/Despawned(), et l'accesseur NetObj mis en
+        // cache pour éviter les GetComponent<NetworkObject>() répétés.
+        List<BallAimController> allBalls = BallAimController.AllBalls;
 
         // ✅ NOUVEAU : Extraire les joueurs À PARTIR des boules
         Dictionary<PlayerRef, int> aliveBallsPerPlayer = new Dictionary<PlayerRef, int>();
         HashSet<PlayerRef> allPlayers = new HashSet<PlayerRef>();
 
-        BallAimController[] allBalls = FindObjectsOfType<BallAimController>();
-
         // D'abord, enregistrer tous les joueurs (même ceux sans boules vivantes)
         foreach (BallAimController ball in allBalls)
         {
-            NetworkObject netObj = ball.GetComponent<NetworkObject>();
+            NetworkObject netObj = ball.NetObj;
             if (netObj == null) continue;
 
             PlayerRef owner = netObj.StateAuthority;
@@ -43,7 +41,7 @@ public partial class TurnManager
         // Puis compter les boules vivantes
         foreach (BallAimController ball in allBalls)
         {
-            NetworkObject netObj = ball.GetComponent<NetworkObject>();
+            NetworkObject netObj = ball.NetObj;
             if (netObj == null) continue;
 
             PlayerRef owner = netObj.StateAuthority;
@@ -97,12 +95,12 @@ public partial class TurnManager
     private void EndGameWin(PlayerRef loser)
     {
         // Trouver le gagnant (l'autre joueur)
-        BallAimController[] allBalls = FindObjectsOfType<BallAimController>();
+        // ✅ OPTIMISATION : registre statique au lieu de FindObjectsOfType (voir CheckGameEnd)
         PlayerRef winner = PlayerRef.None;
 
-        foreach (BallAimController ball in allBalls)
+        foreach (BallAimController ball in BallAimController.AllBalls)
         {
-            NetworkObject netObj = ball.GetComponent<NetworkObject>();
+            NetworkObject netObj = ball.NetObj;
             // ✅ FIX : StateAuthority au lieu de InputAuthority (voir CheckGameEnd)
             if (netObj != null && netObj.StateAuthority != loser && ball.IsAlive)
             {

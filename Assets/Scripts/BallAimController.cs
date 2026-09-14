@@ -1,6 +1,7 @@
 ﻿using Fusion;
 using Fusion.Addons.Physics;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider2D))]
@@ -37,6 +38,17 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private float squashAmount = 0.7f;
     [SerializeField] private float stretchAmount = 1.2f;
     [SerializeField] private float flashDuration = 0.08f;
+
+    // ✅ Registre statique de toutes les billes actuellement spawnées, tenu à jour par
+    // Spawned()/Despawned() ci-dessous. Remplace les FindObjectsOfType<BallAimController>()
+    // (scan de toute la scène) utilisés par TurnManager, qui tournent potentiellement à
+    // chaque tick réseau (FixedUpdateNetwork).
+    public static readonly List<BallAimController> AllBalls = new List<BallAimController>();
+
+    // ✅ Accesseurs mis en cache : évitent des GetComponent<NetworkObject>() répétés
+    // depuis l'extérieur (TurnManager itère souvent sur toutes les billes).
+    public NetworkObject NetObj => _networkObject;
+    public PlayerRef Owner => _networkObject.StateAuthority;
 
     // ✅ État synchronisé via le réseau
     [Networked] public bool IsAiming { get; set; }
@@ -84,7 +96,19 @@ public class BallAimController : NetworkBehaviour
             return;
         }
 
+        // ✅ S'enregistre dans le registre statique (voir AllBalls)
+        if (!AllBalls.Contains(this)) AllBalls.Add(this);
+
         Debug.Log($"[BallAimController] ✅ Setup complet");
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        // ✅ Se retire du registre statique dès que la bille est despawnée
+        // (fin de tir dans un but non applicable ici puisque IsDead reste vraie mais
+        // l'objet reste spawné jusqu'au reload de scène ; ceci couvre surtout le
+        // reload de scène en fin de partie, qui despawn puis respawn les billes).
+        AllBalls.Remove(this);
     }
 
     public void ForceStopAiming()
@@ -379,7 +403,7 @@ public class BallAimController : NetworkBehaviour
 
     // ✅ Animation d'écrasement (Squash)
     private IEnumerator SquashAnimationCoroutine()
-    {        
+    {
         float elapsedTime = 0f;
 
         while (elapsedTime < squashDuration)

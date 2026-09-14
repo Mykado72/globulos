@@ -19,10 +19,6 @@ public class TurnUI : MonoBehaviour
     // propriété [Networked] répliquée à tout le monde par BallAimController.
     private readonly Dictionary<NetworkId, bool> _previousDeadState = new Dictionary<NetworkId, bool>();
 
-    private BallAimController[] _balls;
-    private float _ballListRefreshTimer = 0f;
-    private const float BallListRefreshInterval = 1f;
-
     private float _eventMessageTimer = 0f;
     private string _eventMessage = "";
 
@@ -30,13 +26,6 @@ public class TurnUI : MonoBehaviour
     {
         if (panelWIN != null) panelWIN.SetActive(false);
         if (panelDRAW != null) panelDRAW.SetActive(false);
-
-        RefreshBallList();
-    }
-
-    private void RefreshBallList()
-    {
-        _balls = FindObjectsOfType<BallAimController>();
     }
 
     private void Update()
@@ -44,15 +33,6 @@ public class TurnUI : MonoBehaviour
         // Object.IsValid garantit que Spawned() a bien été appelé
         // et que les propriétés [Networked] sont accessibles.
         if (TurnManager.Instance == null || !TurnManager.Instance.Object.IsValid) return;
-
-        // Rafraîchit périodiquement la liste des billes (au cas où le spawn se fasse
-        // un peu après le Start() de ce composant).
-        _ballListRefreshTimer += Time.deltaTime;
-        if (_ballListRefreshTimer >= BallListRefreshInterval)
-        {
-            _ballListRefreshTimer = 0f;
-            RefreshBallList();
-        }
 
         DetectBallDeaths();
 
@@ -115,13 +95,13 @@ public class TurnUI : MonoBehaviour
     // chaque client, sans RPC supplémentaire, car IsDead est déjà répliqué par Fusion.
     private void DetectBallDeaths()
     {
-        if (_balls == null) return;
-
-        foreach (BallAimController ball in _balls)
+        // ✅ OPTIMISATION : registre statique (BallAimController.AllBalls), toujours à
+        // jour en temps réel — plus besoin de rafraîchir périodiquement une copie locale.
+        foreach (BallAimController ball in BallAimController.AllBalls)
         {
             if (ball == null) continue;
 
-            NetworkObject netObj = ball.GetComponent<NetworkObject>();
+            NetworkObject netObj = ball.NetObj;
             if (netObj == null || !netObj.IsValid) continue;
 
             NetworkId id = netObj.Id;

@@ -448,7 +448,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaultTurnBasedMode: 1
-  aimDuration: 10
+  aimDuration: 6
   resolutionSettleDuration: 0.2
   _IsTurnBased:
     RawValue: 0

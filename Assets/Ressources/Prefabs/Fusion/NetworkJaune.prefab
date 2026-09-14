@@ -277,8 +277,13 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   totalRotation: 720
+  bounceForceThreshold: 1
+  squashDuration: 0.15
+  squashAmount: 0.7
+  stretchAmount: 1.2
+  flashDuration: 0.08
   _IsAiming: 0
   _IsDead: 0
   _IsMoving: 0
-  stationaryVelocityThreshold: 0.5
+  stationaryVelocityThreshold: 1.25
   forceMultiplier: 10

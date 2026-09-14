@@ -125,9 +125,8 @@ public partial class TurnManager : NetworkBehaviour
     {
         Debug.Log("[TurnManager] ⏰ Timer écoulé - Force l'arrêt du visage");
 
-        // Trouve tous les BallAimController et force OnMouseUp()
-        var allBalls = FindObjectsOfType<BallAimController>();
-        foreach (var ball in allBalls)
+        // ✅ OPTIMISATION : registre statique au lieu de FindObjectsOfType
+        foreach (var ball in BallAimController.AllBalls)
         {
             ball.ForceStopAiming();
         }
@@ -142,8 +141,9 @@ public partial class TurnManager : NetworkBehaviour
         // qu'elles bougent réellement ou non chez leur propriétaire.
         // On se fie donc à BallAimController.IsMoving, répliqué par celui qui
         // a réellement l'autorité sur chaque bille.
-        BallAimController[] balls = FindObjectsOfType<BallAimController>();
-        foreach (var ball in balls)
+        // ✅ OPTIMISATION : registre statique au lieu de FindObjectsOfType, appelé ici
+        // à chaque tick réseau tant que la phase Resolution n'est pas terminée.
+        foreach (var ball in BallAimController.AllBalls)
         {
             if (ball.IsMoving) return false;
         }
