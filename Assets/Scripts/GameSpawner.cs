@@ -93,27 +93,21 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
-        // ✅ En SHARED MODE : les DEUX clients spawent leurs propres boules
         _hasSpawned = true;
 
-        // 🔍 En Shared Mode, détecte quel joueur JE SUIS via ParrelSync
-        bool isClone = false;
-#if UNITY_EDITOR
-        isClone = ParrelSync.ClonesManager.IsClone();
-#endif
+        int localPlayerId = runner.LocalPlayer.PlayerId;
+        Debug.Log($"[GameSpawner] Mon PlayerId réseau : {localPlayerId}");
 
-        Debug.Log($"[GameSpawner] Je suis le clone ? {isClone}");
-
-        // Je suis l'instance principale = Joueur 0 (Jaune)
-        if (!isClone)
+        // ✅ Le premier joueur connecté (PlayerId pair, généralement 0) = Jaune
+        //    Le second (PlayerId impair, généralement 1) = Rouge
+        if (localPlayerId % 2 == 0)
         {
-            Debug.Log($"[GameSpawner] Je suis Joueur 0 (Jaune)");
+            Debug.Log($"[GameSpawner] Je suis Joueur Jaune (PlayerId {localPlayerId})");
             SpawnForPlayer(runner, runner.LocalPlayer, player1SpawnPoints, PlayerJaunePrefab);
         }
-        // Je suis le clone = Joueur 1 (Rouge)
         else
         {
-            Debug.Log($"[GameSpawner] Je suis Joueur 1 (Rouge)");
+            Debug.Log($"[GameSpawner] Je suis Joueur Rouge (PlayerId {localPlayerId})");
             SpawnForPlayer(runner, runner.LocalPlayer, player2SpawnPoints, PlayerRougePrefab);
         }
     }
