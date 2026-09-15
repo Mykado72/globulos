@@ -122,6 +122,26 @@ public partial class TurnManager
         StartCoroutine(ReloadSceneAfterDelay(result: "WIN", winner: winner.PlayerId, loser: loser.PlayerId));
     }
 
+    // ✅ NOUVEAU : FIN DE PARTIE SUITE À UN BUT AVEC LE BALLON DE FOOT
+    // Contrairement à EndGameWin (déduit le gagnant à partir du perdant qui n'a plus
+    // de billes), ici le gagnant est déjà connu directement (celui qui a marqué).
+    // Appelée uniquement depuis RPC_RequestWinBySoccerGoal, donc déjà sur le client
+    // ayant la State Authority sur ce TurnManager.
+    private void EndGameWinBySoccerGoal(PlayerRef winner)
+    {
+        Debug.Log($"[TurnManager] ⚽🎊 BUT DANS LE BUT ADVERSE ! Gagnant: Joueur {winner.PlayerId}");
+
+        // ✅ Renseigne le résultat répliqué : TurnUI l'utilise pour afficher panelWIN
+        WinnerPlayerId = winner.IsRealPlayer ? winner.PlayerId : -1;
+
+        // ✅ Arrêter le gameplay
+        IsTurnBased = false;
+        CurrentState = TurnState.Finished;
+
+        // ✅ Recharger la scène directement (loser inconnu/non pertinent ici, uniquement pour le log)
+        StartCoroutine(ReloadSceneAfterDelay(result: "WIN", winner: winner.PlayerId, loser: -1));
+    }
+
     // ✅ FIN DE PARTIE EN ÉGALITÉ
     private void EndGameDraw()
     {

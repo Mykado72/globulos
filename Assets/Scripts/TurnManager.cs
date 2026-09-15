@@ -150,6 +150,20 @@ public partial class TurnManager : NetworkBehaviour
         return true;
     }
 
+    // ✅ NOUVEAU : RPC appelée par SoccerBallController quand le ballon de foot entre
+    // dans un but. RpcSources.All car l'appelant (le client ayant l'autorité sur le
+    // ballon) n'a pas forcément la State Authority sur ce TurnManager ; RpcTargets.
+    // StateAuthority garantit que seul le client autoritaire exécute réellement le code
+    // et modifie les propriétés [Networked] (WinnerPlayerId, IsTurnBased, CurrentState).
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_RequestWinBySoccerGoal(PlayerRef winner)
+    {
+        // Sécurité anti double-déclenchement (ex: RPC reçue en double, ou partie déjà finie).
+        if (CurrentState == TurnState.Finished) return;
+
+        EndGameWinBySoccerGoal(winner);
+    }
+
     public float GetRemainingTime()
     {
         if (IsTurnBased && TurnTimer.IsRunning)

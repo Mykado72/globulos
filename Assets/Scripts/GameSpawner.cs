@@ -10,6 +10,12 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private NetworkPrefabRef PlayerJaunePrefab;
     [SerializeField] private NetworkPrefabRef PlayerRougePrefab;
 
+    [Header("✅ NOUVEAU : Ballon de foot")]
+    [Tooltip("Prefab neutre avec SoccerBallController + Rigidbody2D + NetworkRigidbody2D (comme les billes, pour la synchro physique).")]
+    [SerializeField] private NetworkPrefabRef SoccerBallPrefab;
+    [Tooltip("Position de spawn du ballon (centre du terrain). Si non assigné, spawn à Vector3.zero.")]
+    [SerializeField] private Transform soccerBallSpawnPoint;
+
     [Header("Spawn Positions")]
     [SerializeField] private Transform[] player1SpawnPoints;
     [SerializeField] private Transform[] player2SpawnPoints;
@@ -109,6 +115,48 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             Debug.Log($"[GameSpawner] Je suis Joueur Rouge (PlayerId {localPlayerId})");
             SpawnForPlayer(runner, runner.LocalPlayer, player2SpawnPoints, PlayerRougePrefab);
+        }
+
+        // ✅ NOUVEAU : ballon de foot neutre. En Shared Mode, TrySpawnBalls tourne sur
+        // CHAQUE client (chacun spawne ses propres billes) : si on ne filtrait pas ici,
+        // chaque client spawnerait son propre ballon en double. On ne le fait donc
+        // qu'une seule fois, depuis le Master Client.
+        if (runner.IsSharedModeMasterClient)
+        {
+            SpawnSoccerBall(runner);
+        }
+    }
+
+    private void SpawnSoccerBall(NetworkRunner runner)
+    {
+        if (SoccerBallPrefab == null)
+        {
+            Debug.LogWarning("[GameSpawner] ⚠️ SoccerBallPrefab non assigné dans l'inspecteur, le ballon de foot ne sera pas spawné.");
+            return;
+        }
+
+        Vector3 spawnPos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
+
+        try
+        {
+            Debug.Log($"[GameSpawner] Tentative de spawn du ballon de foot à {spawnPos}");
+
+            // ✅ Pas de PlayerRef passé : le ballon est neutre (InputAuthority = None).
+            // En Shared Mode, la State Authority revient malgré tout au client qui spawne
+            // (ici le Master Client), ce qui est suffisant pour simuler sa physique.
+            NetworkObject ball = runner.Spawn(SoccerBallPrefab, spawnPos, Quaternion.identity);
+
+            if (ball == null)
+            {
+                Debug.LogError("[GameSpawner] ❌ ERREUR : runner.Spawn() a retourné null pour le ballon de foot !");
+                return;
+            }
+
+            Debug.Log("[GameSpawner] ⚽ Ballon de foot spawné avec succès.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GameSpawner] ❌ Exception lors du spawn du ballon de foot : {ex.Message}\n{ex.StackTrace}");
         }
     }
 

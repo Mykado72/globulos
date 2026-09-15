@@ -5,6 +5,15 @@ using UnityEngine;
 /// et tag "Goal" pour que les billes le reconnaissent.
 public class GoalZone : MonoBehaviour
 {
+    // ✅ NOUVEAU : équipe qui défend CE but. Les billes meurent dans n'importe quel but
+    // (comportement existant, inchangé), mais le ballon de foot a besoin de savoir
+    // quelle équipe adverse marque quand il entre dans un but donné.
+    public enum GoalTeam { Jaune, Rouge }
+
+    [Tooltip("Équipe qui défend ce but (voir GameSpawner : PlayerId pair = Jaune, impair = Rouge). Si le ballon de foot entre ici, c'est l'équipe ADVERSE qui marque.")]
+    [SerializeField] private GoalTeam defendingTeam;
+    public GoalTeam DefendingTeam => defendingTeam;
+
     private void Start()
     {
         // ✅ Vérifier que le tag est bien défini
