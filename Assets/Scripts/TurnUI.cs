@@ -1,8 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Fusion;
 using TMPro;
 using UnityEngine;
 
+/// ✅ CLIENT/SERVER MODE
+/// TurnUI est peu impacté : il lit juste les propriétés [Networked] du TurnManager
+/// et du BallAimController, qui sont maintenant centralisées sur le serveur
+/// et répliquées aux clients.
 public class TurnUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text timerText;
@@ -10,17 +14,13 @@ public class TurnUI : MonoBehaviour
     [SerializeField] private GameObject panelWIN;
     [SerializeField] private GameObject panelDRAW;
 
-    [Header("Messages d'événements (bille dans un but)")]
-    [Tooltip("Durée d'affichage (en secondes) du message temporaire dans stateText quand une bille tombe dans un but.")]
+    [Header("Messages d'événements")]
     [SerializeField] private float ballDownMessageDuration = 2f;
 
-    // Suivi local (par client) de l'état IsDead de chaque bille pour détecter les transitions
-    // false -> true, sans avoir besoin d'ajouter la moindre RPC : IsDead est déjà une
-    // propriété [Networked] répliquée à tout le monde par BallAimController.
     private readonly Dictionary<NetworkId, bool> _previousDeadState = new Dictionary<NetworkId, bool>();
-
     private float _eventMessageTimer = 0f;
     private string _eventMessage = "";
+    private bool _endGameSoundPlayed = false;
 
     private void Start()
     {
@@ -30,13 +30,13 @@ public class TurnUI : MonoBehaviour
 
     private void Update()
     {
-        // Object.IsValid garantit que Spawned() a bien été appelé
-        // et que les propriétés [Networked] sont accessibles.
-        if (TurnManager.Instance == null || !TurnManager.Instance.Object.IsValid) return;
+        // ✅ CLIENT/SERVER : Tous les clients reçoivent les données du serveur
+        if (TurnManager.Instance == null || !TurnManager.Instance.Object.IsValid) 
+            return;
 
         DetectBallDeaths();
 
-        // --- Fin de partie : Victoire / Égalité ---
+        // --- Fin de partie ---
         if (TurnManager.Instance.CurrentState == TurnManager.TurnState.Finished)
         {
             int winnerId = TurnManager.Instance.WinnerPlayerId;
@@ -44,6 +44,13 @@ public class TurnUI : MonoBehaviour
 
             if (panelDRAW != null) panelDRAW.SetActive(isDraw);
             if (panelWIN != null) panelWIN.SetActive(!isDraw);
+
+            if (!_endGameSoundPlayed)
+            {
+                _endGameSoundPlayed = true;
+                if (isDraw) AudioManager.Instance?.PlayDraw();
+                else AudioManager.Instance?.PlayWin();
+            }
 
             if (timerText != null) timerText.text = "";
 
@@ -57,15 +64,15 @@ public class TurnUI : MonoBehaviour
             return;
         }
 
-        // Partie en cours : on s'assure que les panels de fin sont masqués
+        // Partie en cours
         if (panelWIN != null) panelWIN.SetActive(false);
         if (panelDRAW != null) panelDRAW.SetActive(false);
 
-        // Affichage du chrono
+        // Chrono
         float remaining = TurnManager.Instance.GetRemainingTime();
         if (timerText != null) timerText.text = Mathf.CeilToInt(remaining).ToString();
 
-        // --- Message temporaire (bille tombée dans un but) : prioritaire sur la phase ---
+        // Message temporaire : prioritaire
         if (_eventMessageTimer > 0f)
         {
             _eventMessageTimer -= Time.deltaTime;
@@ -73,7 +80,7 @@ public class TurnUI : MonoBehaviour
             return;
         }
 
-        // Affichage normal de la phase en cours
+        // Affichage normal
         if (stateText == null) return;
 
         switch (TurnManager.Instance.CurrentState)
@@ -90,13 +97,8 @@ public class TurnUI : MonoBehaviour
         }
     }
 
-    // Détecte les transitions IsDead (false -> true) sur toutes les billes connues et
-    // déclenche un message temporaire dans stateText. Fonctionne indépendamment sur
-    // chaque client, sans RPC supplémentaire, car IsDead est déjà répliqué par Fusion.
     private void DetectBallDeaths()
     {
-        // ✅ OPTIMISATION : registre statique (BallAimController.AllBalls), toujours à
-        // jour en temps réel — plus besoin de rafraîchir périodiquement une copie locale.
         foreach (BallAimController ball in BallAimController.AllBalls)
         {
             if (ball == null) continue;
@@ -110,8 +112,7 @@ public class TurnUI : MonoBehaviour
 
             if (isDeadNow && !wasDead)
             {
-                // StateAuthority = propriétaire réel de la bille en Shared Mode
-                int ownerId = netObj.StateAuthority.PlayerId;
+                int ownerId = ball.OwnerPlayerId;
                 _eventMessage = $"💥 Une bille du Joueur {ownerId} est tombée dans un but !";
                 _eventMessageTimer = ballDownMessageDuration;
             }

@@ -1,45 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using Fusion;
 using Fusion.Sockets;
-using TMPro;
-using UnityEditor;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-
 public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 {
-    [Header("UI Components")]
-    [SerializeField] private TMP_InputField nicknameInput;
+    [Header("Configuration")]
+    [SerializeField] private string defaultRoomName = "Room1";
+    [SerializeField] private NetworkRunner runnerPrefab;
+
+    [Header("UI")]
+    [SerializeField] private InputField roomNameInput;
     [SerializeField] private Button playButton;
-    [SerializeField] private TMP_Text statusText;
+    [SerializeField] private Text statusText; // Optionnel : pour afficher l'état à l'écran
 
-
-    [SerializeField] private string gameSceneName = "GameScene";
-    [SerializeField] private NetworkPrefabRef playerDataPrefab; // ✅ Prefab avec NetworkObject + PlayerData
-
-
-#if UNITY_EDITOR
-
-    [SerializeField] private SceneAsset sceneAsset;
-
-    private void OnValidate()
-    {
-        if (sceneAsset != null)
-        {
-            gameSceneName = sceneAsset.name;
-        }
-    }
-#endif
-
-    [Header("Matchmaking Settings")]
-
-    private const int MAX_PLAYERS = 2; // 1v1 pour Globulos
-
-    private NetworkRunner _runner;
+    private NetworkRunner _currentRunner;
 
     private void Start()
     {
@@ -47,142 +27,120 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         {
             playButton.onClick.AddListener(OnPlayButtonPressed);
         }
-        UpdateStatus("Entrez votre pseudo pour jouer.");
     }
 
-    private async void OnPlayButtonPressed()
+    public async void OnPlayButtonPressed()
     {
-        string nickname = nicknameInput != null ? nicknameInput.text.Trim() : "";
+        if (playButton != null) playButton.interactable = false;
 
-        if (string.IsNullOrEmpty(nickname))
+        string roomName = defaultRoomName;
+        if (roomNameInput != null && !string.IsNullOrEmpty(roomNameInput.text))
         {
-            UpdateStatus("<color=red>Veuillez entrer un pseudo !</color>");
-            return;
+            roomName = roomNameInput.text;
         }
 
-        playButton.interactable = false;
-        nicknameInput.interactable = false;
-        UpdateStatus("Initialisation du r�seau...");
+        UpdateStatus("Connexion à la room...");
+        await StartGameSession(roomName);
+    }
 
-        if (_runner == null)
+    private async Task StartGameSession(string roomName)
+    {
+        if (_currentRunner == null)
         {
-            _runner = gameObject.AddComponent<NetworkRunner>();
+            _currentRunner = UnityEngine.Object.FindFirstObjectByType<NetworkRunner>();
+
+            if (_currentRunner == null)
+            {
+                if (runnerPrefab != null)
+                {
+                    _currentRunner = Instantiate(runnerPrefab);
+                }
+                else
+                {
+                    GameObject runnerObject = new GameObject("NetworkRunner");
+                    _currentRunner = runnerObject.AddComponent<NetworkRunner>();
+                }
+            }
         }
 
-        _runner.AddCallbacks(this);
-        _runner.ProvideInput = true;
+        _currentRunner.ProvideInput = true;
 
-        UpdateStatus("Recherche d'un adversaire avec du charisme...");
-        // R�cup�re l'index de la sc�ne actuelle (LobbyScene)
-        int currentSceneIndex = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex;
+        // Enregistre ce script pour écouter les callbacks de connexion (OnPlayerJoined, etc.)
+        _currentRunner.AddCallbacks(this);
 
-        var startGameArgs = new StartGameArgs()
+        INetworkSceneManager sceneManager = null;
+        // Correction : TryGetComponent ne crée pas d'allocation si le composant n'existe pas
+        if (!_currentRunner.TryGetComponent<INetworkSceneManager>(out sceneManager) || sceneManager == null)
+        {
+            // Utiliser le type concret correct fourni par Fusion
+            var concreteSceneManager = _currentRunner.gameObject.AddComponent<NetworkSceneManagerDefault>();
+            sceneManager = concreteSceneManager;
+        }
+
+        // En Shared Mode, on rejoint la session sans charger de scène immédiatement
+        var result = await _currentRunner.StartGame(new StartGameArgs()
         {
             GameMode = GameMode.Shared,
-            SessionName = "COGEP",  // Session al�atoire
-            PlayerCount = MAX_PLAYERS,
-            Scene = SceneRef.FromIndex(currentSceneIndex), // <-- D�finit la sc�ne initiale pour le Runner
-            // SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
-        };
+            SessionName = roomName,
+            SceneManager = sceneManager
+        });
 
-        var result = await _runner.StartGame(startGameArgs);
-
-        if (!result.Ok)
+        if (result.Ok)
         {
-            UpdateStatus($"<color=red>�chec : {result.ShutdownReason}</color>");
-            ResetUI();
-            return;
+            Debug.Log($"[LobbyManager] Connecté à '{roomName}'. En attente du second joueur...");
+            CheckPlayersAndStartGame();
         }
+        else
+        {
+            Debug.LogError($"[LobbyManager] Échec : {result.ShutdownReason}");
+            UpdateStatus($"Échec : {result.ShutdownReason}");
+            if (playButton != null) playButton.interactable = true;
+        }
+    }
 
-        // Spawn du PlayerData local : persiste � travers le changement de
-        // sc�ne (Lobby -> GameScene) et sera lisible par tous les clients via
-        // Runner.GetPlayerObject(). On le fait juste apr�s StartGame, une fois
-        // qu on est bien connect� et qu on connait notre LocalPlayer.
-        NetworkObject playerDataObj = _runner.Spawn(
-            playerDataPrefab,
-            Vector3.zero,
-            Quaternion.identity,
-            _runner.LocalPlayer);
+    // Callback Fusion : appelé chaque fois qu'un joueur rejoint la room
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        Debug.Log($"[LobbyManager] Un joueur a rejoint : {player}");
+        CheckPlayersAndStartGame();
+    }
 
-        int localPlayerId = _runner.LocalPlayer.PlayerId;
-        PlayerData playerData = playerDataObj.GetComponent<PlayerData>();        
-        PlayerNamesManager.Instance?.SetPlayerName(localPlayerId, nickname);
-        playerData.SetNickname(nickname);
-        playerData.SetPlayerId(localPlayerId);
+    private void CheckPlayersAndStartGame()
+    {
+        if (_currentRunner == null) return;
+
+        int count = _currentRunner.ActivePlayers != null ? System.Linq.Enumerable.Count(_currentRunner.ActivePlayers) : 0;
+        UpdateStatus($"Joueurs connectés : {count}/2");
+
+        // Seul le MasterClient (hôte) déclenche la transition de scène quand il y a au moins 2 joueurs
+        if (_currentRunner.IsSharedModeMasterClient && count >= 2)
+        {
+            Debug.Log("[LobbyManager] 2 joueurs détectés ! Chargement de GameScene...");
+            UpdateStatus("Lancement de la partie !");
+
+            var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameScene"));
+            _currentRunner.LoadScene(sceneRef);
+        }
     }
 
     private void UpdateStatus(string message)
     {
-        if (statusText != null)
-        {
-            statusText.text = message;
-        }
+        if (statusText != null) statusText.text = message;
     }
 
-    private void ResetUI()
-    {
-        if (playButton != null) playButton.interactable = true;
-        if (nicknameInput != null) nicknameInput.interactable = true;
-    }
-
-    // =========================================================================
-    // CALLBACKS G�R�S
-    // =========================================================================
-
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
-    {
-        int currentPlayers = runner.ActivePlayers.Count();
-        UpdateStatus($"Joueurs dans le salon : {currentPlayers}/{MAX_PLAYERS}");
-
-        if (currentPlayers == MAX_PLAYERS)
-        {
-            UpdateStatus("Partie trouv�e ! Chargement du terrain...");
-
-            if (runner.IsSharedModeMasterClient)
-            {
-                // R�cup�re l'index de la sc�ne dans le Build Settings
-                int sceneIndex = UnityEngine.SceneManagement.SceneUtility.GetBuildIndexByScenePath(gameSceneName);
-
-                if (sceneIndex >= 0)
-                {
-                    runner.LoadScene(SceneRef.FromIndex(sceneIndex));
-                }
-                else
-                {
-                    Debug.LogError($"[LobbyManager] La sc�ne '{gameSceneName}' n'a pas �t� trouv�e dans les Build Settings !");
-                }
-            }
-        }
-    }
-
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
-    {
-        UpdateStatus("L'adversaire s'est d�connect�.");
-    }
-
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
-    {
-        UpdateStatus($"D�connect� ({shutdownReason}).");
-        ResetUI();
-    }
-     
-
-    // =========================================================================
-    // CALLBACKS OBLIGATOIRES FUSION 2.1.2 (SIGNATURES EXACTES)
-    // =========================================================================
-
-    public void OnObjectReady(NetworkRunner runner, NetworkObject obj) { }
+    // Interfaçage obligatoire d'INetworkRunnerCallbacks
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
-    public void OnUserSimulationMessage(NetworkRunner runner) { }
+    public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
-    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
     public void OnSceneLoadDone(NetworkRunner runner) { }

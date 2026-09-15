@@ -17,7 +17,7 @@ GameObject:
   - component: {fileID: 5941013327794056758}
   m_Layer: 0
   m_Name: NetworkBall
-  m_TagString: Untagged
+  m_TagString: SoccerBall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

@@ -1,35 +1,41 @@
-﻿using Fusion;
+using Fusion;
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
+/// ✅ CLIENT/SERVER MODE
+/// Seul le serveur (State Authority) gère:
+/// - La logique de tour par tour
+/// - Les changements d'état
+/// - La détection de fin de partie
+/// 
+/// Les clients reçoivent simplement les mises à jour [Networked]
+/// et affichent l'état du jeu.
 public partial class TurnManager : NetworkBehaviour
 {
     public enum TurnState
     {
-        RealTime,   // Mode temps réel actif
-        Aiming,     // Tour par tour : Phase de visée
-        Resolution, // Tour par tour : Application des forces
-        CheckResult, // Tour par tour : Attente de l'arrêt des billes
+        RealTime,
+        Aiming,
+        Resolution,
+        CheckResult,
         Finished
     }
 
     [Header("Game Mode Configuration")]
-    [Tooltip("Cocher pour activer le mode tour par tour. Décocher pour le temps réel.")]
     [SerializeField] private bool defaultTurnBasedMode = true;
 
     [Header("Turn-Based Settings")]
     [SerializeField] private float aimDuration = 15f;
-
-    [Tooltip("Délai minimum après le début de la Résolution avant de commencer à vérifier si les billes sont arrêtées. Nécessaire car l'application des forces (via Render() + RPC) prend un peu de temps à se propager après le passage en Resolution.")]
     [SerializeField] private float resolutionSettleDuration = 0.2f;
 
-    // --- Variables Réseau Synchronisées ---
+    // ✅ État réseau synchronisé (Serveur → Clients)
     [Networked] public NetworkBool IsTurnBased { get; set; }
     [Networked] public TurnState CurrentState { get; set; }
     [Networked] private TickTimer TurnTimer { get; set; }
     [Networked] private TickTimer ResolutionSettleTimer { get; set; }
     [Networked] public int CurrentTurnNumber { get; set; }
-
-    // ✅ AJOUT : Résultat de la partie, répliqué à tous les clients pour piloter l'UI
     [Networked] public int WinnerPlayerId { get; set; }
 
     public static TurnManager Instance { get; private set; }
@@ -38,6 +44,7 @@ public partial class TurnManager : NetworkBehaviour
     {
         Instance = this;
 
+        // ✅ CLIENT/SERVER : Seul le serveur initialise
         if (HasStateAuthority)
         {
             IsTurnBased = defaultTurnBasedMode;
@@ -52,6 +59,12 @@ public partial class TurnManager : NetworkBehaviour
                 CurrentState = TurnState.RealTime;
                 TurnTimer = TickTimer.None;
             }
+
+            Debug.Log("[TurnManager] ✅ Serveur initialisé (State Authority)");
+        }
+        else
+        {
+            Debug.Log("[TurnManager] ℹ️ Client : reçoit les mises à jour du serveur");
         }
     }
 
@@ -65,6 +78,7 @@ public partial class TurnManager : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
+        // ✅ CLIENT/SERVER : Seul le serveur gère la logique
         if (!HasStateAuthority || !IsTurnBased) return;
 
         switch (CurrentState)
@@ -72,19 +86,12 @@ public partial class TurnManager : NetworkBehaviour
             case TurnState.Aiming:
                 if (TurnTimer.Expired(Runner))
                 {
-                    // ✅ FIX : Quand le timer expire, force l'arrêt du visage sur TOUS les joueurs
                     RPC_ForceStopAiming();
                     ExecuteTurnResolution();
                 }
                 break;
 
             case TurnState.Resolution:
-                // ✅ On attend un délai de grâce avant même de commencer à
-                // vérifier l'arrêt des billes : le temps que les forces
-                // bufferisées soient réellement appliquées (via Render()
-                // sur chaque client) et que IsMoving se propage sur le réseau.
-                // Sans ça, on peut détecter "tout est arrêté" alors que rien
-                // n'a encore commencé à bouger.
                 if (!ResolutionSettleTimer.ExpiredOrNotRunning(Runner)) break;
 
                 if (AreAllBallsStopped())
@@ -95,8 +102,6 @@ public partial class TurnManager : NetworkBehaviour
 
             case TurnState.CheckResult:
                 CheckGameEnd();
-                // ✅ Si CheckGameEnd() a fait passer l'état à Finished (victoire/égalité),
-                // on ne relance pas un nouveau tour par-dessus.
                 if (CurrentState == TurnState.CheckResult)
                 {
                     StartNewTurn();
@@ -117,15 +122,29 @@ public partial class TurnManager : NetworkBehaviour
         CurrentState = TurnState.Resolution;
         TurnTimer = TickTimer.None;
         ResolutionSettleTimer = TickTimer.CreateFromSeconds(Runner, resolutionSettleDuration);
+
+        // ✅ Déclenche l'application simultanée des forces préparées sur tous les clients
+        RPC_ExecuteAllShots();
     }
 
-    // ✅ NOUVEAU : RPC pour forcer l'arrêt du visage quand le timer arrive à 0
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ExecuteAllShots()
+    {
+        Debug.Log("[TurnManager] 💥 Passage en Résolution : Exécution des tirs enregistrés !");
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball != null)
+            {
+                ball.ExecuteQueuedShot();
+            }
+        }
+    }
+
+    // ✅ Force l'arrêt de la visée sur tous les clients
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void RPC_ForceStopAiming()
     {
         Debug.Log("[TurnManager] ⏰ Timer écoulé - Force l'arrêt du visage");
-
-        // ✅ OPTIMISATION : registre statique au lieu de FindObjectsOfType
         foreach (var ball in BallAimController.AllBalls)
         {
             ball.ForceStopAiming();
@@ -134,15 +153,7 @@ public partial class TurnManager : NetworkBehaviour
 
     private bool AreAllBallsStopped()
     {
-        // ⚠️ On NE PEUT PAS utiliser Rigidbody2D.velocity ici : ce code ne
-        // tourne que sur le client ayant la State Authority sur TurnManager
-        // (le Master). Pour lui, les billes des AUTRES joueurs sont des
-        // proxies réseau cinématiques dont la vélocité locale vaut toujours 0,
-        // qu'elles bougent réellement ou non chez leur propriétaire.
-        // On se fie donc à BallAimController.IsMoving, répliqué par celui qui
-        // a réellement l'autorité sur chaque bille.
-        // ✅ OPTIMISATION : registre statique au lieu de FindObjectsOfType, appelé ici
-        // à chaque tick réseau tant que la phase Resolution n'est pas terminée.
+        // ✅ CLIENT/SERVER : Le serveur simule, donc IsMoving vaut la vérité
         foreach (var ball in BallAimController.AllBalls)
         {
             if (ball.IsMoving) return false;
@@ -150,18 +161,132 @@ public partial class TurnManager : NetworkBehaviour
         return true;
     }
 
-    // ✅ NOUVEAU : RPC appelée par SoccerBallController quand le ballon de foot entre
-    // dans un but. RpcSources.All car l'appelant (le client ayant l'autorité sur le
-    // ballon) n'a pas forcément la State Authority sur ce TurnManager ; RpcTargets.
-    // StateAuthority garantit que seul le client autoritaire exécute réellement le code
-    // et modifie les propriétés [Networked] (WinnerPlayerId, IsTurnBased, CurrentState).
+    // ✅ RPC : Le ballon de foot signale un but (appelée par un client, traitée par le serveur)
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-    public void RPC_RequestWinBySoccerGoal(PlayerRef winner)
+    public void RPC_RequestWinBySoccerGoal(int winnerId)
     {
-        // Sécurité anti double-déclenchement (ex: RPC reçue en double, ou partie déjà finie).
+        if (!HasStateAuthority) return;
         if (CurrentState == TurnState.Finished) return;
 
-        EndGameWinBySoccerGoal(winner);
+        EndGameWinBySoccerGoal(winnerId);
+    }
+
+    public void CheckGameEnd()
+    {
+        List<BallAimController> allBalls = BallAimController.AllBalls;
+
+        // Décompte des billes vivantes par joueur
+        Dictionary<int, int> aliveBallsPerPlayer = new Dictionary<int, int>();
+        HashSet<int> allPlayerIds = new HashSet<int>();
+
+        foreach (BallAimController ball in allBalls)
+        {
+            int playerId = ball.OwnerPlayerId;
+            allPlayerIds.Add(playerId);
+
+            if (!aliveBallsPerPlayer.ContainsKey(playerId))
+            {
+                aliveBallsPerPlayer[playerId] = 0;
+            }
+
+            if (!ball.IsDead)
+            {
+                aliveBallsPerPlayer[playerId]++;
+            }
+        }
+
+        Debug.Log("[TurnManager] État des billes:");
+        foreach (var kvp in aliveBallsPerPlayer)
+        {
+            Debug.Log($"  PlayerId {kvp.Key}: {kvp.Value} billes vivantes");
+        }
+
+        // Vérifier l'état de fin
+        int playersWithNoBalls = 0;
+        int lastAlivePlayer = -1;
+
+        foreach (int playerId in allPlayerIds)
+        {
+            if (!aliveBallsPerPlayer.ContainsKey(playerId) || aliveBallsPerPlayer[playerId] == 0)
+            {
+                playersWithNoBalls++;
+            }
+            else
+            {
+                lastAlivePlayer = playerId;
+            }
+        }
+
+        // Les deux joueurs n'ont plus de billes = égalité
+        if (playersWithNoBalls >= 2)
+        {
+            Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");
+            EndGameDraw();
+            return;
+        }
+
+        // Un seul joueur sans billes = l'autre a gagné
+        if (playersWithNoBalls == 1 && lastAlivePlayer >= 0)
+        {
+            Debug.Log($"[TurnManager] 🎊 VICTOIRE du Joueur {lastAlivePlayer}!");
+            EndGameWin(lastAlivePlayer);
+            return;
+        }
+    }
+
+    private void EndGameWin(int winnerId)
+    {
+        WinnerPlayerId = winnerId;
+        IsTurnBased = false;
+        CurrentState = TurnState.Finished;
+
+        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerId, -1));
+    }
+
+    // Vérifie si au moins une bille du jeu est en mouvement
+    public bool IsAnyBallMoving()
+    {
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball != null && ball.IsMoving) return true;
+        }
+        return false;
+    }
+    private void EndGameWinBySoccerGoal(int winnerId)
+    {
+        Debug.Log($"[TurnManager] ⚽🎊 BUT ! Gagnant: Joueur {winnerId}");
+
+        WinnerPlayerId = winnerId;
+        IsTurnBased = false;
+        CurrentState = TurnState.Finished;
+
+        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerId, -1));
+    }
+
+    private void EndGameDraw()
+    {
+        WinnerPlayerId = -1;
+        IsTurnBased = false;
+        CurrentState = TurnState.Finished;
+
+        StartCoroutine(ReloadSceneAfterDelay("DRAW", -1, -1));
+    }
+
+    private IEnumerator ReloadSceneAfterDelay(string result, int winner = -1, int loser = -1)
+    {
+        yield return new WaitForSeconds(2f);
+
+        if (result == "WIN")
+        {
+            Debug.Log($"[TurnManager] 🔄 Reload scene... Gagnant: {winner}");
+        }
+        else if (result == "DRAW")
+        {
+            Debug.Log($"[TurnManager] 🔄 Reload scene... Match nul!");
+        }
+
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        Runner.LoadScene(SceneRef.FromIndex(currentSceneIndex));
     }
 
     public float GetRemainingTime()
@@ -171,5 +296,34 @@ public partial class TurnManager : NetworkBehaviour
             return TurnTimer.RemainingTime(Runner) ?? 0f;
         }
         return 0f;
+    }
+
+    // Appelée quand le temps de visée s'écoule ou que tous les joueurs ont validé leur tir
+    public void ResolvePhase()
+    {
+        // Passer l'état du jeu en résolution
+        IsAimingPhase = false;
+
+        // Déclencher le tir de toutes les billes qui ont une force en attente
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball != null)
+            {
+                ball.ExecuteQueuedShot();
+            }
+        }
+    }
+
+    // Ajout de la propriété pour corriger l'erreur CS0103
+    public bool IsAimingPhase
+    {
+        get { return CurrentState == TurnState.Aiming; }
+        set
+        {
+            if (value)
+                CurrentState = TurnState.Aiming;
+            else if (CurrentState == TurnState.Aiming)
+                CurrentState = TurnState.Resolution;
+        }
     }
 }

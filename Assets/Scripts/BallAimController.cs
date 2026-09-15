@@ -1,12 +1,10 @@
-﻿using Fusion;
-using Fusion.Addons.Physics;
+using Fusion;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider2D))]
 [RequireComponent(typeof(NetworkObject))]
-
 public class BallAimController : NetworkBehaviour
 {
     [Header("Aim Settings")]
@@ -20,7 +18,7 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private Color activeColor = new Color(1, 0, 0, 1);
     [SerializeField] private int arrowSortingOrder = 20;
 
-    [SerializeField, Range(0.01f, 10f)] private float maxArrowLengthFraction = 10.0f;
+    [SerializeField, Range(0.1f, 5.0f)] private float maxArrowLengthFraction = 1.5f;
     [SerializeField, Range(0.001f, 0.2f)] private float headSizeFraction = 0.05f;
     [SerializeField, Range(0.0005f, 0.1f)] private float thicknessFraction = 0.015f;
     [SerializeField] private float fallbackViewHeight = 10f;
@@ -39,10 +37,6 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private float stretchAmount = 1.2f;
     [SerializeField] private float flashDuration = 0.08f;
 
-    // ✅ Registre statique de toutes les billes actuellement spawnées, tenu à jour par
-    // Spawned()/Despawned() ci-dessous. Remplace les FindObjectsOfType<BallAimController>()
-    // (scan de toute la scène) utilisés par TurnManager, qui tournent potentiellement à
-    // chaque tick réseau (FixedUpdateNetwork).
     public static readonly List<BallAimController> AllBalls = new List<BallAimController>();
 
     // ✅ Accesseurs mis en cache : évitent des GetComponent<NetworkObject>() répétés
@@ -50,26 +44,26 @@ public class BallAimController : NetworkBehaviour
     public NetworkObject NetObj => _networkObject;
     public PlayerRef Owner => _networkObject.StateAuthority;
 
-    // ✅ État synchronisé via le réseau
+    [Networked] public int OwnerPlayerId { get; set; }
     [Networked] public bool IsAiming { get; set; }
     [Networked] public bool IsDead { get; set; }
     [Networked] public bool IsMoving { get; set; }
 
     [SerializeField] private float stationaryVelocityThreshold = 0.15f;
-    [SerializeField] private int forceMultiplier = 1;
 
     private Rigidbody2D _rb;
     private Camera _mainCamera;
     private NetworkObject _networkObject;
     private SpriteRenderer _spriteRenderer;
-
     private Transform _shaftTransform;
     private SpriteRenderer _shaftRenderer;
     private Transform _headTransform;
     private SpriteRenderer _headRenderer;
 
     private Vector2 _startDragPos;
-    private Vector2 _bufferedForce;
+
+    // ✅ Stockage local de la force sur le client propriétaire de la bille
+    private Vector2 _localQueuedForce = Vector2.zero;
     private Vector3 originalScale;
 
     private static Sprite _cachedShaftSprite;
@@ -81,91 +75,25 @@ public class BallAimController : NetworkBehaviour
         _networkObject = GetComponent<NetworkObject>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         originalScale = transform.localScale;
-
-        Debug.Log($"[BallAimController] Spawned() - HasStateAuthority: {HasStateAuthority}, StateAuthority: {_networkObject.StateAuthority.PlayerId}, InputAuthority: {_networkObject.InputAuthority.PlayerId}, LocalPlayer: {Runner.LocalPlayer.PlayerId}");
-
         ConfigureArrowVisual();
 
         _mainCamera = Camera.main;
         if (_mainCamera == null) _mainCamera = FindObjectOfType<Camera>();
 
-        if (_mainCamera == null)
-        {
-            Debug.LogError("[BallAimController] ERREUR : Aucune caméra trouvée !");
-            enabled = false;
-            return;
-        }
-
-        // ✅ S'enregistre dans le registre statique (voir AllBalls)
         if (!AllBalls.Contains(this)) AllBalls.Add(this);
-
-        Debug.Log($"[BallAimController] ✅ Setup complet");
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
-        // ✅ Se retire du registre statique dès que la bille est despawnée
-        // (fin de tir dans un but non applicable ici puisque IsDead reste vraie mais
-        // l'objet reste spawné jusqu'au reload de scène ; ceci couvre surtout le
-        // reload de scène en fin de partie, qui despawn puis respawn les billes).
         AllBalls.Remove(this);
     }
 
+    public void SetOwner(int playerId) => OwnerPlayerId = playerId;
+
     public void ForceStopAiming()
     {
-        if (!IsAiming) return;
-
-        Debug.Log("[BallAimController] Arrêt forcé du visage");
-
         IsAiming = false;
-
-        // ✅ FIX : on ne cache plus la flèche ici. Elle doit rester visible tant que le tir
-        // n'a pas réellement été appliqué (ApplyForce s'en charge). S'il n'y a aucun tir en
-        // attente (le joueur n'a pas assez tiré), on la cache directement.
-        if (_bufferedForce != Vector2.zero && HasStateAuthority)
-        {
-            ApplyForce(_bufferedForce);
-            _bufferedForce = Vector2.zero;
-        }
-        else
-        {
-            HideAimVisual();
-        }
-    }
-
-    public override void FixedUpdateNetwork()
-    {
-        if (_rb != null)
-        {
-            float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
-            IsMoving = !IsDead && _rb.velocity.sqrMagnitude > thresholdSqr;
-        }
-    }
-
-    public override void Render()
-    {
-        if (TurnManager.Instance != null && TurnManager.Instance.IsTurnBased)
-        {
-            if (TurnManager.Instance.CurrentState == TurnManager.TurnState.Resolution)
-            {
-                // ✅ FIX : on vérifie HasStateAuthority (et non plus HasInputAuthority) puisque
-                // c'est la State Authority qui a le droit d'appliquer la force sur son propre
-                // Rigidbody2D en Shared Mode.
-                if (_bufferedForce != Vector2.zero && HasStateAuthority)
-                {
-                    ApplyForce(_bufferedForce);
-                    _bufferedForce = Vector2.zero;
-                }
-            }
-        }
-    }
-
-    // ✅ NOUVEAU : point unique pour cacher la flèche, appelé uniquement quand le tir
-    // est réellement parti (dans ApplyForce), et non plus au relâchement de la souris.
-    private void HideAimVisual()
-    {
-        if (_shaftRenderer != null) _shaftRenderer.enabled = false;
-        if (_headRenderer != null) _headRenderer.enabled = false;
+        HideAimVisual();
     }
 
     private void ConfigureArrowVisual()
@@ -185,22 +113,16 @@ public class BallAimController : NetworkBehaviour
         _headRenderer.sprite = arrowHeadSprite != null ? arrowHeadSprite : GetOrCreateHeadSprite();
         _headRenderer.sortingOrder = arrowSortingOrder + 1;
         _headRenderer.enabled = false;
-
-        Debug.Log("[BallAimController] Flèche configurée ✅");
     }
 
     private static Sprite GetOrCreateShaftSprite()
     {
         if (_cachedShaftSprite != null) return _cachedShaftSprite;
-
         Texture2D tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
         Color[] pixels = new Color[16];
         for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
         tex.SetPixels(pixels);
         tex.Apply();
-        tex.filterMode = FilterMode.Bilinear;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
         _cachedShaftSprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0f, 0.5f), 4f);
         return _cachedShaftSprite;
     }
@@ -208,11 +130,9 @@ public class BallAimController : NetworkBehaviour
     private static Sprite GetOrCreateHeadSprite()
     {
         if (_cachedHeadSprite != null) return _cachedHeadSprite;
-
         const int size = 32;
         Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
         Color[] pixels = new Color[size * size];
-
         for (int y = 0; y < size; y++)
         {
             for (int x = 0; x < size; x++)
@@ -223,43 +143,120 @@ public class BallAimController : NetworkBehaviour
                 pixels[y * size + x] = distFromCenter <= halfHeight ? Color.white : new Color(1f, 1f, 1f, 0f);
             }
         }
-
         tex.SetPixels(pixels);
         tex.Apply();
-        tex.filterMode = FilterMode.Bilinear;
-        tex.wrapMode = TextureWrapMode.Clamp;
-
         _cachedHeadSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0f, 0.5f), size);
         return _cachedHeadSprite;
     }
 
-    private void OnMouseDown()
+    private void Update()
     {
-        if (_mainCamera == null || !HasStateAuthority || IsDead) return;
+        // 🔒 Sécurité : Seul le propriétaire de la bille voit et contrôle sa propre flèche
+        if (!HasStateAuthority || IsDead) return;
 
-        if (TurnManager.Instance != null && TurnManager.Instance.IsTurnBased)
+        // Si une force est déjà enregistrée en attente, on maintient la flèche affichée localement
+        if (_localQueuedForce.sqrMagnitude > 0.01f && !IsAiming)
         {
-            if (TurnManager.Instance.CurrentState != TurnManager.TurnState.Aiming) return;
+            UpdateAimVisual(_localQueuedForce);
         }
 
-        IsAiming = true;
-        _startDragPos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        if (Input.GetMouseButtonDown(0))
+        {
+            StartAimingCheck();
+        }
 
-        // ✅ Force l'affichage des flèches
-        _shaftRenderer.enabled = true;
-        _headRenderer.enabled = true;
+        if (IsAiming)
+        {
+            if (Input.GetMouseButton(0))
+            {
+                ContinueAiming();
+            }
+            else if (Input.GetMouseButtonUp(0))
+            {
+                FinishAiming();
+            }
+        }
     }
 
-    private void OnMouseDrag()
+    private void StartAimingCheck()
     {
-        if (!IsAiming || !HasStateAuthority || IsDead) return;
+        if (_mainCamera == null) return;
+
+        // 1. Bloquer la visée si n'importe quelle bille est encore en mouvement
+        if (TurnManager.Instance != null && TurnManager.Instance.IsAnyBallMoving())
+        {
+            return;
+        }
+
+        // 2. Bloquer la visée si le jeu n'est pas en phase de visée (Aiming)
+        if (TurnManager.Instance != null && TurnManager.Instance.CurrentState != TurnManager.TurnState.Aiming)
+        {
+            return;
+        }
+
+        Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero);
+
+        if (hit.collider != null && hit.collider.gameObject == gameObject)
+        {
+            IsAiming = true;
+            _startDragPos = mouseWorld;
+            _shaftRenderer.enabled = true;
+            _headRenderer.enabled = true;
+        }
+    }
+
+    private void ContinueAiming()
+    {
+        if (_mainCamera == null) return;
+        Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 forceToApply = ComputeClampedForce(currentMousePos);
+        UpdateAimVisual(forceToApply);
+    }
+
+    private void FinishAiming()
+    {
+        IsAiming = false;
+
         if (_mainCamera == null) return;
 
         Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        Vector2 dragVector = currentMousePos - _startDragPos;
-        Vector2 clampedForce = Vector2.ClampMagnitude(dragVector * forceMultiplier, maxForce);
+        Vector2 forceToApply = ComputeClampedForce(currentMousePos);
 
-        UpdateAimVisual(clampedForce);
+        if (forceToApply.sqrMagnitude > 0.1f)
+        {
+            // ✅ Enregistrement de la force localement
+            _localQueuedForce = forceToApply;
+            Debug.Log($"[BallAimController] 🎯 Force enregistrée pour la bille {OwnerPlayerId} : {_localQueuedForce}");
+        }
+        else
+        {
+            _localQueuedForce = Vector2.zero;
+            HideAimVisual();
+        }
+    }
+
+    // ✅ Appelé par le TurnManager au début de la phase Resolution
+    public void ExecuteQueuedShot()
+    {
+        if (HasStateAuthority && _localQueuedForce.sqrMagnitude > 0.01f)
+        {
+            // Transmission et application de la force au Rigidbody
+            RPC_ApplyImpulse(_localQueuedForce);
+            _localQueuedForce = Vector2.zero;
+        }
+
+        HideAimVisual();
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ApplyImpulse(Vector2 force)
+    {
+        if (_rb != null)
+        {
+            _rb.AddForce(force, ForceMode2D.Impulse);
+            Debug.Log($"[BallAimController] 💥 Impulsion appliquée : {force}");
+        }
     }
 
     private Vector2 ComputeClampedForce(Vector2 currentMousePos)
@@ -274,11 +271,7 @@ public class BallAimController : NetworkBehaviour
 
     private float GetViewHeight()
     {
-        if (_mainCamera != null && _mainCamera.orthographic)
-        {
-            return _mainCamera.orthographicSize * 2f;
-        }
-        return fallbackViewHeight;
+        return (_mainCamera != null && _mainCamera.orthographic) ? _mainCamera.orthographicSize * 2f : fallbackViewHeight;
     }
 
     private void UpdateAimVisual(Vector2 clampedForce)
@@ -319,70 +312,25 @@ public class BallAimController : NetworkBehaviour
         _headRenderer.color = color;
     }
 
-    private void OnMouseUp()
+    private void HideAimVisual()
     {
-        if (!IsAiming || !HasStateAuthority || IsDead) return;
-
-        IsAiming = false;
-
-        if (_mainCamera == null)
-        {
-            HideAimVisual();
-            return;
-        }
-
-        Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        Vector2 forceToApply = ComputeClampedForce(currentMousePos);
-
-        // ✅ FIX : on fige l'affichage de la flèche sur la force finalement choisie au
-        // relâchement, au lieu de la cacher. Elle restera visible tant que le tir n'est
-        // pas réellement exécuté (voir ApplyForce), ce qui donne au joueur une confirmation
-        // visuelle de son tir pendant le temps d'attente en mode tour par tour.
-        UpdateAimVisual(forceToApply);
-
-        bool isTurnBased = TurnManager.Instance != null && TurnManager.Instance.IsTurnBased;
-
-        if (forceToApply == Vector2.zero)
-        {
-            // Rien à tirer (glissé trop court) : pas de tir en attente, on cache direct.
-            HideAimVisual();
-        }
-        else if (isTurnBased)
-        {
-            _bufferedForce = forceToApply;
-        }
-        else
-        {
-            Debug.Log($"[BallAimController] ✅ Shoot! Force: {forceToApply.magnitude:F2}");
-            ApplyForce(forceToApply);
-        }
+        if (_shaftRenderer != null) _shaftRenderer.enabled = false;
+        if (_headRenderer != null) _headRenderer.enabled = false;
     }
 
-    public void ExecuteBufferedShoot()
+    public override void FixedUpdateNetwork()
     {
-        if (_bufferedForce != Vector2.zero)
-        {
-            ApplyForce(_bufferedForce);
-            _bufferedForce = Vector2.zero;
-        }
-    }
-
-    private void ApplyForce(Vector2 force)
-    {
-        if (!HasStateAuthority)
-        {
-            Debug.LogWarning("[BallAimController] ⚠️ Tentative d'application de force sans State Authority, ignorée.");
-            return;
-        }
-
         if (_rb != null)
         {
-            _rb.AddForce(force, ForceMode2D.Impulse);
-            Debug.Log($"[BallAimController] Force appliquée : {force}");
+            float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
+            IsMoving = !IsDead && _rb.velocity.sqrMagnitude > thresholdSqr;
         }
+    }
 
-        // ✅ Le tir est parti pour de bon : c'est SEULEMENT maintenant qu'on cache la flèche.
-        HideAimVisual();
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlayShootSound()
+    {
+        AudioManager.Instance?.PlayShoot(transform.position);
     }
 
     // ✅ NOUVEAU : Gestion des collisions pour les effets de rebond
@@ -394,6 +342,13 @@ public class BallAimController : NetworkBehaviour
         if (_rb.velocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
         {
             Debug.Log($"[BallAimController] 💥 Rebond! Velocity: {_rb.velocity.magnitude}");
+
+            // ✅ NOUVEAU : son de rebond. Pas de RPC ici (contrairement au tir) : comme pour
+            // l'effet squash juste en dessous, OnCollisionEnter2D se déclenche localement sur
+            // chaque client (colliders non-trigger, détectés indépendamment de la State
+            // Authority), donc pas besoin de diffusion réseau.
+            Vector2 contactPoint = collision.GetContact(0).point;
+            AudioManager.Instance?.PlayBounce(contactPoint);
 
             // Lance tous les effets en parallèle
             StartCoroutine(SquashAnimationCoroutine());
@@ -463,6 +418,10 @@ public class BallAimController : NetworkBehaviour
         _rb.isKinematic = true;
         _rb.velocity = Vector2.zero;
 
+        // ✅ NOUVEAU : déclenché depuis RPC_PlayFallAnimation (RpcTargets.All), donc déjà
+        // diffusé à tous les clients sans RPC supplémentaire.
+        AudioManager.Instance?.PlayBallDeath(transform.position);
+
         float elapsedTime = 0f;
         Vector3 startScale = transform.localScale;
 
@@ -491,5 +450,4 @@ public class BallAimController : NetworkBehaviour
             collider.enabled = false;
     }
 
-    public bool IsAlive => !IsDead;
 }
