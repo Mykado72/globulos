@@ -1,108 +1,213 @@
 using Fusion;
+using Fusion.Sockets;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class GameSpawner : NetworkBehaviour, IPlayerJoined
+/// ✅ SHARED MODE - WEBGL OPTIMIZED
+/// Chaque joueur spawne ses propres boules.
+/// Master Client spawne le ballon de foot.
+/// Pas de complexité Client/Server inutile.
+public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
-    [SerializeField] private NetworkObject player1Prefab;
-    [SerializeField] private NetworkObject player2Prefab;
-    [SerializeField] private Transform[] player1SpawnPoint;
-    [SerializeField] private Transform[] player2SpawnPoint;
-    [SerializeField] private NetworkObject soccerBallPrefab;
+    [SerializeField] private NetworkPrefabRef player1Prefab;
+    [SerializeField] private NetworkPrefabRef player2Prefab;
+    [SerializeField] private Transform[] player1SpawnPoints;
+    [SerializeField] private Transform[] player2SpawnPoints;
+    [SerializeField] private NetworkPrefabRef soccerBallPrefab;
     [SerializeField] private Transform soccerBallSpawnPoint;
 
     private bool _hasSpawnedLocalPlayer = false;
+    private bool _hasSpawnedBall = false;
+    private NetworkRunner _runner;
 
-    // ✅ Appelé automatiquement par Fusion quand un joueur rejoint la partie
-    public void PlayerJoined(PlayerRef player)
+    private void Start()
     {
-        // if (player == Runner.LocalPlayer)
+        _runner = FindObjectOfType<NetworkRunner>();
+        if (_runner != null)
         {
-            TrySpawnLocalPlayer();
-        }
-    }
-
-
-    public void TrySpawnLocalPlayer()
-    {
-        if (_hasSpawnedLocalPlayer) return;
-
-        PlayerRef localPlayer = Runner.LocalPlayer;
-        if (!localPlayer.IsValid) return;
-
-        // Détermination du numéro de joueur (0 = J1, 1 = J2)
-        // Note: On utilise l'index dans Runner.ActivePlayers pour déterminer l'ordre d'arrivée
-        int playerIndex = 0;
-        // Si vous jouez à 2 joueurs : le premier arrivé (Master) est J1 (0), le second est J2 (1)
-        NetworkObject prefabToSpawn;
-        Transform[] spawnPoints;
-        if (!Runner.IsSharedModeMasterClient)
-        {
-            playerIndex = 2;
-            prefabToSpawn = player2Prefab;
-            spawnPoints = player2SpawnPoint;
+            _runner.AddCallbacks(this);
+            Debug.Log("[GameSpawner] Runner trouvé et enregistré");
         }
         else
         {
-            playerIndex = 0;
-            prefabToSpawn = player1Prefab;
-            spawnPoints = player1SpawnPoint;
+            Debug.LogError("[GameSpawner] ❌ Aucun NetworkRunner trouvé !");
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (_runner != null)
+        {
+            _runner.RemoveCallbacks(this);
+        }
+    }
+
+    // ✅ CALLBACK FUSION : Quand la scène est chargée
+    public void OnSceneLoadDone(NetworkRunner runner)
+    {
+        Debug.Log("[GameSpawner] 📍 OnSceneLoadDone");
+
+        // ✅ Master Client spawne le ballon (une seule fois)
+        if (runner.IsSharedModeMasterClient && !_hasSpawnedBall)
+        {
+            _hasSpawnedBall = true;
+            SpawnSoccerBall(runner);
+            Debug.Log("[GameSpawner] ⚽ Master Client a spawné le ballon de foot");
         }
 
-        Transform spawnPoint = null;
-        if (spawnPoints != null && spawnPoints.Length > 0)
+        // Chaque joueur spawne ses propres boules
+        TrySpawnLocalPlayer(runner);
+    }
+
+    // ✅ CALLBACK FUSION : Quand un joueur rejoint
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        string playerName = PlayerNamesManager.Instance?.GetPlayerName(player) ?? $"Joueur {player.PlayerId}";
+        Debug.Log($"[GameSpawner] 👤 {playerName} a rejoint");
+        UIManager.Instance?.ShowMessage($"✅ {playerName} a rejoint la partie", 3f);
+    }
+
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    {
+        string playerName = PlayerNamesManager.Instance?.GetPlayerName(player) ?? $"Joueur {player.PlayerId}";
+        Debug.Log($"[GameSpawner] 👤 {playerName} a quitté");
+        UIManager.Instance?.ShowMessage($"❌ {playerName} a quitté la partie !", 5f);
+    }
+
+    private void TrySpawnLocalPlayer(NetworkRunner runner)
+    {
+        if (_hasSpawnedLocalPlayer) return;
+
+        PlayerRef localPlayer = runner.LocalPlayer;
+        if (!localPlayer.IsValid)
         {
-            for (int i = 0; i < spawnPoints.Length; i++)
+            Debug.LogWarning("[GameSpawner] ⚠️ LocalPlayer pas valide");
+            return;
+        }
+
+        // ✅ Détermine qui on est :
+        // - Master Client (premier arrivé) = PlayerId 0
+        // - Autre = PlayerId 1
+        bool isMaster = runner.IsSharedModeMasterClient;
+        int playerIndex = isMaster ? 0 : 1;
+        NetworkPrefabRef prefab = isMaster ? player1Prefab : player2Prefab;
+        Transform[] spawnPoints = isMaster ? player1SpawnPoints : player2SpawnPoints;
+
+        Debug.Log($"[GameSpawner] Spawn pour joueur {playerIndex} (Master: {isMaster})");
+
+        if (prefab == null)
+        {
+            Debug.LogError($"[GameSpawner] ❌ Prefab pour joueur {playerIndex} est null !");
+            return;
+        }
+
+        if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError($"[GameSpawner] ❌ Spawn points pour joueur {playerIndex} est vide !");
+            return;
+        }
+
+        // Spawn chaque boule
+        foreach (Transform spawnPoint in spawnPoints)
+        {
+            if (spawnPoint == null) continue;
+
+            Vector3 pos = spawnPoint.position;
+
+            try
             {
-                spawnPoint = spawnPoints[i];
-                if (prefabToSpawn == null)
-                {
-                    Debug.LogError($"[GameSpawner] ❌ Le prefab pour le Joueur {playerIndex + 1} n'est pas assigné dans l'Inspecteur !");
-                    return;
-                }
-
-                Vector3 spawnPos = spawnPoint != null ? spawnPoint.position : Vector3.zero;
-                // Spawn de la bille du joueur local
-                NetworkObject spawnedObj = Runner.Spawn(
-                    prefabToSpawn,
-                    spawnPos,
+                // ✅ Chaque client spawne ses boules avec InputAuthority sur lui-même
+                NetworkObject spawnedBall = runner.Spawn(
+                    prefab,
+                    pos,
                     Quaternion.identity,
-                    inputAuthority: localPlayer
+                    inputAuthority: localPlayer  // ← Ce joueur contrôle cette boule
                 );
-                if (spawnedObj != null)
-                {
-                    _hasSpawnedLocalPlayer = true;
 
-                    // Correction CS0411 : Spécification explicite du type générique pour TryGetComponent
-                    if (spawnedObj.TryGetComponent<BallAimController>(out var ball))
+                if (spawnedBall != null)
+                {
+                    // ✅ Enregistrer le propriétaire dans le composant
+                    if (spawnedBall.TryGetComponent<BallAimController>(out var ball))
                     {
                         ball.SetOwner(localPlayer.PlayerId);
                     }
 
-                    Debug.Log($"[GameSpawner] ✅ Bille du Joueur {playerIndex + 1} (PlayerId: {localPlayer.PlayerId}) spawnée au bon emplacement !");
+                    Debug.Log($"[GameSpawner] ✅ Boule spawnée pour joueur {playerIndex} à {pos}");
+                }
+                else
+                {
+                    Debug.LogError("[GameSpawner] ❌ Spawn a retourné null !");
                 }
             }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[GameSpawner] ❌ Exception lors du spawn : {ex.Message}");
+            }
         }
-        else
+
+        _hasSpawnedLocalPlayer = true;
+        Debug.Log($"[GameSpawner] ✅ Boules du joueur {playerIndex} spawnées avec succès");
+    }
+
+    private void SpawnSoccerBall(NetworkRunner runner)
+    {
+        if (soccerBallPrefab == null)
         {
-            spawnPoint = null;
+            Debug.LogWarning("[GameSpawner] ⚠️ Ballon prefab non assigné");
+            return;
+        }
+
+        Vector3 pos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
+
+        try
+        {
+            // ✅ Master Client spawne le ballon (InputAuthority = none, State Authority = Master)
+            NetworkObject ball = runner.Spawn(soccerBallPrefab, pos, Quaternion.identity);
+
+            if (ball != null)
+            {
+                Debug.Log("[GameSpawner] ⚽ Ballon de foot spawné avec succès");
+            }
+            else
+            {
+                Debug.LogError("[GameSpawner] ❌ Spawn du ballon a retourné null !");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[GameSpawner] ❌ Exception lors du spawn du ballon : {ex.Message}");
         }
     }
 
-    
-    public override void Spawned()
+    // =========================================================================
+    // IMPLÉMENTATION INetworkRunnerCallbacks (obligatoire)
+    // =========================================================================
+
+    public void OnInput(NetworkRunner runner, NetworkInput input) { }
+    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+    public void OnConnectedToServer(NetworkRunner runner) { }
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
-        Debug.Log("[GameSpawner] GameSpawner activé sur le réseau !");
+        Debug.Log($"[GameSpawner] 🌐 Déconnecté: {reason}");
+        UIManager.Instance?.ShowMessagePermanent($"⚠️ Déconnecté: {reason}");
+    }
 
-        // 1. Spawner le ballon de foot (une seule fois par la State Authority / Premier arrivé)
-        if (HasStateAuthority && soccerBallPrefab != null)
-        {
-            Vector3 pos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
-            Runner.Spawn(soccerBallPrefab, pos, Quaternion.identity);
-            Debug.Log("[GameSpawner] Ballon de foot spawné par le Master/StateAuthority.");
-        }
+    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
 
-        // 2. Le joueur est déjà connecté quand la scène charge : on force le spawn de sa bille
-        TrySpawnLocalPlayer();
-    }    
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        Debug.Log($"[GameSpawner] ❌ Connexion échouée: {reason}");
+        UIManager.Instance?.ShowMessagePermanent($"❌ Connexion échouée: {reason}");
+    }
 
+    public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
+    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+    public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+    public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) { }
+    public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+    public void OnSceneLoadStart(NetworkRunner runner) { }
+    public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 }
