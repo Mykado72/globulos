@@ -1452,7 +1452,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1595678628}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb93e4eae1907a24188847f49f2baeca, type: 3}
   m_Name: 
@@ -1487,13 +1487,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba675a6aaa25c054aa709e4f772d2dfa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nicknameInput: {fileID: 1460968149}
+  defaultRoomName: Room1
+  runnerPrefab: {fileID: 5799743926965882535, guid: 9df887ee9d6d7c14b993e825efe5bc47, type: 3}
+  roomNameInput: {fileID: 0}
   playButton: {fileID: 1703565070}
   statusText: {fileID: 1150031957}
-  gameSceneName: GameScene
-  playerDataPrefab:
-    RawGuidValue: ee61f98f04be88745a88ebef20ab5cf6
-  sceneAsset: {fileID: 102900000, guid: f60a36e664af13d4f9058f194665f763, type: 3}
+  playersNickname: {fileID: 2016353185}
 --- !u!4 &1609862376
 Transform:
   m_ObjectHideFlags: 0

@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -17,7 +18,8 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [Header("UI")]
     [SerializeField] private InputField roomNameInput;
     [SerializeField] private Button playButton;
-    [SerializeField] private Text statusText; // Optionnel : pour afficher l'état à l'écran
+    [SerializeField] private TextMeshProUGUI statusText;
+    [SerializeField] private TextMeshProUGUI playersNickname;
 
     private NetworkRunner _currentRunner;
 

@@ -822,15 +822,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d4cd863236a98a049b771c4358c558ac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  player1Prefab: {fileID: 5520356289826364502, guid: 9e0991abd4d3e434a9fb4d53753b3a39, type: 3}
-  player2Prefab: {fileID: 1185025127651573696, guid: c6c2370de28bcf348bf6d5efc400ca7f, type: 3}
-  player1SpawnPoint:
+  player1Prefab:
+    RawGuidValue: 9e0991abd4d3e434a9fb4d53753b3a39
+  player2Prefab:
+    RawGuidValue: c6c2370de28bcf348bf6d5efc400ca7f
+  player1SpawnPoints:
   - {fileID: 1275673257}
   - {fileID: 1327881188}
-  player2SpawnPoint:
+  player2SpawnPoints:
   - {fileID: 1110581526}
   - {fileID: 724747506}
-  soccerBallPrefab: {fileID: 5520356289826364502, guid: 8c5b7e586afd8d145b0d538f3a01fdd3, type: 3}
+  soccerBallPrefab:
+    RawGuidValue: 8c5b7e586afd8d145b0d538f3a01fdd3
   soccerBallSpawnPoint: {fileID: 1713514857}
 --- !u!114 &615587329
 MonoBehaviour:
@@ -849,8 +852,7 @@ MonoBehaviour:
   EnableInterpolation: 1
   Flags: 262146
   NestedObjects: []
-  NetworkedBehaviours:
-  - {fileID: 615587328}
+  NetworkedBehaviours: []
   ForceRemoteRenderTimeframe: 0
 --- !u!1 &673820177
 GameObject:
