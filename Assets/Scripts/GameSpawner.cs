@@ -65,7 +65,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private async void TrySpawnLocalPlayer(NetworkRunner runner)
     {
-        // Verrouillage immédiat pour éviter les déclenchements multiples via Update
         if (_hasSpawnedLocalPlayer || _isSpawning) return;
         _isSpawning = true;
 
@@ -76,12 +75,27 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
-        // Le Master Client (premier connecté) prend le prefab 1, le second prend le prefab 2
         bool isPlayer1 = runner.IsSharedModeMasterClient;
         NetworkPrefabRef prefab = isPlayer1 ? player1Prefab : player2Prefab;
         Transform[] spawnPoints = isPlayer1 ? player1SpawnPoints : player2SpawnPoints;
 
-        Debug.Log($"[GameSpawner] 👤 Début du spawn pour le Joueur {(isPlayer1 ? 1 : 2)}");
+        // ✅ Récupération dynamique du surnom depuis l'instance de PlayerData
+        string playerNickname = $"Joueur {(isPlayer1 ? 1 : 2)}";
+
+        PlayerData[] allPlayerData = FindObjectsOfType<PlayerData>();
+        foreach (var pd in allPlayerData)
+        {
+            if (pd.Object != null && pd.Object.InputAuthority == localPlayer)
+            {
+                if (!string.IsNullOrEmpty(pd.Nickname))
+                {
+                    playerNickname = pd.Nickname;
+                }
+                break;
+            }
+        }
+
+        Debug.Log($"[GameSpawner] 👤 Début du spawn pour : {playerNickname}");
 
         if (prefab == null || spawnPoints == null || spawnPoints.Length == 0)
         {
@@ -105,7 +119,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
                 if (spawnedBall != null)
                 {
-                    // ✅ Spécification explicite du composant BallAimController
                     if (spawnedBall.TryGetComponent(out BallAimController ballController))
                     {
                         ballController.SetOwner(localPlayer.PlayerId);
@@ -120,7 +133,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
         _hasSpawnedLocalPlayer = true;
         _isSpawning = false;
-        Debug.Log("[GameSpawner] ✅ Spawn terminé !");
+        Debug.Log($"[GameSpawner] ✅ Spawn terminé pour {playerNickname} !");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)

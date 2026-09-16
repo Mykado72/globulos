@@ -41,6 +41,7 @@ public class TurnUI : MonoBehaviour
         {
             int winnerId = TurnManager.Instance.WinnerPlayerId;
             bool isDraw = winnerId < 0;
+            string winnerName = TurnManager.Instance.GetPlayerName(winnerId);
 
             if (panelDRAW != null) panelDRAW.SetActive(isDraw);
             if (panelWIN != null) panelWIN.SetActive(!isDraw);
@@ -58,7 +59,7 @@ public class TurnUI : MonoBehaviour
             {
                 stateText.text = isDraw
                     ? "Match nul !"
-                    : $"🎉 Victoire du Joueur {winnerId} !";
+                    : $"🎉 Victoire du Joueur {winnerName} !";
             }
 
             return;
@@ -113,7 +114,8 @@ public class TurnUI : MonoBehaviour
             if (isDeadNow && !wasDead)
             {
                 int ownerId = ball.OwnerPlayerId;
-                _eventMessage = $"💥 Une bille du Joueur {ownerId} est tombée dans un but !";
+                string ownerName = TurnManager.Instance != null ? TurnManager.Instance.GetPlayerName(ownerId) : $"Joueur {ownerId}";
+                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !"; // ✅ Pseudo au lieu de ID
                 _eventMessageTimer = ballDownMessageDuration;
             }
 

@@ -240,7 +240,10 @@ public partial class TurnManager : NetworkBehaviour
         IsTurnBased = false;
         CurrentState = TurnState.Finished;
 
-        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerId, -1));
+        string winnerName = GetPlayerName(winnerId);
+        Debug.Log($"[TurnManager] 🎊 VICTOIRE de {winnerName} !");
+
+        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerName, "looser"));
     }
 
     // Vérifie si au moins une bille du jeu est en mouvement
@@ -254,13 +257,12 @@ public partial class TurnManager : NetworkBehaviour
     }
     private void EndGameWinBySoccerGoal(int winnerId)
     {
-        Debug.Log($"[TurnManager] ⚽🎊 BUT ! Gagnant: Joueur {winnerId}");
-
         WinnerPlayerId = winnerId;
         IsTurnBased = false;
         CurrentState = TurnState.Finished;
-
-        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerId, -1));
+        string winnerName = GetPlayerName(winnerId);
+        Debug.Log($"[TurnManager] ⚽🎊 BUT ! Gagnant : {winnerName}");
+        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerName, "looser"));
     }
 
     private void EndGameDraw()
@@ -269,10 +271,10 @@ public partial class TurnManager : NetworkBehaviour
         IsTurnBased = false;
         CurrentState = TurnState.Finished;
 
-        StartCoroutine(ReloadSceneAfterDelay("DRAW", -1, -1));
+        StartCoroutine(ReloadSceneAfterDelay("DRAW", "",""));
     }
 
-    private IEnumerator ReloadSceneAfterDelay(string result, int winner = -1, int loser = -1)
+    private IEnumerator ReloadSceneAfterDelay(string result, string winner, string loser)
     {
         yield return new WaitForSeconds(2f);
 
@@ -314,7 +316,6 @@ public partial class TurnManager : NetworkBehaviour
         }
     }
 
-    // Ajout de la propriété pour corriger l'erreur CS0103
     public bool IsAimingPhase
     {
         get { return CurrentState == TurnState.Aiming; }
@@ -325,5 +326,18 @@ public partial class TurnManager : NetworkBehaviour
             else if (CurrentState == TurnState.Aiming)
                 CurrentState = TurnState.Resolution;
         }
+    }
+
+    // ✅ Récupère le pseudo associé à un PlayerId via PlayerData
+    public string GetPlayerName(int playerId)
+    {
+        foreach (var player in FindObjectsOfType<PlayerData>())
+        {
+            if (player.Object != null && player.Object.InputAuthority.PlayerId == playerId)
+            {
+                return player.Nickname;
+            }
+        }
+        return $"Joueur {playerId}";
     }
 }
