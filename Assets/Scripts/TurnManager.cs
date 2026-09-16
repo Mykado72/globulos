@@ -300,34 +300,6 @@ public partial class TurnManager : NetworkBehaviour
         return 0f;
     }
 
-    // Appelée quand le temps de visée s'écoule ou que tous les joueurs ont validé leur tir
-    public void ResolvePhase()
-    {
-        // Passer l'état du jeu en résolution
-        IsAimingPhase = false;
-
-        // Déclencher le tir de toutes les billes qui ont une force en attente
-        foreach (var ball in BallAimController.AllBalls)
-        {
-            if (ball != null)
-            {
-                ball.ExecuteQueuedShot();
-            }
-        }
-    }
-
-    public bool IsAimingPhase
-    {
-        get { return CurrentState == TurnState.Aiming; }
-        set
-        {
-            if (value)
-                CurrentState = TurnState.Aiming;
-            else if (CurrentState == TurnState.Aiming)
-                CurrentState = TurnState.Resolution;
-        }
-    }
-
     // ✅ Récupère le pseudo associé à un PlayerId via PlayerData
     public string GetPlayerName(int playerId)
     {

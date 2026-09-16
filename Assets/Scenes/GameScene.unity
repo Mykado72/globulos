@@ -448,8 +448,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaultTurnBasedMode: 1
-  aimDuration: 10
-  resolutionSettleDuration: 0.2
+  aimDuration: 7
+  resolutionSettleDuration: 0.25
   _IsTurnBased:
     RawValue: 1
   _CurrentState: 0
@@ -926,7 +926,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -26.799805, y: 491.58545}
+  m_AnchoredPosition: {x: -26.799805, y: 548}
   m_SizeDelta: {x: -1632.491, y: -983.171}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &720778260
@@ -1052,7 +1052,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 531.5
+  orthographic size: 500
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -1135,8 +1135,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -29.154297, y: -489.74854}
-  m_SizeDelta: {x: -1092.1372, y: -979.4972}
+  m_AnchoredPosition: {x: -29.154297, y: -568.72565}
+  m_SizeDelta: {x: -1092.1372, y: -1062.9485}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &851737342
 MonoBehaviour:
@@ -1942,7 +1942,7 @@ MonoBehaviour:
   m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 1920, y: 1080}
+  m_ReferenceResolution: {x: 2556, y: 1179}
   m_ScreenMatchMode: 0
   m_MatchWidthOrHeight: 0
   m_PhysicalUnit: 3

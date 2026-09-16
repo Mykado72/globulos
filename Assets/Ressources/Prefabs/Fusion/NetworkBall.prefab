@@ -101,9 +101,9 @@ Rigidbody2D:
   m_Simulated: 1
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
-  m_Mass: 1
-  m_LinearDrag: 0.75
-  m_AngularDrag: 1
+  m_Mass: 0.35
+  m_LinearDrag: 0.5
+  m_AngularDrag: 0.5
   m_GravityScale: 0
   m_Material: {fileID: 6200000, guid: eed95a684a63afd4b94c2c28cc9209ac, type: 2}
   m_Interpolate: 0
@@ -140,8 +140,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SortKey: 3035607795
   SendPriority: 1
-  EnableInterpolation: 1
-  Flags: 258
+  EnableInterpolation: 0
+  Flags: 131330
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 5941013327794056758}

@@ -18,6 +18,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [Header("Configuration")]
     [SerializeField] private string defaultRoomName = "COGEP";
     [SerializeField] private NetworkRunner runnerPrefab;
+    [SerializeField] private int nbOfPlayers = 3;
 
     [Header("UI")]
     [SerializeField] private TMP_InputField roomNameInput;
@@ -25,9 +26,10 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private Button playButton;
     [SerializeField] private TextMeshProUGUI statusText;
     [SerializeField] private TextMeshProUGUI playersNickname;
+    [SerializeField] private TextMeshProUGUI playersListText;
 
     private NetworkRunner _currentRunner;
-    private string _playerNickname;  // ✅ Stocke le pseudo local
+    public string _playerNickname;  // ✅ Stocke le pseudo local
 
     private void Start()
     {
@@ -62,8 +64,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         // ✅ Sauvegarde le pseudo
         PlayerPrefs.SetString("PlayerNickname", _playerNickname);
         PlayerPrefs.Save();
-        Debug.Log($"[LobbyManager] ✅ Pseudo enregistré : {_playerNickname}");
-
+        
         string roomName = defaultRoomName;
         if (roomNameInput != null && !string.IsNullOrEmpty(roomNameInput.text))
         {
@@ -72,6 +73,26 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         UpdateStatus($"Connexion en tant que '{_playerNickname}'...");
         await StartGameSession(roomName);
+    }
+
+    public void RefreshPlayersList()
+    {
+        if (_currentRunner == null) return;
+
+        string playersList = "🎮 Joueurs connectés:\n";
+        string nickname = "";
+
+        foreach (var playerData in GetAllPlayerData())
+        {
+            nickname = playerData.GetNickname();
+            playersList += $"✅ {nickname}\n";
+
+        }
+
+        if (playersListText != null)
+        {
+            playersListText.text = playersList;
+        }
     }
 
     private async Task StartGameSession(string roomName)
@@ -104,6 +125,17 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             sceneManager = concreteSceneManager;
         }
 
+        // ✅ Récupère et valide le pseudo
+        if (!string.IsNullOrEmpty(playerNicknameInput.text))
+        {
+            _playerNickname = playerNicknameInput.text.Trim();
+        }
+
+        if (string.IsNullOrEmpty(_playerNickname))
+        {
+            _playerNickname = "Joueur";
+        }
+
         // ✅ Envoie le pseudo au serveur Fusion via le ConnectionToken
         byte[] token = System.Text.Encoding.UTF8.GetBytes(_playerNickname);
 
@@ -130,20 +162,10 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
-    {
-        Debug.Log($"[LobbyManager] 👤 Joueur {player.PlayerId} : {_playerNickname} a rejoint");
-
-        // ✅ NOUVEAU : Enregistrer le pseudo du joueur local
-        if (player == runner.LocalPlayer)
-        {
-            if (PlayerNamesManager.Instance != null)
-            {
-                PlayerNamesManager.Instance.SetPlayerName(player.PlayerId, _playerNickname);
-                Debug.Log($"[LobbyManager] ✅ Pseudo du joueur local enregistré : {_playerNickname}");
-            }
-        }
+    {       
 
         CheckPlayersAndStartGame();
+        RefreshPlayersList();
     }
 
     private void CheckPlayersAndStartGame()
@@ -155,28 +177,36 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (playersNickname != null)
         {
             string nicknames = "";
-            foreach (var player in _currentRunner.ActivePlayers)
-            {
-                if (!string.IsNullOrEmpty(nicknames)) nicknames += " vs ";
-
-                // Récupère le pseudo depuis le Token si PlayerNamesManager n'a pas encore reçu la donnée réseau
-                byte[] token = _currentRunner.GetPlayerConnectionToken(player);
-                string name = (token != null && token.Length > 0)
-                    ? System.Text.Encoding.UTF8.GetString(token)
-                    : $"Joueur {player.PlayerId}";
-
-                nicknames += name;
-            }
             playersNickname.text = nicknames;
         }
 
-        UpdateStatus($"Joueurs connectés : {count}/2");
-
-        if (_currentRunner.IsSharedModeMasterClient && count >= 2)
+        UpdateStatus($"Joueurs connectés : {count}/{nbOfPlayers}");
+        if (_currentRunner.IsSharedModeMasterClient && count >= nbOfPlayers)
         {
             var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameScene"));
             _currentRunner.LoadScene(sceneRef);
         }
+    }
+
+    private PlayerData[] GetAllPlayerData()
+    {
+        PlayerData[] allPlayerData = FindObjectsByType<PlayerData>(FindObjectsSortMode.None);
+        return allPlayerData;
+     }
+
+
+    public PlayerData GetPlayerDataById(int playerId)
+    {
+        foreach (var playerData in FindObjectsOfType<PlayerData>())
+        {
+            if ((playerData.Object != null) && (playerData.PlayerId == playerId))
+            {
+                Debug.Log($"[LobbyManager] 🔍 Trouvé PlayerData pour ID {playerId}: {playerData.GetNickname()}");
+                return playerData;
+            }
+        }
+        Debug.Log($"[LobbyManager] 🔍 pas de PlayerData Trouvé pour ID {playerId}");
+        return null;
     }
 
     private void UpdateStatus(string message)

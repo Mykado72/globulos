@@ -57,6 +57,20 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log("[GameSpawner] 📍 OnSceneLoadDone (appelé par Master Client)");
 
+        // ✅ Enregistre les pseudos de TOUS les joueurs
+        if (PlayerNamesManager.Instance != null)
+        {
+            foreach (var player in runner.ActivePlayers)
+            {
+                byte[] token = runner.GetPlayerConnectionToken(player);
+                if (token != null && token.Length > 0)
+                {
+                    string nickname = System.Text.Encoding.UTF8.GetString(token);
+                    PlayerNamesManager.Instance.SetPlayerName(player.PlayerId, nickname);
+                }
+            }
+        }
+
         if (runner.IsSharedModeMasterClient && !_hasSpawnedBall)
         {
             _hasSpawnedBall = true;
@@ -143,7 +157,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
         _hasSpawnedLocalPlayer = true;
         _isSpawning = false;
-        Debug.Log("[GameSpawner] ✅ Spawn terminé !");
+        // Debug.Log("[GameSpawner] ✅ Spawn terminé !");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
@@ -186,6 +200,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
+        byte[] token = runner.GetPlayerConnectionToken(player);
         Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a quitté");
     }
 

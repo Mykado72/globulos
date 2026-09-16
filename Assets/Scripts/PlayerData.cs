@@ -28,6 +28,12 @@ public class PlayerData : NetworkBehaviour
         PlayerId = playerId;
     }
 
+    public string GetNickname()
+    {
+        return Nickname;
+    }
+
+    /*
     private void OnNicknameChanged()
     {
         // Quand le pseudo est répliqué par le réseau, on met à jour le PlayerNamesManager local
@@ -37,4 +43,5 @@ public class PlayerData : NetworkBehaviour
             Debug.Log($"[PlayerData] 🌐 Pseudo réseau mis à jour : {Nickname} pour l'ID {PlayerId}");
         }
     }
+    */
 }
