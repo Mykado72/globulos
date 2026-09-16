@@ -4,6 +4,10 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// ✅ VERSION AMÉLIORÉE
+/// - Intègre PlayerData avec le pseudo
+/// - Synchronise le pseudo en réseau
+/// - Enregistre le pseudo dans PlayerNamesManager
 public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef player1Prefab;
@@ -13,7 +17,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private NetworkPrefabRef soccerBallPrefab;
     [SerializeField] private Transform soccerBallSpawnPoint;
 
-    private bool _isSpawning = false; // Flag anti-relecture immédiat
+    private bool _isSpawning = false;
     private bool _hasSpawnedLocalPlayer = false;
     private bool _hasSpawnedBall = false;
     private NetworkRunner _runner;
@@ -24,7 +28,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-            Debug.Log("[GameSpawner] Runner trouvé et enregistré");
+            Debug.Log("[GameSpawner] ✅ Runner trouvé et enregistré");
         }
         else
         {
@@ -32,7 +36,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    // ✅ NOUVEAU : Vérifie chaque frame si le Runner est prêt
     private void Update()
     {
         if (!_hasSpawnedLocalPlayer && _runner != null && _runner.IsRunning)
@@ -54,7 +57,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log("[GameSpawner] 📍 OnSceneLoadDone (appelé par Master Client)");
 
-        // Master Client spawne le ballon (une seule fois)
         if (runner.IsSharedModeMasterClient && !_hasSpawnedBall)
         {
             _hasSpawnedBall = true;
@@ -75,27 +77,20 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
+        // ✅ Récupère le pseudo depuis le token Fusion du joueur local
+        string playerNickname = $"Joueur {localPlayer.PlayerId}";
+        byte[] token = runner.GetPlayerConnectionToken(localPlayer);
+
+        if (token != null && token.Length > 0)
+        {
+            playerNickname = System.Text.Encoding.UTF8.GetString(token);
+        }
+
         bool isPlayer1 = runner.IsSharedModeMasterClient;
         NetworkPrefabRef prefab = isPlayer1 ? player1Prefab : player2Prefab;
         Transform[] spawnPoints = isPlayer1 ? player1SpawnPoints : player2SpawnPoints;
 
-        // ✅ Récupération dynamique du surnom depuis l'instance de PlayerData
-        string playerNickname = $"Joueur {(isPlayer1 ? 1 : 2)}";
-
-        PlayerData[] allPlayerData = FindObjectsOfType<PlayerData>();
-        foreach (var pd in allPlayerData)
-        {
-            if (pd.Object != null && pd.Object.InputAuthority == localPlayer)
-            {
-                if (!string.IsNullOrEmpty(pd.Nickname))
-                {
-                    playerNickname = pd.Nickname;
-                }
-                break;
-            }
-        }
-
-        Debug.Log($"[GameSpawner] 👤 Début du spawn pour : {playerNickname}");
+        Debug.Log($"[GameSpawner] 👤 Début du spawn pour le Joueur {(isPlayer1 ? 1 : 2)}");
 
         if (prefab == null || spawnPoints == null || spawnPoints.Length == 0)
         {
@@ -119,6 +114,21 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
                 if (spawnedBall != null)
                 {
+                    // Ne définir le pseudo que si le joueur local possède l'autorité sur ce NetworkObject
+                    if (spawnedBall.HasInputAuthority)
+                    {
+                        if (spawnedBall.TryGetComponent(out PlayerData playerData))
+                        {
+                            playerData.RPC_SetNickname(playerNickname, localPlayer.PlayerId);
+                            Debug.Log($"[GameSpawner] ✅ Pseudo local envoyé au réseau : {playerNickname} (ID: {localPlayer.PlayerId})");
+                        }
+
+                        if (PlayerNamesManager.Instance != null)
+                        {
+                            PlayerNamesManager.Instance.SetPlayerName(localPlayer.PlayerId, playerNickname);
+                        }
+                    }
+
                     if (spawnedBall.TryGetComponent(out BallAimController ballController))
                     {
                         ballController.SetOwner(localPlayer.PlayerId);
@@ -133,7 +143,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
         _hasSpawnedLocalPlayer = true;
         _isSpawning = false;
-        Debug.Log($"[GameSpawner] ✅ Spawn terminé pour {playerNickname} !");
+        Debug.Log("[GameSpawner] ✅ Spawn terminé !");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
@@ -186,7 +196,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
-    public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }

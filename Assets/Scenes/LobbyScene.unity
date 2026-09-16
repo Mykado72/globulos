@@ -1490,6 +1490,7 @@ MonoBehaviour:
   defaultRoomName: Room1
   runnerPrefab: {fileID: 5799743926965882535, guid: 9df887ee9d6d7c14b993e825efe5bc47, type: 3}
   roomNameInput: {fileID: 0}
+  playerNicknameInput: {fileID: 1460968149}
   playButton: {fileID: 1703565070}
   statusText: {fileID: 1150031957}
   playersNickname: {fileID: 2016353185}
