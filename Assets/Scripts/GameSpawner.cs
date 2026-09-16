@@ -13,6 +13,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private NetworkPrefabRef soccerBallPrefab;
     [SerializeField] private Transform soccerBallSpawnPoint;
 
+    private bool _isSpawning = false; // Flag anti-relecture immédiat
     private bool _hasSpawnedLocalPlayer = false;
     private bool _hasSpawnedBall = false;
     private NetworkRunner _runner;
@@ -62,33 +63,30 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    private void TrySpawnLocalPlayer(NetworkRunner runner)
+    private async void TrySpawnLocalPlayer(NetworkRunner runner)
     {
-        if (_hasSpawnedLocalPlayer) return;
+        // Verrouillage immédiat pour éviter les déclenchements multiples via Update
+        if (_hasSpawnedLocalPlayer || _isSpawning) return;
+        _isSpawning = true;
 
         PlayerRef localPlayer = runner.LocalPlayer;
         if (!localPlayer.IsValid)
         {
-            Debug.LogWarning("[GameSpawner] ⚠️ LocalPlayer pas valide, on réessaie...");
+            _isSpawning = false;
             return;
         }
 
-        bool isMaster = runner.IsSharedModeMasterClient;
-        int playerIndex = isMaster ? 0 : 1;
-        NetworkPrefabRef prefab = isMaster ? player1Prefab : player2Prefab;
-        Transform[] spawnPoints = isMaster ? player1SpawnPoints : player2SpawnPoints;
+        // Le Master Client (premier connecté) prend le prefab 1, le second prend le prefab 2
+        bool isPlayer1 = runner.IsSharedModeMasterClient;
+        NetworkPrefabRef prefab = isPlayer1 ? player1Prefab : player2Prefab;
+        Transform[] spawnPoints = isPlayer1 ? player1SpawnPoints : player2SpawnPoints;
 
-        Debug.Log($"[GameSpawner] 👤 Spawn pour joueur {playerIndex} (Master: {isMaster})");
+        Debug.Log($"[GameSpawner] 👤 Début du spawn pour le Joueur {(isPlayer1 ? 1 : 2)}");
 
-        if (prefab == null)
+        if (prefab == null || spawnPoints == null || spawnPoints.Length == 0)
         {
-            Debug.LogError($"[GameSpawner] ❌ Prefab pour joueur {playerIndex} est null !");
-            return;
-        }
-
-        if (spawnPoints == null || spawnPoints.Length == 0)
-        {
-            Debug.LogError($"[GameSpawner] ❌ Spawn points pour joueur {playerIndex} est vide !");
+            Debug.LogError("[GameSpawner] ❌ Prefab ou SpawnPoints manquants !");
+            _isSpawning = false;
             return;
         }
 
@@ -96,39 +94,33 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             if (spawnPoint == null) continue;
 
-            Vector3 pos = spawnPoint.position;
-
             try
             {
-                NetworkObject spawnedBall = runner.Spawn(
+                NetworkObject spawnedBall = await runner.SpawnAsync(
                     prefab,
-                    pos,
+                    spawnPoint.position,
                     Quaternion.identity,
                     inputAuthority: localPlayer
                 );
 
                 if (spawnedBall != null)
                 {
-                    if (spawnedBall.TryGetComponent<BallAimController>(out var ball))
+                    // ✅ Spécification explicite du composant BallAimController
+                    if (spawnedBall.TryGetComponent(out BallAimController ballController))
                     {
-                        ball.SetOwner(localPlayer.PlayerId);
+                        ballController.SetOwner(localPlayer.PlayerId);
                     }
-
-                    Debug.Log($"[GameSpawner] ✅ Boule spawnée pour joueur {playerIndex}");
-                }
-                else
-                {
-                    Debug.LogError("[GameSpawner] ❌ Spawn a retourné null !");
                 }
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[GameSpawner] ❌ Exception: {ex.Message}");
+                Debug.LogError($"[GameSpawner] ❌ Exception Spawn: {ex.Message}");
             }
         }
 
         _hasSpawnedLocalPlayer = true;
-        Debug.Log($"[GameSpawner] ✅ Tous les boules du joueur {playerIndex} spawnées !");
+        _isSpawning = false;
+        Debug.Log("[GameSpawner] ✅ Spawn terminé !");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
