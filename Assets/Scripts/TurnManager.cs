@@ -60,11 +60,11 @@ public partial class TurnManager : NetworkBehaviour
                 TurnTimer = TickTimer.None;
             }
 
-            Debug.Log("[TurnManager] ✅ Serveur initialisé (State Authority)");
+            // Debug.Log("[TurnManager] ✅ Serveur initialisé (State Authority)");
         }
         else
         {
-            Debug.Log("[TurnManager] ℹ️ Client : reçoit les mises à jour du serveur");
+            // Debug.Log("[TurnManager] ℹ️ Client : reçoit les mises à jour du serveur");
         }
     }
 
@@ -271,7 +271,7 @@ public partial class TurnManager : NetworkBehaviour
         IsTurnBased = false;
         CurrentState = TurnState.Finished;
 
-        StartCoroutine(ReloadSceneAfterDelay("DRAW", "",""));
+        StartCoroutine(ReloadSceneAfterDelay("DRAW", "", ""));
     }
 
     private IEnumerator ReloadSceneAfterDelay(string result, string winner, string loser)
@@ -310,6 +310,14 @@ public partial class TurnManager : NetworkBehaviour
                 return player.Nickname;
             }
         }
+
+        // ✨ NEW : le bot (mode vs IA) n'a pas de PlayerData réseau,
+        // on retombe sur le nom enregistré localement par GameSpawner.
+        if (PlayerNamesManager.Instance != null)
+        {
+            return PlayerNamesManager.Instance.GetPlayerName(playerId);
+        }
+
         return $"Joueur {playerId}";
     }
 }

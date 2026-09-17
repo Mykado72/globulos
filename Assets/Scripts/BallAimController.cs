@@ -52,6 +52,16 @@ public class BallAimController : NetworkBehaviour
 
     [SerializeField] private float stationaryVelocityThreshold = 0.15f;
 
+    [Header("IA (bot)")]
+    [Tooltip("Décalage angulaire max (en degrés) ajouté à la visée de l'IA pour simuler l'imprécision.")]
+    [SerializeField, Range(0f, 45f)] private float aiAimInaccuracyDegrees = 12f;
+    [Tooltip("Fraction min de la force max utilisée par l'IA (l'autre borne étant 1 = force max).")]
+    [SerializeField, Range(0.5f, 1f)] private float aiMinForceFraction = 0.7f;
+
+    private bool _isBotControlled = false;
+    private bool _botHasQueuedThisTurn = false;
+    private GoalZone _aiTargetGoal;
+
     private Rigidbody2D _rb;
     private Camera _mainCamera;
     private NetworkObject _networkObject;
@@ -91,6 +101,17 @@ public class BallAimController : NetworkBehaviour
 
     public void SetOwner(int playerId) => OwnerPlayerId = playerId;
 
+    /// <summary>
+    /// ✨ NEW : Active/désactive le pilotage par IA de cette bille. Une bille "bot"
+    /// ignore la souris et vise automatiquement le but adverse pendant la phase Aiming.
+    /// </summary>
+    public void SetBotControlled(bool isBot)
+    {
+        _isBotControlled = isBot;
+        _botHasQueuedThisTurn = false;
+        _aiTargetGoal = null; // recalculé au prochain tour, une fois OwnerPlayerId défini
+    }
+
     public void ForceStopAiming()
     {
         IsAiming = false;
@@ -104,8 +125,8 @@ public class BallAimController : NetworkBehaviour
         _shaftTransform = shaftObj.transform;
         _shaftRenderer = shaftObj.AddComponent<SpriteRenderer>();
         _shaftRenderer.sprite = arrowShaftSprite != null ? arrowShaftSprite : GetOrCreateShaftSprite();
-        _shaftRenderer.sortingLayerName = arrowSortingLayerName; // ✅
         _shaftRenderer.sortingOrder = arrowSortingOrder;
+        _shaftRenderer.sortingLayerName = arrowSortingLayerName;
         _shaftRenderer.enabled = false;
 
         GameObject headObj = new GameObject("AimArrowHead");
@@ -113,8 +134,8 @@ public class BallAimController : NetworkBehaviour
         _headTransform = headObj.transform;
         _headRenderer = headObj.AddComponent<SpriteRenderer>();
         _headRenderer.sprite = arrowHeadSprite != null ? arrowHeadSprite : GetOrCreateHeadSprite();
-        _headRenderer.sortingLayerName = arrowSortingLayerName; // ✅
         _headRenderer.sortingOrder = arrowSortingOrder + 1;
+        _headRenderer.sortingLayerName = arrowSortingLayerName;
         _headRenderer.enabled = false;
     }
 
@@ -156,6 +177,13 @@ public class BallAimController : NetworkBehaviour
     {
         // 🔒 Sécurité : Seul le propriétaire de la bille voit et contrôle sa propre flèche
         if (!HasStateAuthority || IsDead) return;
+
+        // ✨ NEW : une bille pilotée par l'IA ne lit pas la souris, elle décide seule
+        if (_isBotControlled)
+        {
+            UpdateBotAiming();
+            return;
+        }
 
         // Si une force est déjà enregistrée en attente, on maintient la flèche affichée localement
         if (_localQueuedForce.sqrMagnitude > 0.01f && !IsAiming)
@@ -206,6 +234,69 @@ public class BallAimController : NetworkBehaviour
             _startDragPos = mouseWorld;
             _shaftRenderer.enabled = true;
             _headRenderer.enabled = true;
+        }
+    }
+
+    // =========================================================================
+    // ✨ NEW : Logique IA — niveau "intermédiaire" (vise le but adverse avec imprécision)
+    // =========================================================================
+
+    private void UpdateBotAiming()
+    {
+        if (TurnManager.Instance == null) return;
+
+        // On ne décide qu'une seule fois par phase de visée
+        if (TurnManager.Instance.CurrentState != TurnManager.TurnState.Aiming)
+        {
+            _botHasQueuedThisTurn = false;
+            return;
+        }
+
+        if (_botHasQueuedThisTurn) return;
+        if (TurnManager.Instance.IsAnyBallMoving()) return;
+
+        if (_aiTargetGoal == null) FindTargetGoal();
+
+        if (_aiTargetGoal == null)
+        {
+            Debug.LogWarning("[BallAimController] 🤖 Aucun but adverse trouvé, l'IA ne tire pas ce tour-ci");
+            _botHasQueuedThisTurn = true;
+            return;
+        }
+
+        Vector2 toGoal = (Vector2)_aiTargetGoal.transform.position - (Vector2)transform.position;
+        if (toGoal.sqrMagnitude < 0.0001f)
+        {
+            _botHasQueuedThisTurn = true;
+            return;
+        }
+
+        // ✅ Imprécision : décale légèrement l'angle de tir par rapport à la direction du but
+        float randomAngleOffset = Random.Range(-aiAimInaccuracyDegrees, aiAimInaccuracyDegrees);
+        Vector2 aimDirection = Quaternion.Euler(0f, 0f, randomAngleOffset) * toGoal.normalized;
+
+        // ✅ Force : proche du max, avec une petite variation pour paraître naturel
+        float forceMagnitude = maxForce * Random.Range(aiMinForceFraction, 1f);
+
+        _localQueuedForce = aimDirection * forceMagnitude;
+        _botHasQueuedThisTurn = true;
+
+        // Debug.Log($"[BallAimController] 🤖 IA (Joueur {OwnerPlayerId}) vise le but adverse — force={_localQueuedForce}");
+    }
+
+    private void FindTargetGoal()
+    {
+        GoalZone.GoalTeam ownTeam = (OwnerPlayerId % 2 == 0) ? GoalZone.GoalTeam.Jaune : GoalZone.GoalTeam.Rouge;
+
+        // Le but à viser est celui qui défend l'équipe adverse
+        // (si NOTRE bille y pousse le ballon, c'est NOTRE équipe qui marque).
+        foreach (GoalZone goal in FindObjectsOfType<GoalZone>())
+        {
+            if (goal.DefendingTeam != ownTeam)
+            {
+                _aiTargetGoal = goal;
+                return;
+            }
         }
     }
 

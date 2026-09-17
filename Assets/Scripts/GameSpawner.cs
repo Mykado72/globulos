@@ -25,27 +25,19 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     private bool _hasSpawnedBall = false;
     private NetworkRunner _runner;
 
+    private bool _spawnAttempted = false;
+
     private void Start()
     {
         _runner = FindObjectOfType<NetworkRunner>();
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-            Debug.Log("[GameSpawner] ✅ Runner trouvé et enregistré");
+            // Debug.Log("[GameSpawner] ✅ Runner trouvé et enregistré");
         }
         else
         {
             Debug.LogError("[GameSpawner] ❌ Aucun NetworkRunner trouvé !");
-        }
-    }
-
-    private void Update()
-    {
-        // ✨ FIX: Check `!_isSpawning` pour éviter la race condition
-        if (!_hasSpawnedLocalPlayer && !_isSpawning && _runner != null && _runner.IsRunning)
-        {
-            Debug.Log("[GameSpawner] 🎮 Runner prêt, tentative de spawn...");
-            TrySpawnLocalPlayer(_runner);
         }
     }
 
@@ -59,9 +51,11 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnSceneLoadDone(NetworkRunner runner)
     {
-        Debug.Log("[GameSpawner] 📍 OnSceneLoadDone (appelé par Master Client)");
+        _ = TrySpawnLocalPlayer(runner);
+        // Debug.Log("[GameSpawner] 📍 OnSceneLoadDone (appelé par Master Client)");
 
         // ✅ Enregistre les pseudos de TOUS les joueurs
+        /*
         if (PlayerNamesManager.Instance != null)
         {
             foreach (var player in runner.ActivePlayers)
@@ -74,19 +68,20 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                 }
             }
         }
-
+        */
         if (runner.IsSharedModeMasterClient && !_hasSpawnedBall)
         {
             _hasSpawnedBall = true;
             SpawnSoccerBall(runner);
-            Debug.Log("[GameSpawner] ⚽ Master Client a spawné le ballon");
+            //Debug.Log("[GameSpawner] ⚽ Master Client a spawné le ballon");
         }
     }
 
-    private async void TrySpawnLocalPlayer(NetworkRunner runner)
+    private async System.Threading.Tasks.Task TrySpawnLocalPlayer(NetworkRunner runner)
     {
-        if (_hasSpawnedLocalPlayer || _isSpawning) return;
-        _isSpawning = true;
+        if (_hasSpawnedLocalPlayer || _isSpawning) return;        
+            _isSpawning = true;
+            _hasSpawnedLocalPlayer = true;     
 
         PlayerRef localPlayer = runner.LocalPlayer;
         if (!localPlayer.IsValid)
@@ -117,8 +112,14 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
+        // ✅ Une bille est spawnée pour CHAQUE spawn point défini (design : plusieurs
+        // billes par joueur), et non un seul point choisi au hasard.
+        int i = 0;
         foreach (Transform spawnPoint in spawnPoints)
-        {
+        {             
+            i++;
+            Debug.Log($"[GameSpawner] 🔍 Index: {i} | Point: {spawnPoint.name} | Frame: {Time.frameCount} | Time: {Time.time}");
+            // Debug.Log($"[GameSpawner] 🔹 Tentative de spawn de la bille {i} pour le Joueur {(isPlayer1 ? 1 : 2)}");
             if (spawnPoint == null) continue;
 
             try
@@ -129,7 +130,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                     Quaternion.identity,
                     inputAuthority: localPlayer
                 );
-
+                spawnedBall.name = $"Player {localPlayer.PlayerId}_Ball{i}";
                 if (spawnedBall != null)
                 {
                     // Ne définir le pseudo que si le joueur local possède l'autorité sur ce NetworkObject
@@ -159,8 +160,70 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        _hasSpawnedLocalPlayer = true;
+        // ✨ NEW : en mode vs IA, le Master Client (seul joueur présent) spawn aussi le bot
+        if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI && isPlayer1)
+        {
+            await SpawnBotPlayer(runner, localPlayer.PlayerId);
+        }
+
         _isSpawning = false;
+    }
+
+    /// <summary>
+    /// ✨ NEW : Spawn une bille "Joueur 2" par spawn point (même logique que pour le joueur
+    /// humain), chacune contrôlée par l'IA au lieu de la souris.
+    /// PlayerId = humanPlayerId + 1, ce qui garantit une parité opposée
+    /// (donc une équipe adverse) quel que soit le PlayerId réel attribué par Fusion.
+    /// </summary>
+    private async System.Threading.Tasks.Task SpawnBotPlayer(NetworkRunner runner, int humanPlayerId)
+    {
+        if (player2Prefab == null || player2SpawnPoints == null || player2SpawnPoints.Length == 0)
+        {
+            Debug.LogWarning("[GameSpawner] ⚠️ Impossible de spawn le bot : prefab/spawn points Joueur 2 manquants");
+            return;
+        }
+
+        int botPlayerId = humanPlayerId + 1;
+        int spawnedCount = 0;
+
+        foreach (Transform spawnPoint in player2SpawnPoints)
+        {
+            if (spawnPoint == null) continue;
+
+            try
+            {
+                // Pas d'inputAuthority : en mode Shared, le client qui spawn (le seul présent
+                // ici) devient automatiquement State Authority sur l'objet.
+                NetworkObject spawnedBall = await runner.SpawnAsync(player2Prefab, spawnPoint.position, Quaternion.identity);
+
+                if (spawnedBall != null && spawnedBall.TryGetComponent(out BallAimController ballController))
+                {
+                    ballController.SetOwner(botPlayerId);
+                    ballController.SetBotControlled(true);
+                    spawnedCount++;
+                }
+                else
+                {
+                    Debug.LogError("[GameSpawner] ❌ Échec du spawn du bot : composant BallAimController manquant");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[GameSpawner] ❌ Exception lors du spawn du bot: {ex.Message}");
+            }
+        }
+
+        if (spawnedCount > 0)
+        {
+            if (GameModeManager.Instance != null)
+            {
+                GameModeManager.Instance.BotPlayerId = botPlayerId;
+            }
+
+            PlayerNamesManager.Instance?.SetPlayerName(botPlayerId, "🤖 IA");
+        }
+
+        // Debug.Log($"[GameSpawner] 🤖 {spawnedCount} bille(s) IA spawnée(s) (PlayerId {botPlayerId})");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
@@ -179,7 +242,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
             if (ball != null)
             {
-                Debug.Log("[GameSpawner] ⚽ Ballon spawné avec succès");
+                // Debug.Log("[GameSpawner] ⚽ Ballon spawné avec succès");
             }
             else
             {

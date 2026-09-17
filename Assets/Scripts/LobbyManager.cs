@@ -30,6 +30,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private TMP_InputField roomNameInput;
     [SerializeField] private TMP_InputField playerNicknameInput;
     [SerializeField] private Button playButton;
+    [SerializeField] private Button playVsAIButton; // ✨ NEW : bouton "Jouer vs IA"
     [SerializeField] private TextMeshProUGUI statusText;
     [SerializeField] private TextMeshProUGUI playersNickname;
     [SerializeField] private TextMeshProUGUI playersListText;
@@ -39,6 +40,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     private NetworkRunner _currentRunner;
     private float _lastRefreshTime = 0f;  // ✨ Timer pour refresh périodique
     private bool _isInLobby = true;  // ✨ Flag pour savoir si on est au Lobby
+    private bool _isVsAIMode = false;  // ✨ NEW : vrai si la partie a été lancée via "Jouer vs IA"
 
     private void Start()
     {
@@ -48,6 +50,12 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (playButton != null)
         {
             playButton.onClick.AddListener(OnPlayButtonPressed);
+        }
+
+        // ✨ NEW : bouton pour jouer contre l'IA
+        if (playVsAIButton != null)
+        {
+            playVsAIButton.onClick.AddListener(OnPlayVsAIButtonPressed);
         }
 
         // ✅ Charge le pseudo sauvegardé (si existe)
@@ -65,7 +73,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         {
             _lastRefreshTime += Time.deltaTime;
 
-            if (_lastRefreshTime >= playerListRefreshInterval)
+            if ((_lastRefreshTime >= playerListRefreshInterval) && (_isVsAIMode != true))
             {
                 RefreshPlayersList();
                 _lastRefreshTime = 0f;
@@ -93,13 +101,62 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         PlayerPrefs.Save();
 
         string roomName = defaultRoomName;
+        
         if (roomNameInput != null && !string.IsNullOrEmpty(roomNameInput.text))
         {
             roomName = roomNameInput.text;
         }
-
+        
         UpdateStatus($"Connexion en tant que '{playerNickname}'...");
         await StartGameSession(roomName);
+    }
+
+    /// <summary>
+    /// ✨ NEW: Lance une partie solo contre l'IA. Ne nécessite aucun second joueur :
+    /// démarre la session immédiatement (voir CheckPlayersAndStartGame) et utilise
+    /// une room dédiée générée aléatoirement pour éviter qu'un vrai joueur ne
+    /// rejoigne par hasard une partie censée être vs IA.
+    /// </summary>
+    public async void OnPlayVsAIButtonPressed()
+    {
+        if (playButton != null) playButton.interactable = false;
+        if (playVsAIButton != null) playVsAIButton.interactable = false;
+
+        _isVsAIMode = true;
+
+        GameModeManager modeManager = GetOrCreateGameModeManager();
+        modeManager.ResetForNewSession();
+        modeManager.IsVsAI = true;
+
+        if (!string.IsNullOrEmpty(playerNicknameInput.text))
+        {
+            playerNickname = playerNicknameInput.text.Trim();
+        }
+        if (string.IsNullOrEmpty(playerNickname))
+        {
+            playerNickname = "Joueur";
+        }
+
+        PlayerPrefs.SetString("playerNickname", playerNickname);
+        PlayerPrefs.Save();
+
+        string roomName = $"AI_{System.Guid.NewGuid().ToString("N").Substring(0, 8)}";
+
+        UpdateStatus($"Connexion en tant que '{playerNickname}' (vs IA)...");
+        await StartGameSession(roomName);
+    }
+
+    /// <summary>
+    /// ✨ NEW: Crée le GameModeManager s'il n'existe pas encore dans la scène.
+    /// </summary>
+    private GameModeManager GetOrCreateGameModeManager()
+    {
+        if (GameModeManager.Instance == null)
+        {
+            GameObject go = new GameObject("GameModeManager");
+            go.AddComponent<GameModeManager>();
+        }
+        return GameModeManager.Instance;
     }
 
     /// <summary>
@@ -201,7 +258,6 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         CheckPlayersAndStartGame();
-        RefreshPlayersList();
     }
 
     /// <summary>
@@ -237,8 +293,11 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             playersNickname.text = nicknames;
         }
 
-        UpdateStatus($"Joueurs connectés : {count}/{nbOfPlayers}");
-        if (_currentRunner.IsSharedModeMasterClient && count >= nbOfPlayers)
+        // ✨ NEW : en mode vs IA, un seul joueur (le local) suffit pour démarrer
+        int requiredPlayers = _isVsAIMode ? 1 : nbOfPlayers;
+
+        UpdateStatus($"Joueurs connectés : {count}/{requiredPlayers}");
+        if (_currentRunner.IsSharedModeMasterClient && count >= requiredPlayers)
         {
             _isInLobby = false;  // ✨ Marquer qu'on quitte le Lobby
             var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameScene"));
@@ -277,6 +336,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     private void ReturnToLobby(string reason)
     {
         _isInLobby = true;
+        _isVsAIMode = false; // ✨ NEW
 
         Debug.Log($"[LobbyManager] 🔙 Retour au Lobby - Raison: {reason}");
 
@@ -291,10 +351,14 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         // Afficher message d'erreur
         UpdateStatus($"Erreur: {reason}");
 
-        // Réactiver le bouton Play
+        // Réactiver les boutons Play / Play vs IA
         if (playButton != null)
         {
             playButton.interactable = true;
+        }
+        if (playVsAIButton != null)
+        {
+            playVsAIButton.interactable = true;
         }
 
         // Réinitialiser la liste des joueurs

@@ -14,7 +14,7 @@ public class SoccerBallController : NetworkBehaviour
     public override void Spawned()
     {
         _goalScored = false;
-        Debug.Log("[SoccerBallController] ⚽ Ballon spawned (Serveur gère la physique)");
+        // Debug.Log("[SoccerBallController] ⚽ Ballon spawned (Serveur gère la physique)");
     }
 
     // ✅ CLIENT/SERVER : Seul le serveur vérifie les collisions avec les buts
@@ -85,6 +85,7 @@ public class SoccerBallController : NetworkBehaviour
             ? GoalZone.GoalTeam.Rouge
             : GoalZone.GoalTeam.Jaune;
 
+        // 1. Chercher parmi les vrais joueurs connectés
         foreach (PlayerRef player in Runner.ActivePlayers)
         {
             GoalZone.GoalTeam playerTeam = (player.PlayerId % 2 == 0)
@@ -97,7 +98,21 @@ public class SoccerBallController : NetworkBehaviour
             }
         }
 
-        Debug.LogWarning($"[SoccerBallController] ⚠️ Aucun joueur connecté pour l'équipe {scoringTeam} (adversaire de {defendingTeam})");
+        // 2. ✨ NEW : le bot (mode vs IA) n'est pas un vrai PlayerRef réseau,
+        // donc il n'apparaît jamais dans Runner.ActivePlayers.
+        if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI && GameModeManager.Instance.BotPlayerId >= 0)
+        {
+            GoalZone.GoalTeam botTeam = (GameModeManager.Instance.BotPlayerId % 2 == 0)
+                ? GoalZone.GoalTeam.Jaune
+                : GoalZone.GoalTeam.Rouge;
+
+            if (botTeam == scoringTeam)
+            {
+                return GameModeManager.Instance.BotPlayerId;
+            }
+        }
+
+        Debug.LogWarning($"[SoccerBallController] ⚠️ Aucun joueur/bot trouvé pour l'équipe {scoringTeam} (adverse de {defendingTeam})");
         return -1;
     }
 }

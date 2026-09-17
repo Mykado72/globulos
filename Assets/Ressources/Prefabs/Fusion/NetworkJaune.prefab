@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 9077199550864838909}
   - component: {fileID: 9077199550864838906}
   - component: {fileID: 5520356289826364502}
-  - component: {fileID: 1041295159168212697}
   - component: {fileID: -3370815397027541577}
   - component: {fileID: -6518755898457857923}
   - component: {fileID: -990080008568522825}
@@ -147,23 +146,8 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: -3370815397027541577}
-  - {fileID: 1041295159168212697}
   - {fileID: -6518755898457857923}
   ForceRemoteRenderTimeframe: 0
---- !u!114 &1041295159168212697
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9077199550864838910}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: df8337a96c7f6d0488e2aef94231f01e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _Nickname: Jaune
-  _PlayerId: 0
 --- !u!114 &-3370815397027541577
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -223,6 +207,7 @@ MonoBehaviour:
   aimColor: {r: 1, g: 0.5, b: 0, a: 1}
   activeColor: {r: 1, g: 0, b: 0, a: 1}
   arrowSortingOrder: 20
+  arrowSortingLayerName: Entities
   maxArrowLengthFraction: 0.5
   headSizeFraction: 0.05
   thicknessFraction: 0.015
@@ -288,6 +273,8 @@ MonoBehaviour:
   _IsDead: 0
   _IsMoving: 0
   stationaryVelocityThreshold: 2
+  aiAimInaccuracyDegrees: 12
+  aiMinForceFraction: 0.7
 --- !u!120 &-990080008568522825
 LineRenderer:
   m_ObjectHideFlags: 0

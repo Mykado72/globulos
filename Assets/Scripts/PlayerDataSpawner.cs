@@ -18,7 +18,7 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-            Debug.Log("[PlayerDataSpawner] ✅ Callbacks enregistrés");
+            // Debug.Log("[PlayerDataSpawner] ✅ Callbacks enregistrés");
         }
     }
 
@@ -44,8 +44,6 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
             Debug.LogError("[PlayerDataSpawner] ❌ PlayerDataPrefab non assigné!");
             return;
         }
-
-        Debug.Log($"[PlayerDataSpawner] ⏭️ Spawn Joueur {player.PlayerId}");
 
         try
         {
@@ -73,7 +71,7 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 // ✨ FIX: Utiliser le nouveau RPC fusionné RPC_SetPlayerInfo
                 playerData.RPC_SetPlayerInfo(playerNickname, player.PlayerId);
-                Debug.Log($"[PlayerDataSpawner] 🌐 Pseudo {playerNickname} assigné à PlayerData du joueur {player.PlayerId}");
+                // Debug.Log($"[PlayerDataSpawner] 🌐 Pseudo {playerNickname} assigné à PlayerData du joueur {player.PlayerId}");
             }
             else
             {
