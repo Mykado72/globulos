@@ -78,20 +78,26 @@ public class SoccerBallController : NetworkBehaviour
 
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)
     {
-        foreach (BallAimController ball in BallAimController.AllBalls)
-        {
-            if (ball == null) continue;
+        if (Runner == null) return -1;
 
-            GoalZone.GoalTeam ownerTeam = (ball.OwnerPlayerId % 2 == 0)
+        // ✅ L'équipe qui marque est l'opposée de celle qui défend ce but
+        GoalZone.GoalTeam scoringTeam = (defendingTeam == GoalZone.GoalTeam.Jaune)
+            ? GoalZone.GoalTeam.Rouge
+            : GoalZone.GoalTeam.Jaune;
+
+        foreach (PlayerRef player in Runner.ActivePlayers)
+        {
+            GoalZone.GoalTeam playerTeam = (player.PlayerId % 2 == 0)
                 ? GoalZone.GoalTeam.Jaune
                 : GoalZone.GoalTeam.Rouge;
 
-            if (ownerTeam != defendingTeam)
+            if (playerTeam == scoringTeam)
             {
-                return ball.OwnerPlayerId;
+                return player.PlayerId;
             }
         }
 
+        Debug.LogWarning($"[SoccerBallController] ⚠️ Aucun joueur connecté pour l'équipe {scoringTeam} (adversaire de {defendingTeam})");
         return -1;
     }
 }

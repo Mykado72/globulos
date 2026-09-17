@@ -17,6 +17,7 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private Color aimColor = new Color(1, 0.5f, 0, 1);
     [SerializeField] private Color activeColor = new Color(1, 0, 0, 1);
     [SerializeField] private int arrowSortingOrder = 20;
+    [SerializeField] private string arrowSortingLayerName = "Entities";
 
     [SerializeField, Range(0.1f, 5.0f)] private float maxArrowLengthFraction = 1.5f;
     [SerializeField, Range(0.001f, 0.2f)] private float headSizeFraction = 0.05f;
@@ -103,6 +104,7 @@ public class BallAimController : NetworkBehaviour
         _shaftTransform = shaftObj.transform;
         _shaftRenderer = shaftObj.AddComponent<SpriteRenderer>();
         _shaftRenderer.sprite = arrowShaftSprite != null ? arrowShaftSprite : GetOrCreateShaftSprite();
+        _shaftRenderer.sortingLayerName = arrowSortingLayerName; // ✅
         _shaftRenderer.sortingOrder = arrowSortingOrder;
         _shaftRenderer.enabled = false;
 
@@ -111,6 +113,7 @@ public class BallAimController : NetworkBehaviour
         _headTransform = headObj.transform;
         _headRenderer = headObj.AddComponent<SpriteRenderer>();
         _headRenderer.sprite = arrowHeadSprite != null ? arrowHeadSprite : GetOrCreateHeadSprite();
+        _headRenderer.sortingLayerName = arrowSortingLayerName; // ✅
         _headRenderer.sortingOrder = arrowSortingOrder + 1;
         _headRenderer.enabled = false;
     }
