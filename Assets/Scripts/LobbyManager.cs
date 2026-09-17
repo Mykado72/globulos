@@ -3,16 +3,19 @@ using Fusion.Sockets;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/// ✅ VERSION AMÉLIORÉE
+/// ✅ VERSION v4 - AMÉLIORATIONS LOBBY
 /// - Gère la saisie du pseudo
 /// - Stocke le pseudo via PlayerPrefs (persiste entre scènes)
 /// - Passe le pseudo à PlayerNamesManager et PlayerData
+/// ✨ NEW: Refresh périodique de la liste des joueurs (toutes les 1 sec)
+/// ✨ NEW: Retour au Lobby en cas de départ joueur ou erreur réseau
 public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 {
     [Header("Configuration")]
@@ -20,29 +23,53 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private NetworkRunner runnerPrefab;
     [SerializeField] private int nbOfPlayers = 3;
 
+    [Header("Lobby Refresh")]
+    [SerializeField] private float playerListRefreshInterval = 1f;  // ✨ Refresh toutes les 1 sec
+
     [Header("UI")]
     [SerializeField] private TMP_InputField roomNameInput;
-    [SerializeField] private TMP_InputField playerNicknameInput;  
+    [SerializeField] private TMP_InputField playerNicknameInput;
     [SerializeField] private Button playButton;
     [SerializeField] private TextMeshProUGUI statusText;
     [SerializeField] private TextMeshProUGUI playersNickname;
     [SerializeField] private TextMeshProUGUI playersListText;
 
+    public string playerNickname { get; private set; }
+
     private NetworkRunner _currentRunner;
-    public string playerNickname;  // ✅ Stocke le pseudo local
+    private float _lastRefreshTime = 0f;  // ✨ Timer pour refresh périodique
+    private bool _isInLobby = true;  // ✨ Flag pour savoir si on est au Lobby
 
     private void Start()
     {
+        _isInLobby = true;
+        _lastRefreshTime = 0f;
+
         if (playButton != null)
         {
             playButton.onClick.AddListener(OnPlayButtonPressed);
         }
 
         // ✅ Charge le pseudo sauvegardé (si existe)
-        playerNickname = PlayerPrefs.GetString("PlayerNickname", "Joueur");
+        playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
         if (playerNicknameInput != null)
         {
             playerNicknameInput.text = playerNickname;
+        }
+    }
+
+    private void Update()
+    {
+        // ✨ NEW: Refresh la liste des joueurs toutes les X secondes
+        if (_isInLobby && _currentRunner != null && _currentRunner.IsRunning)
+        {
+            _lastRefreshTime += Time.deltaTime;
+
+            if (_lastRefreshTime >= playerListRefreshInterval)
+            {
+                RefreshPlayersList();
+                _lastRefreshTime = 0f;
+            }
         }
     }
 
@@ -62,9 +89,9 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         // ✅ Sauvegarde le pseudo
-        PlayerPrefs.SetString("PlayerNickname", playerNickname);
+        PlayerPrefs.SetString("playerNickname", playerNickname);
         PlayerPrefs.Save();
-        
+
         string roomName = defaultRoomName;
         if (roomNameInput != null && !string.IsNullOrEmpty(roomNameInput.text))
         {
@@ -75,24 +102,34 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         await StartGameSession(roomName);
     }
 
+    /// <summary>
+    /// ✨ NEW: Refresh la liste des joueurs actuellement connectés
+    /// Appelée toutes les secondes via Update()
+    /// </summary>
     public void RefreshPlayersList()
     {
         if (_currentRunner == null) return;
 
         string playersList = "🎮 Joueurs connectés:\n";
-        string nickname = "";
+        int playerCount = 0;
 
-        foreach (var playerData in GetAllPlayerData())
+        foreach (var player in GetAllPlayerData())
         {
-            nickname = playerData.GetNickname();
+            if (player == null) continue;
+            string nickname = player.GetNickname();
             playersList += $"✅ {nickname}\n";
-
+            playerCount++;
         }
+
+        // Ajouter le compteur
+        playersList += $"\n{playerCount}/{_currentRunner.ActivePlayers.Count()} joueurs";
 
         if (playersListText != null)
         {
             playersListText.text = playersList;
         }
+
+        Debug.Log($"[LobbyManager] 🔄 Liste des joueurs rafraîchie ({playerCount} joueurs)");
     }
 
     private async Task StartGameSession(string roomName)
@@ -144,7 +181,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             GameMode = GameMode.Shared,
             SessionName = roomName,
             SceneManager = sceneManager,
-            ConnectionToken = token // 👈 Transmission réseau du pseudo
+            ConnectionToken = token
         });
 
         if (result.Ok)
@@ -162,10 +199,30 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
-    {       
-
+    {
         CheckPlayersAndStartGame();
         RefreshPlayersList();
+    }
+
+    /// <summary>
+    /// ✨ NEW: Appelé quand un joueur quitte
+    /// Retour au Lobby si le Master Client s'en va
+    /// </summary>
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    {
+        Debug.Log($"[LobbyManager] 👤 Joueur {player.PlayerId} a quitté");
+
+        // ✨ NEW: Si c'est le Master Client qui part, revenir au Lobby
+        if (player.IsValid && runner.IsSharedModeMasterClient)
+        {
+            Debug.LogWarning("[LobbyManager] ⚠️ Master Client a quitté ! Retour au Lobby...");
+            ReturnToLobby("Master Client a quitté la partie");
+        }
+        else if (_isInLobby)
+        {
+            // On est au Lobby, juste mettre à jour la liste
+            RefreshPlayersList();
+        }
     }
 
     private void CheckPlayersAndStartGame()
@@ -183,6 +240,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         UpdateStatus($"Joueurs connectés : {count}/{nbOfPlayers}");
         if (_currentRunner.IsSharedModeMasterClient && count >= nbOfPlayers)
         {
+            _isInLobby = false;  // ✨ Marquer qu'on quitte le Lobby
             var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameScene"));
             _currentRunner.LoadScene(sceneRef);
         }
@@ -192,14 +250,13 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         PlayerData[] allPlayerData = FindObjectsByType<PlayerData>(FindObjectsSortMode.None);
         return allPlayerData;
-     }
-
+    }
 
     public PlayerData GetPlayerDataById(int playerId)
     {
         foreach (var playerData in FindObjectsOfType<PlayerData>())
         {
-            if ((playerData.Object != null) && (playerData.PlayerId == playerId))
+            if ((playerData.Object != null) && (playerData.Object.InputAuthority.PlayerId == playerId))
             {
                 Debug.Log($"[LobbyManager] 🔍 Trouvé PlayerData pour ID {playerId}: {playerData.GetNickname()}");
                 return playerData;
@@ -214,15 +271,111 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (statusText != null) statusText.text = message;
     }
 
+    /// <summary>
+    /// ✨ NEW: Retourne au Lobby en cas d'erreur réseau ou départ joueur
+    /// </summary>
+    private void ReturnToLobby(string reason)
+    {
+        _isInLobby = true;
+
+        Debug.Log($"[LobbyManager] 🔙 Retour au Lobby - Raison: {reason}");
+
+        // Arrêter le Runner si actif
+        if (_currentRunner != null)
+        {
+            _currentRunner.Shutdown();
+            Destroy(_currentRunner.gameObject);
+            _currentRunner = null;
+        }
+
+        // Afficher message d'erreur
+        UpdateStatus($"Erreur: {reason}");
+
+        // Réactiver le bouton Play
+        if (playButton != null)
+        {
+            playButton.interactable = true;
+        }
+
+        // Réinitialiser la liste des joueurs
+        if (playersListText != null)
+        {
+            playersListText.text = "🎮 Joueurs connectés:\n(Aucun)";
+        }
+
+        // Nettoyer les données réseau
+        PlayerNamesManager.Instance?.Clear();
+    }
+
     // === INetworkRunnerCallbacks ===
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
+
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
+
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+
+    /// <summary>
+    /// ✨ NEW: Appelé quand le Runner s'arrête (erreur réseau, déconnexion, etc.)
+    /// </summary>
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        Debug.LogWarning($"[LobbyManager] ⚠️ Runner arrêté - Raison: {shutdownReason}");
+
+        if (_isInLobby)
+        {
+            ReturnToLobby($"Problème réseau: {shutdownReason}");
+        }
+        else
+        {
+            // On était en jeu, revenir au Lobby
+            Debug.Log("[LobbyManager] 🔄 Déconnexion en jeu - Retour au Lobby");
+            LoadLobbyScene();
+        }
+    }
+
+    /// <summary>
+    /// ✨ NEW: Appelé quand la connexion au serveur est perdue
+    /// </summary>
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        Debug.LogError($"[LobbyManager] ❌ Déconnexion du serveur: {reason}");
+        ReturnToLobby($"Déconnexion serveur: {reason}");
+    }
+
+    /// <summary>
+    /// ✨ NEW: Appelé quand la connexion au serveur échoue
+    /// </summary>
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        Debug.LogError($"[LobbyManager] ❌ Connexion échouée: {reason}");
+        ReturnToLobby($"Impossible de se connecter: {reason}");
+    }
+
+    /// <summary>
+    /// ✨ NEW: Charge la scène du Lobby
+    /// Utilisée en cas de déconnexion ou erreur en jeu
+    /// </summary>
+    private void LoadLobbyScene()
+    {
+        Debug.Log("[LobbyManager] 📍 Chargement de la scène Lobby...");
+
+        // Nettoyer les managers singletons
+        if (PlayerNamesManager.Instance != null)
+        {
+            Destroy(PlayerNamesManager.Instance.gameObject);
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            Destroy(AudioManager.Instance.gameObject);
+        }
+
+        // Charger la scène du Lobby
+        SceneManager.LoadScene("LobbyScene");
+    }
+
+    // Callbacks non utilisés
     public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }

@@ -3,12 +3,14 @@ using Fusion.Sockets;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-/// ✅ VERSION OPTIMISÉE v3
+/// ✅ VERSION v4 - GESTION ERREURS RÉSEAU
 /// - Intègre PlayerData avec le pseudo
 /// - Synchronise le pseudo en réseau
 /// - Enregistre le pseudo dans PlayerNamesManager
-/// - ✨ FIX: Race condition - check `!_isSpawning` dans Update
+/// - Fix: Race condition - check `!_isSpawning` dans Update
+/// ✨ NEW: Gestion des erreurs réseau et retour au Lobby
 public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef player1Prefab;
@@ -39,9 +41,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Update()
     {
-        // ✨ FIX: Ajouter check `!_isSpawning` pour éviter la race condition
-        // Problème: Si Update() est appelé plusieurs fois avant que TrySpawnLocalPlayer()
-        // ne set _isSpawning à true, le spawn peut être lancé plusieurs fois
+        // ✨ FIX: Check `!_isSpawning` pour éviter la race condition
         if (!_hasSpawnedLocalPlayer && !_isSpawning && _runner != null && _runner.IsRunning)
         {
             Debug.Log("[GameSpawner] 🎮 Runner prêt, tentative de spawn...");
@@ -201,19 +201,92 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a rejoint");
     }
 
+    /// <summary>
+    /// ✨ NEW: Quand un joueur quitte la partie en jeu
+    /// </summary>
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        byte[] token = runner.GetPlayerConnectionToken(player);
-        Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a quitté");
+        Debug.LogWarning($"[GameSpawner] ⚠️ Joueur {player.PlayerId} a quitté en jeu!");
+
+        // ✨ NEW: Si un joueur quitte le jeu, retourner au Lobby
+        if (SceneManager.GetActiveScene().name == "GameScene")
+        {
+            ReturnToLobbyOnDisconnect($"Joueur {player.PlayerId} a quitté");
+        }
     }
 
+    /// <summary>
+    /// ✨ NEW: Arrêt du Runner (erreur réseau, déconnexion, etc.)
+    /// </summary>
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        Debug.LogError($"[GameSpawner] ❌ Runner arrêté - Raison: {shutdownReason}");
+
+        // ✨ NEW: Retourner au Lobby si une erreur survient en jeu
+        if (SceneManager.GetActiveScene().name == "GameScene")
+        {
+            ReturnToLobbyOnDisconnect($"Erreur réseau: {shutdownReason}");
+        }
+    }
+
+    /// <summary>
+    /// ✨ NEW: Déconnexion du serveur
+    /// </summary>
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        Debug.LogError($"[GameSpawner] ❌ Déconnexion serveur: {reason}");
+
+        if (SceneManager.GetActiveScene().name == "GameScene")
+        {
+            ReturnToLobbyOnDisconnect($"Déconnexion du serveur: {reason}");
+        }
+    }
+
+    /// <summary>
+    /// ✨ NEW: Connexion au serveur échouée
+    /// </summary>
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        Debug.LogError($"[GameSpawner] ❌ Connexion échouée: {reason}");
+
+        if (SceneManager.GetActiveScene().name == "GameScene")
+        {
+            ReturnToLobbyOnDisconnect($"Impossible de se reconnecter: {reason}");
+        }
+    }
+
+    /// <summary>
+    /// ✨ NEW: Retourne au Lobby avec message d'erreur
+    /// </summary>
+    private void ReturnToLobbyOnDisconnect(string reason)
+    {
+        Debug.Log($"[GameSpawner] 🔙 Retour au Lobby - Raison: {reason}");
+
+        // Nettoyer les données
+        if (TurnManager.Instance != null)
+        {
+            Destroy(TurnManager.Instance.gameObject);
+        }
+
+        if (PlayerNamesManager.Instance != null)
+        {
+            Destroy(PlayerNamesManager.Instance.gameObject);
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            Destroy(AudioManager.Instance.gameObject);
+        }
+
+        // Revenir au Lobby
+        SceneManager.LoadScene("LobbyScene");
+    }
+
+    // Callbacks non utilisés (obligatoires pour INetworkRunnerCallbacks)
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
