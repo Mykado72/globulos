@@ -1,9 +1,10 @@
 using Fusion;
 using UnityEngine;
 
-/// ✅ CLIENT/SERVER MODE
+/// ✅ VERSION OPTIMISÉE v3
 /// - Serveur : State Authority, gère la physique du ballon et détecte les buts
 /// - Clients : Reçoivent les mises à jour de position/rotation
+/// ✨ FIX: Despawn du ballon après but pour éviter les artefacts
 [RequireComponent(typeof(Collider2D))]
 [RequireComponent(typeof(NetworkObject))]
 public class SoccerBallController : NetworkBehaviour
@@ -45,6 +46,14 @@ public class SoccerBallController : NetworkBehaviour
 
         // ✅ Signale au TurnManager (serveur) la victoire
         TurnManager.Instance?.RPC_RequestWinBySoccerGoal(scorerId);
+
+        // ✨ FIX: Despawn du ballon après but pour éviter artefacts
+        // Raison: Le ballon reste visible/physiquement actif après le but
+        // Solution: Despawner sur le serveur (StateAuthority)
+        if (HasStateAuthority)
+        {
+            RPC_DespawnBall();
+        }
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -53,12 +62,28 @@ public class SoccerBallController : NetworkBehaviour
         AudioManager.Instance?.PlaySoccerGoal();
     }
 
+    /// <summary>
+    /// ✨ FIX: RPC pour despawner le ballon côté serveur
+    /// Appelé depuis OnTriggerEnter2D quand un but est marqué
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.StateAuthority)]
+    private void RPC_DespawnBall()
+    {
+        if (HasStateAuthority && Runner != null)
+        {
+            Debug.Log("[SoccerBallController] 🗑️ Despawn du ballon après but");
+            Runner.Despawn(Object);
+        }
+    }
+
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)
     {
         foreach (BallAimController ball in BallAimController.AllBalls)
         {
-            GoalZone.GoalTeam ownerTeam = (ball.OwnerPlayerId % 2 == 0) 
-                ? GoalZone.GoalTeam.Jaune 
+            if (ball == null) continue;
+
+            GoalZone.GoalTeam ownerTeam = (ball.OwnerPlayerId % 2 == 0)
+                ? GoalZone.GoalTeam.Jaune
                 : GoalZone.GoalTeam.Rouge;
 
             if (ownerTeam != defendingTeam)

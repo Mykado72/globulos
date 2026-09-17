@@ -29,7 +29,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private TextMeshProUGUI playersListText;
 
     private NetworkRunner _currentRunner;
-    public string _playerNickname;  // ✅ Stocke le pseudo local
+    public string playerNickname;  // ✅ Stocke le pseudo local
 
     private void Start()
     {
@@ -39,10 +39,10 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         // ✅ Charge le pseudo sauvegardé (si existe)
-        _playerNickname = PlayerPrefs.GetString("PlayerNickname", "Joueur");
+        playerNickname = PlayerPrefs.GetString("PlayerNickname", "Joueur");
         if (playerNicknameInput != null)
         {
-            playerNicknameInput.text = _playerNickname;
+            playerNicknameInput.text = playerNickname;
         }
     }
 
@@ -53,16 +53,16 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         // ✅ Récupère et valide le pseudo
         if (!string.IsNullOrEmpty(playerNicknameInput.text))
         {
-            _playerNickname = playerNicknameInput.text.Trim();
+            playerNickname = playerNicknameInput.text.Trim();
         }
 
-        if (string.IsNullOrEmpty(_playerNickname))
+        if (string.IsNullOrEmpty(playerNickname))
         {
-            _playerNickname = "Joueur";
+            playerNickname = "Joueur";
         }
 
         // ✅ Sauvegarde le pseudo
-        PlayerPrefs.SetString("PlayerNickname", _playerNickname);
+        PlayerPrefs.SetString("PlayerNickname", playerNickname);
         PlayerPrefs.Save();
         
         string roomName = defaultRoomName;
@@ -71,7 +71,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             roomName = roomNameInput.text;
         }
 
-        UpdateStatus($"Connexion en tant que '{_playerNickname}'...");
+        UpdateStatus($"Connexion en tant que '{playerNickname}'...");
         await StartGameSession(roomName);
     }
 
@@ -128,16 +128,16 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         // ✅ Récupère et valide le pseudo
         if (!string.IsNullOrEmpty(playerNicknameInput.text))
         {
-            _playerNickname = playerNicknameInput.text.Trim();
+            playerNickname = playerNicknameInput.text.Trim();
         }
 
-        if (string.IsNullOrEmpty(_playerNickname))
+        if (string.IsNullOrEmpty(playerNickname))
         {
-            _playerNickname = "Joueur";
+            playerNickname = "Joueur";
         }
 
         // ✅ Envoie le pseudo au serveur Fusion via le ConnectionToken
-        byte[] token = System.Text.Encoding.UTF8.GetBytes(_playerNickname);
+        byte[] token = System.Text.Encoding.UTF8.GetBytes(playerNickname);
 
         var result = await _currentRunner.StartGame(new StartGameArgs()
         {

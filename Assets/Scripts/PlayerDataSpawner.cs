@@ -2,7 +2,9 @@ using Fusion;
 using Fusion.Sockets;
 using UnityEngine;
 
-/// ✅ Spawne les PlayerData au Lobby (dès qu'un joueur rejoint)
+/// ✅ VERSION OPTIMISÉE v3
+/// ✨ FIX: Utilise SpawnAsync au lieu de Spawn pour cohérence avec le reste du code
+/// Spawne les PlayerData au Lobby (dès qu'un joueur rejoint)
 /// Les pseudos sont synchronisés en réseau via NetworkBehaviour
 public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
@@ -29,7 +31,7 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     // ✅ Appelé quand un joueur rejoint
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    public async void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         if (player != runner.LocalPlayer)
         {
@@ -44,32 +46,50 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         Debug.Log($"[PlayerDataSpawner] ⏭️ Spawn Joueur {player.PlayerId}");
-        // ✅ Spawn un PlayerData avec StateAuthority du joueur
-        // (Le serveur l'autorise, mais le joueur en est le propriétaire logique)
-        NetworkObject spawnedPlayerData = runner.Spawn(
-            playerDataPrefab,
-            Vector3.zero,
-            Quaternion.identity,
-            player  // ✅ InputAuthority = le joueur
-        );
 
-        PlayerData playerData = spawnedPlayerData.GetComponent<PlayerData>();
-
-        string playerNickname = lobbyManager._playerNickname;
-
-        if (playerData != null)
+        try
         {
-            playerData.SetNickname(playerNickname);
-            Debug.Log($"[PlayerDataSpawner] 🌐 Pseudo {playerNickname} assigné à PlayerData du joueur {player.PlayerId}");
-            playerData.SetPlayerId(player.PlayerId);
-        }
+            // ✨ FIX: Utiliser SpawnAsync au lieu de Spawn
+            // Raison: Cohérence avec le reste du code (GameSpawner utilise SpawnAsync)
+            // et meilleure gestion des erreurs d'async
+            NetworkObject spawnedPlayerData = await runner.SpawnAsync(
+                playerDataPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                player  // ✅ InputAuthority = le joueur
+            );
 
+            if (spawnedPlayerData == null)
+            {
+                Debug.LogError("[PlayerDataSpawner] ❌ SpawnAsync a retourné null!");
+                return;
+            }
+
+            PlayerData playerData = spawnedPlayerData.GetComponent<PlayerData>();
+
+            string playerNickname = lobbyManager.playerNickname;
+
+            if (playerData != null)
+            {
+                // ✨ FIX: Utiliser le nouveau RPC fusionné RPC_SetPlayerInfo
+                playerData.RPC_SetPlayerInfo(playerNickname, player.PlayerId);
+                Debug.Log($"[PlayerDataSpawner] 🌐 Pseudo {playerNickname} assigné à PlayerData du joueur {player.PlayerId}");
+            }
+            else
+            {
+                Debug.LogWarning("[PlayerDataSpawner] ⚠️ PlayerData composant non trouvé sur l'objet spawné");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[PlayerDataSpawner] ❌ Erreur lors du spawn du PlayerData: {ex.Message}\n{ex.StackTrace}");
+        }
     }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"[PlayerDataSpawner] 👤 Joueur {player.PlayerId} a quitté");
-        
+
         // ✅ Les PlayerData sont automatiquement despawned quand le joueur quitte
         // (car ils ont InputAuthority du joueur qui vient de partir)
     }

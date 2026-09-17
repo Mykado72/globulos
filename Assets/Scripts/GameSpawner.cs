@@ -4,10 +4,11 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// ✅ VERSION AMÉLIORÉE
+/// ✅ VERSION OPTIMISÉE v3
 /// - Intègre PlayerData avec le pseudo
 /// - Synchronise le pseudo en réseau
 /// - Enregistre le pseudo dans PlayerNamesManager
+/// - ✨ FIX: Race condition - check `!_isSpawning` dans Update
 public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef player1Prefab;
@@ -38,7 +39,10 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Update()
     {
-        if (!_hasSpawnedLocalPlayer && _runner != null && _runner.IsRunning)
+        // ✨ FIX: Ajouter check `!_isSpawning` pour éviter la race condition
+        // Problème: Si Update() est appelé plusieurs fois avant que TrySpawnLocalPlayer()
+        // ne set _isSpawning à true, le spawn peut être lancé plusieurs fois
+        if (!_hasSpawnedLocalPlayer && !_isSpawning && _runner != null && _runner.IsRunning)
         {
             Debug.Log("[GameSpawner] 🎮 Runner prêt, tentative de spawn...");
             TrySpawnLocalPlayer(_runner);
@@ -133,7 +137,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                     {
                         if (spawnedBall.TryGetComponent(out PlayerData playerData))
                         {
-                            playerData.RPC_SetNickname(playerNickname, localPlayer.PlayerId);
+                            playerData.RPC_SetPlayerInfo(playerNickname, localPlayer.PlayerId);
                             Debug.Log($"[GameSpawner] ✅ Pseudo local envoyé au réseau : {playerNickname} (ID: {localPlayer.PlayerId})");
                         }
 
@@ -157,7 +161,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
         _hasSpawnedLocalPlayer = true;
         _isSpawning = false;
-        // Debug.Log("[GameSpawner] ✅ Spawn terminé !");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
