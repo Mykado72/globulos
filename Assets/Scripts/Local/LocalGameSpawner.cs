@@ -31,7 +31,7 @@ public class LocalGameSpawner : MonoBehaviour
             GameObject ballObj = Instantiate(player1Prefab, spawnPoint.position, Quaternion.identity);
             ballObj.name = $"Player 1_Ball{i}";
 
-            if (ballObj.TryGetComponent(out BallAimController ballController))
+            if (ballObj.TryGetComponent(out LocalBallAimController ballController))
             {
                 ballController.SetOwner(1);
             }
@@ -49,7 +49,7 @@ public class LocalGameSpawner : MonoBehaviour
             GameObject botObj = Instantiate(player2Prefab, spawnPoint.position, Quaternion.identity);
             botObj.name = $"Bot_Ball{j}";
 
-            if (botObj.TryGetComponent(out BallAimController ballController))
+            if (botObj.TryGetComponent(out LocalBallAimController ballController))
             {
                 ballController.SetOwner(botPlayerId);
                 ballController.SetBotControlled(true);

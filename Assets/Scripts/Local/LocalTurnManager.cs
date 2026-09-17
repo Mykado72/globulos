@@ -80,7 +80,7 @@ public class LocalTurnManager : MonoBehaviour
         CurrentState = TurnState.Resolution;
         _settleTimer = resolutionSettleDuration;
 
-        foreach (var ball in BallAimController.AllBalls)
+        foreach (var ball in LocalBallAimController.AllBalls)
         {
             if (ball != null) ball.ExecuteQueuedShot();
         }
@@ -88,7 +88,7 @@ public class LocalTurnManager : MonoBehaviour
 
     private void ForceStopAiming()
     {
-        foreach (var ball in BallAimController.AllBalls)
+        foreach (var ball in LocalBallAimController.AllBalls)
         {
             if (ball != null) ball.ForceStopAiming();
         }
@@ -96,7 +96,7 @@ public class LocalTurnManager : MonoBehaviour
 
     private bool AreAllBallsStopped()
     {
-        foreach (var ball in BallAimController.AllBalls)
+        foreach (var ball in LocalBallAimController.AllBalls)
         {
             if (ball != null && ball.IsMoving) return false;
         }
@@ -114,7 +114,7 @@ public class LocalTurnManager : MonoBehaviour
         Dictionary<int, int> aliveBallsPerPlayer = new Dictionary<int, int>();
         HashSet<int> allPlayerIds = new HashSet<int>();
 
-        foreach (BallAimController ball in BallAimController.AllBalls)
+        foreach (LocalBallAimController ball in LocalBallAimController.AllBalls)
         {
             if (ball == null) continue;
             int playerId = ball.OwnerPlayerId;

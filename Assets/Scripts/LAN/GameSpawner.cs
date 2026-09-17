@@ -31,8 +31,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     private bool _hasSpawnedBall = false;
     private NetworkRunner _runner;
 
-    private bool _spawnAttempted = false;
-
 private void Start()
 {
     // Mode Offline (vs IA)

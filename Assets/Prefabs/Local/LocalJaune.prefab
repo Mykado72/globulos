@@ -245,15 +245,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3501495a57baee94294e2d904ddf959e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxForce: 15
-  maxDragDistanceFraction: 0.5
+  maxForce: 1000
+  maxDragDistanceFraction: 1
   arrowShaftSprite: {fileID: 0}
   arrowHeadSprite: {fileID: 0}
   aimColor: {r: 1, g: 0.5, b: 0, a: 1}
   activeColor: {r: 1, g: 0, b: 0, a: 1}
   arrowSortingOrder: 20
   arrowSortingLayerName: Entities
-  maxArrowLengthFraction: 1.5
+  maxArrowLengthFraction: 0.4
   headSizeFraction: 0.05
   thicknessFraction: 0.015
   fallbackViewHeight: 10

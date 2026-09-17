@@ -1311,14 +1311,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 966706948}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b9d671508636fd4499ea7b21c9e3884c, type: 3}
+  m_Script: {fileID: 11500000, guid: 52ba3a98479773f47bb931041063bb60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   timerText: {fileID: 1806360357}
   stateText: {fileID: 336508813}
   panelWIN: {fileID: 2049134570}
   panelDRAW: {fileID: 478503305}
-  ballDownMessageDuration: 2.5
+  ballDownMessageDuration: 2
 --- !u!1 &1110581525
 GameObject:
   m_ObjectHideFlags: 0
