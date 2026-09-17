@@ -15,9 +15,15 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef player1Prefab;
     [SerializeField] private NetworkPrefabRef player2Prefab;
+    [SerializeField] private NetworkPrefabRef soccerBallPrefab;
+
+    // Prefabs Unity à utiliser en mode Offline (Inspector) 
+    [SerializeField] private GameObject player1PrefabGameObject;
+    [SerializeField] private GameObject player2PrefabGameObject;
+    [SerializeField] private GameObject soccerBallPrefabGameObject;
+
     [SerializeField] private Transform[] player1SpawnPoints;
     [SerializeField] private Transform[] player2SpawnPoints;
-    [SerializeField] private NetworkPrefabRef soccerBallPrefab;
     [SerializeField] private Transform soccerBallSpawnPoint;
 
     private bool _isSpawning = false;
@@ -27,19 +33,87 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private bool _spawnAttempted = false;
 
-    private void Start()
+private void Start()
+{
+    // Mode Offline (vs IA)
+    if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI)
     {
-        _runner = FindObjectOfType<NetworkRunner>();
-        if (_runner != null)
+        SpawnOfflineGame();
+        return;
+    }
+
+    // Mode En Ligne (Fusion)
+    _runner = FindObjectOfType<NetworkRunner>();
+    if (_runner != null)
+    {
+        _runner.AddCallbacks(this);
+    }
+}
+
+private void SpawnOfflineGame()
+{
+    string playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
+
+    // 1. Joueur Humain (Joueur 1)
+    int i = 0;
+    foreach (Transform spawnPoint in player1SpawnPoints)
+    {
+        if (spawnPoint == null) continue;
+        i++;
+
+        if (player1PrefabGameObject == null)
         {
-            _runner.AddCallbacks(this);
-            // Debug.Log("[GameSpawner] ✅ Runner trouvé et enregistré");
+            Debug.LogError("[GameSpawner] ❌ player1PrefabGameObject non assigné pour le mode offline");
+            continue;
         }
-        else
+
+        GameObject ballObj = Instantiate(player1PrefabGameObject, spawnPoint.position, Quaternion.identity);
+        ballObj.name = $"Player 1_Ball{i}";
+
+        if (ballObj.TryGetComponent(out BallAimController ballController))
         {
-            Debug.LogError("[GameSpawner] ❌ Aucun NetworkRunner trouvé !");
+            ballController.SetOwner(1);
         }
     }
+    PlayerNamesManager.Instance?.SetPlayerName(1, playerNickname);
+
+    // 2. IA (Joueur 2)
+    int botPlayerId = 2;
+    int j = 0;
+    foreach (Transform spawnPoint in player2SpawnPoints)
+    {
+        if (spawnPoint == null) continue;
+        j++;
+
+        if (player2PrefabGameObject == null)
+        {
+            Debug.LogError("[GameSpawner] ❌ player2PrefabGameObject non assigné pour le mode offline");
+            continue;
+        }
+
+        GameObject botObj = Instantiate(player2PrefabGameObject, spawnPoint.position, Quaternion.identity);
+        botObj.name = $"Bot_Ball{j}";
+
+        if (botObj.TryGetComponent(out BallAimController ballController))
+        {
+            ballController.SetOwner(botPlayerId);
+            ballController.SetBotControlled(true);
+        }
+    }
+    GameModeManager.Instance.BotPlayerId = botPlayerId;
+    PlayerNamesManager.Instance?.SetPlayerName(botPlayerId, "🤖 IA");
+
+    // 3. Ballon de foot
+    if (soccerBallPrefabGameObject != null)
+    {
+        Vector3 ballPos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
+        Instantiate(soccerBallPrefabGameObject, ballPos, Quaternion.identity);
+    }
+    else
+    {
+        Debug.LogWarning("[GameSpawner] ⚠️ soccerBallPrefabGameObject non assigné pour le mode offline");
+    }
+}
 
     private void OnDisable()
     {

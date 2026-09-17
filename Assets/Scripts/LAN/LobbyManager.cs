@@ -117,7 +117,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     /// une room dédiée générée aléatoirement pour éviter qu'un vrai joueur ne
     /// rejoigne par hasard une partie censée être vs IA.
     /// </summary>
-    public async void OnPlayVsAIButtonPressed()
+    public void OnPlayVsAIButtonPressed()
     {
         if (playButton != null) playButton.interactable = false;
         if (playVsAIButton != null) playVsAIButton.interactable = false;
@@ -128,22 +128,22 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         modeManager.ResetForNewSession();
         modeManager.IsVsAI = true;
 
+        // Pseudo
         if (!string.IsNullOrEmpty(playerNicknameInput.text))
-        {
             playerNickname = playerNicknameInput.text.Trim();
-        }
         if (string.IsNullOrEmpty(playerNickname))
-        {
             playerNickname = "Joueur";
-        }
 
         PlayerPrefs.SetString("playerNickname", playerNickname);
         PlayerPrefs.Save();
 
-        string roomName = $"AI_{System.Guid.NewGuid().ToString("N").Substring(0, 8)}";
+        // Enregistrer le nom du joueur localement
+        PlayerNamesManager.Instance?.SetPlayerName(1, playerNickname);
 
-        UpdateStatus($"Connexion en tant que '{playerNickname}' (vs IA)...");
-        await StartGameSession(roomName);
+        UpdateStatus("Lancement de la partie locale...");
+
+        // 🚀 CHARGEMENT EN LOCAL SANS FUSION
+        SceneManager.LoadScene("GameSceneLocal");
     }
 
     /// <summary>

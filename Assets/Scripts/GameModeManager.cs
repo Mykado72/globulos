@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// ✅ Transporte le mode de jeu choisi au Lobby (vs IA ou multijoueur normal)
 /// jusqu'à la GameScene, où GameSpawner et SoccerBallController en ont besoin.
@@ -31,5 +32,10 @@ public class GameModeManager : MonoBehaviour
     {
         IsVsAI = false;
         BotPlayerId = -1;
+    }
+
+    public void StartSceneGameLocal()
+    {
+        SceneManager.LoadScene("GameSceneLocal");
     }
 }
