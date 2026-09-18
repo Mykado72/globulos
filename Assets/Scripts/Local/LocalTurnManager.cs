@@ -33,6 +33,10 @@ public class LocalTurnManager : MonoBehaviour
 
     private void Start()
     {
+        // ✨ DEBUG
+        Debug.Log($"[LocalTurnManager] ✅ Démarrage du TurnManager");
+        Debug.Log($"[LocalTurnManager] 📊 Balles disponibles: {LocalBallAimController.AllBalls.Count}");
+
         StartNewTurn();
     }
 
@@ -42,8 +46,16 @@ public class LocalTurnManager : MonoBehaviour
         {
             case TurnState.Aiming:
                 _timer -= Time.deltaTime;
+
+                // ✨ DEBUG: afficher le timer
+                if (_timer > 0 && (int)_timer % 5 == 0)
+                {
+                    Debug.Log($"[LocalTurnManager] ⏰ Timer: {_timer:F1}s");
+                }
+
                 if (_timer <= 0f)
                 {
+                    Debug.Log("[LocalTurnManager] ⏰ Timer écoulé - Forçage fin de l'aiming");
                     ForceStopAiming();
                     ExecuteTurnResolution();
                 }
@@ -53,6 +65,7 @@ public class LocalTurnManager : MonoBehaviour
                 _settleTimer -= Time.deltaTime;
                 if (_settleTimer <= 0f && AreAllBallsStopped())
                 {
+                    Debug.Log("[LocalTurnManager] 📊 Toutes les balles se sont arrêtées");
                     CurrentState = TurnState.CheckResult;
                 }
                 break;
@@ -71,8 +84,10 @@ public class LocalTurnManager : MonoBehaviour
     {
         CurrentTurnNumber++;
         CurrentState = TurnState.Aiming;
-        Debug.Log($"Turn {CurrentTurnNumber} started. Players can aim their balls.");
         _timer = aimDuration;
+
+        Debug.Log($"[LocalTurnManager] 🎮 Tour {CurrentTurnNumber} - Phase d'aiming ({aimDuration}s)");
+        Debug.Log($"[LocalTurnManager] 📊 Balles actives: {LocalBallAimController.AllBalls.Count}");
     }
 
     private void ExecuteTurnResolution()
@@ -80,37 +95,58 @@ public class LocalTurnManager : MonoBehaviour
         CurrentState = TurnState.Resolution;
         _settleTimer = resolutionSettleDuration;
 
+        Debug.Log("[LocalTurnManager] 💥 Exécution des tirs");
+
+        // ✨ FIXED: LocalBallAimController au lieu de BallAimController
         foreach (var ball in LocalBallAimController.AllBalls)
         {
-            if (ball != null) ball.ExecuteQueuedShot();
+            if (ball != null)
+            {
+                Debug.Log($"[LocalTurnManager] 🔄 Exécution tir pour balle {ball.gameObject.name}");
+                ball.ExecuteQueuedShot();
+            }
         }
     }
 
     private void ForceStopAiming()
     {
+        Debug.Log("[LocalTurnManager] ⛔ Forçage fin de l'aiming");
+
+        // ✨ FIXED: LocalBallAimController au lieu de BallAimController
         foreach (var ball in LocalBallAimController.AllBalls)
         {
-            if (ball != null) ball.ForceStopAiming();
+            if (ball != null)
+            {
+                ball.ForceStopAiming();
+            }
         }
     }
 
     private bool AreAllBallsStopped()
     {
+        // ✨ FIXED: LocalBallAimController au lieu de BallAimController
+        // ✨ FIXED v2: Ignorer les balles mortes (qui peuvent rester en mouvement temporairement)
         foreach (var ball in LocalBallAimController.AllBalls)
         {
-            if (ball != null && ball.IsMoving) return false;
+            if (ball != null && !ball.IsDead && ball.IsMoving)
+            {
+                return false;
+            }
         }
         return true;
     }
 
     public void RequestWinBySoccerGoal(int winnerId)
     {
+        Debug.Log($"[LocalTurnManager] ⚽ But marqué par le joueur {winnerId}!");
+
         if (CurrentState == TurnState.Finished) return;
         EndGame(winnerId);
     }
 
     public void CheckGameEnd()
     {
+        // ✨ FIXED: LocalBallAimController au lieu de BallAimController
         Dictionary<int, int> aliveBallsPerPlayer = new Dictionary<int, int>();
         HashSet<int> allPlayerIds = new HashSet<int>();
 
@@ -120,8 +156,16 @@ public class LocalTurnManager : MonoBehaviour
             int playerId = ball.OwnerPlayerId;
             allPlayerIds.Add(playerId);
 
-            if (!aliveBallsPerPlayer.ContainsKey(playerId)) aliveBallsPerPlayer[playerId] = 0;
-            if (!ball.IsDead) aliveBallsPerPlayer[playerId]++;
+            if (!aliveBallsPerPlayer.ContainsKey(playerId))
+                aliveBallsPerPlayer[playerId] = 0;
+            if (!ball.IsDead)
+                aliveBallsPerPlayer[playerId]++;
+        }
+
+        // Debug
+        foreach (var kvp in aliveBallsPerPlayer)
+        {
+            Debug.Log($"[LocalTurnManager] 📊 Joueur {kvp.Key}: {kvp.Value} balle(s) vivante(s)");
         }
 
         int playersWithNoBalls = 0;
@@ -137,10 +181,13 @@ public class LocalTurnManager : MonoBehaviour
 
         if (playersWithNoBalls >= 2)
         {
+            Debug.Log("[LocalTurnManager] 🤝 ÉGALITÉ - Les deux joueurs n'ont plus de balles!");
             EndGame(-1); // Match nul
         }
         else if (playersWithNoBalls == 1 && lastAlivePlayer >= 0)
         {
+            string winnerName = GetPlayerName(lastAlivePlayer);
+            Debug.Log($"[LocalTurnManager] 🎉 VICTOIRE du joueur {lastAlivePlayer} ({winnerName})!");
             EndGame(lastAlivePlayer);
         }
     }
@@ -149,12 +196,17 @@ public class LocalTurnManager : MonoBehaviour
     {
         WinnerPlayerId = winnerId;
         CurrentState = TurnState.Finished;
+
+        string result = (winnerId < 0) ? "ÉGALITÉ" : $"VICTOIRE du joueur {winnerId}";
+        Debug.Log($"[LocalTurnManager] 🏁 Fin du jeu: {result}");
+
         StartCoroutine(ReloadSceneAfterDelay());
     }
 
     private IEnumerator ReloadSceneAfterDelay()
     {
         yield return new WaitForSeconds(2f);
+        Debug.Log("[LocalTurnManager] 🔄 Rechargement de la scène...");
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 

@@ -17,9 +17,21 @@ public class LocalSoccerBallController : MonoBehaviour
 
         _goalScored = true;
 
+        Debug.Log($"[LocalSoccerBallController] ⚽ But marqué! Scoreur: Joueur {scorerId}");
+
         AudioManager.Instance?.PlaySoccerGoal();
         LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
 
+        // ✨ CLEANUP: Nettoyer la bille si elle a un composant LocalBallAimController
+        // (au cas où elle serait aussi marquée comme "à jouer")
+        LocalBallAimController ballController = GetComponent<LocalBallAimController>();
+        if (ballController != null)
+        {
+            Debug.Log("[LocalSoccerBallController] 🧹 Nettoyage de AllBalls");
+            LocalBallAimController.AllBalls.Remove(ballController);
+        }
+
+        Debug.Log("[LocalSoccerBallController] 💥 Destruction du ballon");
         Destroy(gameObject);
     }
 
@@ -31,9 +43,12 @@ public class LocalSoccerBallController : MonoBehaviour
 
         // Joueur 1 (Humain) : ID 1
         // Joueur 2 (IA) : ID 2
-        GoalZone.GoalTeam player1Team = GoalZone.GoalTeam.Jaune; // ID 1 % 2 != 0 -> Rouge ou Jaune selon vos règles
+        // GoalTeam.Jaune = Joueur pair (ex: 2)
+        // GoalTeam.Rouge = Joueur impair (ex: 1)
 
-        // Match l'équipe
-        return (scoringTeam == GoalZone.GoalTeam.Jaune) ? 1 : 2;
+        // Donc si scoringTeam == Jaune → Joueur pair (2)
+        //       si scoringTeam == Rouge → Joueur impair (1)
+
+        return (scoringTeam == GoalZone.GoalTeam.Jaune) ? 2 : 1;
     }
 }

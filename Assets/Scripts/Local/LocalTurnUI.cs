@@ -1,12 +1,10 @@
 using System.Collections.Generic;
-using Fusion;
 using TMPro;
 using UnityEngine;
 
-/// ✅ CLIENT/SERVER MODE
-/// TurnUI est peu impacté : il lit juste les propriétés [Networked] du TurnManager
-/// et du BallAimController, qui sont maintenant centralisées sur le serveur
-/// et répliquées aux clients.
+/// ✅ LOCAL MODE - TurnUI pour le mode local (sans Fusion)
+/// Affiche le timer, l'état du jeu et les messages d'événements
+/// Utilise LocalBallAimController et LocalTurnManager
 public class LocalTurnUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text timerText;
@@ -17,6 +15,7 @@ public class LocalTurnUI : MonoBehaviour
     [Header("Messages d'événements")]
     [SerializeField] private float ballDownMessageDuration = 2f;
 
+    private readonly Dictionary<LocalBallAimController, bool> _previousDeadState = new Dictionary<LocalBallAimController, bool>();
     private float _eventMessageTimer = 0f;
     private string _eventMessage = "";
     private bool _endGameSoundPlayed = false;
@@ -25,13 +24,17 @@ public class LocalTurnUI : MonoBehaviour
     {
         if (panelWIN != null) panelWIN.SetActive(false);
         if (panelDRAW != null) panelDRAW.SetActive(false);
+
+        Debug.Log("[LocalTurnUI] ✅ LocalTurnUI démarré");
     }
 
     private void Update()
     {
-        // ✅ CLIENT/SERVER : Tous les clients reçoivent les données du serveur
-        if (LocalTurnManager.Instance == null) 
+        // ✅ Vérifier que LocalTurnManager existe
+        if (LocalTurnManager.Instance == null)
+        {
             return;
+        }
 
         DetectBallDeaths();
 
@@ -48,8 +51,16 @@ public class LocalTurnUI : MonoBehaviour
             if (!_endGameSoundPlayed)
             {
                 _endGameSoundPlayed = true;
-                if (isDraw) AudioManager.Instance?.PlayDraw();
-                else AudioManager.Instance?.PlayWin();
+                if (isDraw)
+                {
+                    AudioManager.Instance?.PlayDraw();
+                    Debug.Log("[LocalTurnUI] 🤝 Match nul !");
+                }
+                else
+                {
+                    AudioManager.Instance?.PlayWin();
+                    Debug.Log($"[LocalTurnUI] 🎉 Victoire du joueur {winnerName} !");
+                }
             }
 
             if (timerText != null) timerText.text = "";
@@ -97,22 +108,33 @@ public class LocalTurnUI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ✨ Détecte quand une bille tombe dans un but et affiche le message
+    /// </summary>
     private void DetectBallDeaths()
     {
+        // ✨ FIXED: Utiliser LocalBallAimController au lieu de BallAimController
         foreach (LocalBallAimController ball in LocalBallAimController.AllBalls)
         {
             if (ball == null) continue;
 
+            bool wasDead = _previousDeadState.TryGetValue(ball, out bool prev) && prev;
             bool isDeadNow = ball.IsDead;
 
-            if (isDeadNow)
+            if (isDeadNow && !wasDead)
             {
                 int ownerId = ball.OwnerPlayerId;
-                string ownerName = LocalTurnManager.Instance != null ? LocalTurnManager.Instance.GetPlayerName(ownerId) : $"Joueur {ownerId}";
-                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !"; // ✅ Pseudo au lieu de ID
+                string ownerName = LocalTurnManager.Instance != null
+                    ? LocalTurnManager.Instance.GetPlayerName(ownerId)
+                    : $"Joueur {ownerId}";
+
+                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !";
                 _eventMessageTimer = ballDownMessageDuration;
+
+                Debug.Log($"[LocalTurnUI] 💥 {_eventMessage}");
             }
 
+            _previousDeadState[ball] = isDeadNow;
         }
     }
 }

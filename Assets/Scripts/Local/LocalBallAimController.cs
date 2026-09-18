@@ -186,7 +186,7 @@ public class LocalBallAimController : MonoBehaviour
     {
         foreach (var ball in AllBalls)
         {
-            if (ball != null && ball.IsMoving) return true;
+            if (ball != null && !ball.IsDead && ball.IsMoving) return true;
         }
         return false;
     }
