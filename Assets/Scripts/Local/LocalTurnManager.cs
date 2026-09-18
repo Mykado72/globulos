@@ -47,12 +47,6 @@ public class LocalTurnManager : MonoBehaviour
             case TurnState.Aiming:
                 _timer -= Time.deltaTime;
 
-                // ✨ DEBUG: afficher le timer
-                if (_timer > 0 && (int)_timer % 5 == 0)
-                {
-                    Debug.Log($"[LocalTurnManager] ⏰ Timer: {_timer:F1}s");
-                }
-
                 if (_timer <= 0f)
                 {
                     Debug.Log("[LocalTurnManager] ⏰ Timer écoulé - Forçage fin de l'aiming");
