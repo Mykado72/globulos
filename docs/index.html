@@ -52,8 +52,12 @@
       #unity-canvas {
         width: 960px;
         height: 540px;
+        max-width: 100vw;   /* 👈 Empêche le canvas de dépasser en largeur */
+        max-height: 100dvh; /* 👈 Empêche le canvas de dépasser en hauteur */
+        object-fit: contain;/* 👈 Conserve le ratio 16:9 sans déformer */
         display: block;
       }
+      
 
       /* --- Barre de chargement --- */
       #unity-loading-bar {
