@@ -3,6 +3,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using System;
 
 /// ✅ CLIENT/SERVER MODE
 /// Seul le serveur (State Authority) gère:
@@ -39,7 +40,7 @@ public partial class TurnManager : NetworkBehaviour
     [Networked] public int WinnerPlayerId { get; set; }
 
     public static TurnManager Instance { get; private set; }
-
+    [SerializeField] private float maxTurnDuration = 6.0f; // Durée max d'un tir en secondes
     public override void Spawned()
     {
         Instance = this;
@@ -319,5 +320,33 @@ public partial class TurnManager : NetworkBehaviour
         }
 
         return $"Joueur {playerId}";
+    }
+
+    private IEnumerator WaitTurnEndWithTimeout()
+    {
+        float elapsedTime = 0f;
+
+        while (!AreAllBallsStopped() && elapsedTime < maxTurnDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // Si le temps est écoulé, on force l'arrêt de toutes les billes
+        ForceStopAllBalls();
+
+        // Passage au tour suivant
+        StartNewTurn();
+    }
+
+    private void ForceStopAllBalls()
+    {
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball != null)
+            {
+                ball.ForceStopAiming();
+            }
+        }
     }
 }

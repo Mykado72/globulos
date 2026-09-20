@@ -1895,7 +1895,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   defaultRoomName: COGEP
   runnerPrefab: {fileID: 5799743926965882535, guid: 9df887ee9d6d7c14b993e825efe5bc47, type: 3}
-  nbOfPlayers: 2
+  nbOfPlayers: 1
   playerListRefreshInterval: 2
   roomNameInput: {fileID: 0}
   playerNicknameInput: {fileID: 1460968149}

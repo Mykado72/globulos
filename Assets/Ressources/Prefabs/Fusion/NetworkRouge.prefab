@@ -79,7 +79,7 @@ SpriteRenderer:
   m_SortingLayerID: -544039361
   m_SortingLayer: 2
   m_SortingOrder: 10
-  m_Sprite: {fileID: 21300000, guid: e05fb2a27a5d96941be988d350e7e296, type: 3}
+  m_Sprite: {fileID: 21300000, guid: e06fc7fc29f4abf42b7e880ca26ad454, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -103,7 +103,7 @@ Rigidbody2D:
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
   m_Mass: 1
-  m_LinearDrag: 0.75
+  m_LinearDrag: 2
   m_AngularDrag: 1
   m_GravityScale: 0
   m_Material: {fileID: 6200000, guid: eed95a684a63afd4b94c2c28cc9209ac, type: 2}
@@ -201,13 +201,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxForce: 750
-  maxDragDistanceFraction: 0.5
+  maxDragDistanceFraction: 0.25
   arrowShaftSprite: {fileID: 0}
   arrowHeadSprite: {fileID: 0}
   aimColor: {r: 1, g: 0.5, b: 0, a: 1}
   activeColor: {r: 1, g: 0, b: 0, a: 1}
   arrowSortingOrder: 20
   arrowSortingLayerName: Entities
+  useAbsoluteMaxArrowLength: 0
+  maxArrowLength: 3
   maxArrowLengthFraction: 0.5
   headSizeFraction: 0.05
   thicknessFraction: 0.015
@@ -268,11 +270,12 @@ MonoBehaviour:
   squashAmount: 0.7
   stretchAmount: 1.2
   flashDuration: 0.08
+  maxTurnDuration: 6
+  stationaryVelocityThreshold: 2
   _OwnerPlayerId: 0
   _IsAiming: 0
   _IsDead: 0
   _IsMoving: 0
-  stationaryVelocityThreshold: 2
   aiAimInaccuracyDegrees: 12
   aiMinForceFraction: 0.7
 --- !u!120 &8565663288508091538

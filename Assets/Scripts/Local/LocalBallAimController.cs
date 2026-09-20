@@ -8,7 +8,7 @@ public class LocalBallAimController : MonoBehaviour
 {
     [Header("Aim Settings")]
     [SerializeField] private float maxForce = 15f;
-    [SerializeField, Range(0.25f, 1.0f)] private float maxDragDistanceFraction = 0.5f;
+    [SerializeField, Range(0.25f, 10.0f)] private float maxDragDistanceFraction = 0.5f;
 
     [Header("Arrow Visual Settings")]
     [SerializeField] private Sprite arrowShaftSprite;
@@ -17,6 +17,11 @@ public class LocalBallAimController : MonoBehaviour
     [SerializeField] private Color activeColor = new Color(1, 0, 0, 1);
     [SerializeField] private int arrowSortingOrder = 20;
     [SerializeField] private string arrowSortingLayerName = "Entities";
+
+    [Tooltip("Active le réglage de la longueur max de la flèche en unités Unity fixes.")]
+    [SerializeField] private bool useAbsoluteMaxArrowLength = true;
+    [Tooltip("Longueur maximale de la flèche en unités Unity.")]
+    [SerializeField] private float maxArrowLength = 3.0f;
 
     [SerializeField, Range(0.1f, 5.0f)] private float maxArrowLengthFraction = 1.5f;
     [SerializeField, Range(0.001f, 0.2f)] private float headSizeFraction = 0.05f;
@@ -36,7 +41,8 @@ public class LocalBallAimController : MonoBehaviour
     [SerializeField] private float squashAmount = 0.7f;
     [SerializeField] private float stretchAmount = 1.2f;
 
-    [SerializeField] private float stationaryVelocityThreshold = 0.15f;
+    [SerializeField] private float maxTurnDuration = 6.0f; // Durée max d'un tir en secondes
+    [SerializeField] private float stationaryVelocityThreshold = 2f;
 
     [Header("IA (bot)")]
     [Tooltip("Décalage angulaire max (en degrés) ajouté à la visée de l'IA pour simuler l'imprécision.")]
@@ -117,7 +123,16 @@ public class LocalBallAimController : MonoBehaviour
         if (_rb != null)
         {
             float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
-            IsMoving = _rb.velocity.sqrMagnitude > thresholdSqr;
+            if (_rb.velocity.sqrMagnitude > thresholdSqr)
+            {
+                IsMoving = true;
+            }
+            else
+            {
+                IsMoving = false;
+                _rb.velocity = Vector2.zero;
+                _rb.angularVelocity = 0f;
+            }
         }
 
         // Logique IA
@@ -368,7 +383,11 @@ public class LocalBallAimController : MonoBehaviour
 
         if (!hasDirection) return;
 
-        float length = forceRatio * maxArrowLengthFraction * viewHeight;
+        // Calcul de la longueur (Unité fixe vs Fraction de la vue)
+        float length = useAbsoluteMaxArrowLength
+            ? forceRatio * maxArrowLength
+            : forceRatio * maxArrowLengthFraction * viewHeight;
+
         float shaftLength = Mathf.Max(length - currentHeadSize, 0f);
         float angle = Mathf.Atan2(clampedForce.y, clampedForce.x) * Mathf.Rad2Deg;
 

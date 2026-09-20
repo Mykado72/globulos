@@ -19,6 +19,11 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private int arrowSortingOrder = 20;
     [SerializeField] private string arrowSortingLayerName = "Entities";
 
+    [Tooltip("Active le réglage de la longueur max de la flèche en unités Unity fixes.")]
+    [SerializeField] private bool useAbsoluteMaxArrowLength = true;
+    [Tooltip("Longueur maximale de la flèche en unités Unity.")]
+    [SerializeField] private float maxArrowLength = 3.0f;
+
     [SerializeField, Range(0.1f, 5.0f)] private float maxArrowLengthFraction = 1.5f;
     [SerializeField, Range(0.001f, 0.2f)] private float headSizeFraction = 0.05f;
     [SerializeField, Range(0.0005f, 0.1f)] private float thicknessFraction = 0.015f;
@@ -38,6 +43,10 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private float stretchAmount = 1.2f;
     [SerializeField] private float flashDuration = 0.08f;
 
+    [SerializeField] private float maxTurnDuration = 6.0f; // Durée max d'un tir en secondes
+    [SerializeField] private float stationaryVelocityThreshold = 2f;
+
+
     public static readonly List<BallAimController> AllBalls = new List<BallAimController>();
 
     // ✅ Accesseurs mis en cache : évitent des GetComponent<NetworkObject>() répétés
@@ -49,8 +58,6 @@ public class BallAimController : NetworkBehaviour
     [Networked] public bool IsAiming { get; set; }
     [Networked] public bool IsDead { get; set; }
     [Networked] public bool IsMoving { get; set; }
-
-    [SerializeField] private float stationaryVelocityThreshold = 0.15f;
 
     [Header("IA (bot)")]
     [Tooltip("Décalage angulaire max (en degrés) ajouté à la visée de l'IA pour simuler l'imprécision.")]
@@ -175,6 +182,18 @@ public class BallAimController : NetworkBehaviour
 
     private void Update()
     {
+        float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
+        if (_rb.velocity.sqrMagnitude > thresholdSqr)
+        {
+            IsMoving = true;
+        }
+        else
+        {
+            IsMoving = false;
+            _rb.velocity = Vector2.zero;
+            _rb.angularVelocity = 0f;
+        }
+
         // 🔒 Sécurité : Seul le propriétaire de la bille voit et contrôle sa propre flèche
         if (!HasStateAuthority || IsDead) return;
 
@@ -543,5 +562,4 @@ public class BallAimController : NetworkBehaviour
         if (collider != null)
             collider.enabled = false;
     }
-
 }
