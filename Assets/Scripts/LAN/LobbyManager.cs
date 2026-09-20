@@ -166,27 +166,13 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     public void RefreshPlayersList()
     {
         if (_currentRunner == null) return;
-
-        string playersList = "🎮 Joueurs connectés:\n";
-        int playerCount = 0;
-
-        foreach (var player in GetAllPlayerData())
+        int count = 0;
+        foreach (var p in _currentRunner.ActivePlayers)
         {
-            if (player == null) continue;
-            string nickname = player.GetNickname();
-            playersList += $"✅ {nickname}\n";
-            playerCount++;
+            count++;
         }
+        Debug.Log($"[LobbyManager] 🔄 Liste des joueurs rafraîchie ({count} joueurs)");
 
-        // Ajouter le compteur
-        playersList += $"\n{playerCount}/{_currentRunner.ActivePlayers.Count()} joueurs";
-
-        if (playersListText != null)
-        {
-            playersListText.text = playersList;
-        }
-
-        Debug.Log($"[LobbyManager] 🔄 Liste des joueurs rafraîchie ({playerCount} joueurs)");
     }
 
     private async Task StartGameSession(string roomName)
@@ -257,6 +243,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
+        RefreshPlayersList();
         CheckPlayersAndStartGame();
     }
 
@@ -330,9 +317,31 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (statusText != null) statusText.text = message;
     }
 
+    private void OnEnable()
+    {
+        var runner = NetworkRunner.Instances.FirstOrDefault();
+        if (runner != null)
+        {
+            runner.AddCallbacks(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        var runner = NetworkRunner.Instances.FirstOrDefault();
+        if (runner != null)
+        {
+            runner.RemoveCallbacks(this);
+        }
+    }
+
+
+
     /// <summary>
     /// ✨ NEW: Retourne au Lobby en cas d'erreur réseau ou départ joueur
     /// </summary>
+    /// 
+
     private void ReturnToLobby(string reason)
     {
         _isInLobby = true;

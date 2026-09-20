@@ -2,15 +2,10 @@ using Fusion;
 using Fusion.Sockets;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-/// ✅ VERSION v4 - GESTION ERREURS RÉSEAU
-/// - Intègre PlayerData avec le pseudo
-/// - Synchronise le pseudo en réseau
-/// - Enregistre le pseudo dans PlayerNamesManager
-/// - Fix: Race condition - check `!_isSpawning` dans Update
-/// ✨ NEW: Gestion des erreurs réseau et retour au Lobby
 public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef player1Prefab;
@@ -31,14 +26,16 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     private bool _hasSpawnedBall = false;
     private NetworkRunner _runner;
 
-private void Start()
+private async void Start()
 {
     // Mode Offline (vs IA)
+    /*
     if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI)
     {
         SpawnOfflineGame();
         return;
     }
+    */
 
     // Mode En Ligne (Fusion)
     _runner = FindObjectOfType<NetworkRunner>();
@@ -46,72 +43,16 @@ private void Start()
     {
         _runner.AddCallbacks(this);
     }
-}
+        // Laisser 0.5s à Fusion pour stabiliser la scène et les autorités
+        await System.Threading.Tasks.Task.Delay(500);
 
-private void SpawnOfflineGame()
-{
-    string playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
-
-    // 1. Joueur Humain (Joueur 1)
-    int i = 0;
-    foreach (Transform spawnPoint in player1SpawnPoints)
-    {
-        if (spawnPoint == null) continue;
-        i++;
-
-        if (player1PrefabGameObject == null)
+        var runner = NetworkRunner.Instances.FirstOrDefault();
+        if (runner != null && runner.IsRunning && !_hasSpawnedLocalPlayer)
         {
-            Debug.LogError("[GameSpawner] ❌ player1PrefabGameObject non assigné pour le mode offline");
-            continue;
-        }
-
-        GameObject ballObj = Instantiate(player1PrefabGameObject, spawnPoint.position, Quaternion.identity);
-        ballObj.name = $"Player 1_Ball{i}";
-
-        if (ballObj.TryGetComponent(out BallAimController ballController))
-        {
-            ballController.SetOwner(1);
+            Debug.Log($"[GameSpawner] 🚀 Tentative de spawn au Start() pour le joueur {runner.LocalPlayer.PlayerId}");
+            _ = TrySpawnLocalPlayer(runner);
         }
     }
-    PlayerNamesManager.Instance?.SetPlayerName(1, playerNickname);
-
-    // 2. IA (Joueur 2)
-    int botPlayerId = 2;
-    int j = 0;
-    foreach (Transform spawnPoint in player2SpawnPoints)
-    {
-        if (spawnPoint == null) continue;
-        j++;
-
-        if (player2PrefabGameObject == null)
-        {
-            Debug.LogError("[GameSpawner] ❌ player2PrefabGameObject non assigné pour le mode offline");
-            continue;
-        }
-
-        GameObject botObj = Instantiate(player2PrefabGameObject, spawnPoint.position, Quaternion.identity);
-        botObj.name = $"Bot_Ball{j}";
-
-        if (botObj.TryGetComponent(out BallAimController ballController))
-        {
-            ballController.SetOwner(botPlayerId);
-            ballController.SetBotControlled(true);
-        }
-    }
-    GameModeManager.Instance.BotPlayerId = botPlayerId;
-    PlayerNamesManager.Instance?.SetPlayerName(botPlayerId, "🤖 IA");
-
-    // 3. Ballon de foot
-    if (soccerBallPrefabGameObject != null)
-    {
-        Vector3 ballPos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
-        Instantiate(soccerBallPrefabGameObject, ballPos, Quaternion.identity);
-    }
-    else
-    {
-        Debug.LogWarning("[GameSpawner] ⚠️ soccerBallPrefabGameObject non assigné pour le mode offline");
-    }
-}
 
     private void OnDisable()
     {
@@ -124,28 +65,11 @@ private void SpawnOfflineGame()
     public void OnSceneLoadDone(NetworkRunner runner)
     {
         _ = TrySpawnLocalPlayer(runner);
-        // Debug.Log("[GameSpawner] 📍 OnSceneLoadDone (appelé par Master Client)");
 
-        // ✅ Enregistre les pseudos de TOUS les joueurs
-        /*
-        if (PlayerNamesManager.Instance != null)
-        {
-            foreach (var player in runner.ActivePlayers)
-            {
-                byte[] token = runner.GetPlayerConnectionToken(player);
-                if (token != null && token.Length > 0)
-                {
-                    string nickname = System.Text.Encoding.UTF8.GetString(token);
-                    PlayerNamesManager.Instance.SetPlayerName(player.PlayerId, nickname);
-                }
-            }
-        }
-        */
         if (runner.IsSharedModeMasterClient && !_hasSpawnedBall)
         {
             _hasSpawnedBall = true;
             SpawnSoccerBall(runner);
-            //Debug.Log("[GameSpawner] ⚽ Master Client a spawné le ballon");
         }
     }
 
@@ -188,10 +112,8 @@ private void SpawnOfflineGame()
         // billes par joueur), et non un seul point choisi au hasard.
         int i = 0;
         foreach (Transform spawnPoint in spawnPoints)
-        {             
+        {
             i++;
-            Debug.Log($"[GameSpawner] 🔍 Index: {i} | Point: {spawnPoint.name} | Frame: {Time.frameCount} | Time: {Time.time}");
-            // Debug.Log($"[GameSpawner] 🔹 Tentative de spawn de la bille {i} pour le Joueur {(isPlayer1 ? 1 : 2)}");
             if (spawnPoint == null) continue;
 
             try
@@ -202,27 +124,28 @@ private void SpawnOfflineGame()
                     Quaternion.identity,
                     inputAuthority: localPlayer
                 );
-                spawnedBall.name = $"Player {localPlayer.PlayerId}_Ball{i}";
+
                 if (spawnedBall != null)
                 {
-                    // Ne définir le pseudo que si le joueur local possède l'autorité sur ce NetworkObject
-                    if (spawnedBall.HasInputAuthority)
-                    {
-                        if (spawnedBall.TryGetComponent(out PlayerData playerData))
-                        {
-                            playerData.RPC_SetPlayerInfo(playerNickname, localPlayer.PlayerId);
-                            Debug.Log($"[GameSpawner] ✅ Pseudo local envoyé au réseau : {playerNickname} (ID: {localPlayer.PlayerId})");
-                        }
+                    spawnedBall.name = $"Player {localPlayer.PlayerId}_Ball{i}";
 
-                        if (PlayerNamesManager.Instance != null)
-                        {
-                            PlayerNamesManager.Instance.SetPlayerName(localPlayer.PlayerId, playerNickname);
-                        }
-                    }
-
+                    // 1. Définir le propriétaire localement sur le script de la bille
                     if (spawnedBall.TryGetComponent(out BallAimController ballController))
                     {
                         ballController.SetOwner(localPlayer.PlayerId);
+                    }
+
+                    // 2. Transmettre le pseudo via le RPC PlayerData
+                    if (spawnedBall.TryGetComponent(out PlayerData playerData))
+                    {
+                        // En mode Shared, InputAuthority donne la permission d'appeler le RPC
+                        playerData.RPC_SetPlayerInfo(playerNickname, localPlayer.PlayerId);
+                        Debug.Log($"[GameSpawner] ✅ Bille {i} du Joueur {localPlayer.PlayerId} spawnée avec succès");
+                    }
+
+                    if (PlayerNamesManager.Instance != null)
+                    {
+                        PlayerNamesManager.Instance.SetPlayerName(localPlayer.PlayerId, playerNickname);
                     }
                 }
             }
@@ -232,70 +155,7 @@ private void SpawnOfflineGame()
             }
         }
 
-        // ✨ NEW : en mode vs IA, le Master Client (seul joueur présent) spawn aussi le bot
-        if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI && isPlayer1)
-        {
-            await SpawnBotPlayer(runner, localPlayer.PlayerId);
-        }
-
         _isSpawning = false;
-    }
-
-    /// <summary>
-    /// ✨ NEW : Spawn une bille "Joueur 2" par spawn point (même logique que pour le joueur
-    /// humain), chacune contrôlée par l'IA au lieu de la souris.
-    /// PlayerId = humanPlayerId + 1, ce qui garantit une parité opposée
-    /// (donc une équipe adverse) quel que soit le PlayerId réel attribué par Fusion.
-    /// </summary>
-    private async System.Threading.Tasks.Task SpawnBotPlayer(NetworkRunner runner, int humanPlayerId)
-    {
-        if (player2Prefab == null || player2SpawnPoints == null || player2SpawnPoints.Length == 0)
-        {
-            Debug.LogWarning("[GameSpawner] ⚠️ Impossible de spawn le bot : prefab/spawn points Joueur 2 manquants");
-            return;
-        }
-
-        int botPlayerId = humanPlayerId + 1;
-        int spawnedCount = 0;
-
-        foreach (Transform spawnPoint in player2SpawnPoints)
-        {
-            if (spawnPoint == null) continue;
-
-            try
-            {
-                // Pas d'inputAuthority : en mode Shared, le client qui spawn (le seul présent
-                // ici) devient automatiquement State Authority sur l'objet.
-                NetworkObject spawnedBall = await runner.SpawnAsync(player2Prefab, spawnPoint.position, Quaternion.identity);
-
-                if (spawnedBall != null && spawnedBall.TryGetComponent(out BallAimController ballController))
-                {
-                    ballController.SetOwner(botPlayerId);
-                    ballController.SetBotControlled(true);
-                    spawnedCount++;
-                }
-                else
-                {
-                    Debug.LogError("[GameSpawner] ❌ Échec du spawn du bot : composant BallAimController manquant");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[GameSpawner] ❌ Exception lors du spawn du bot: {ex.Message}");
-            }
-        }
-
-        if (spawnedCount > 0)
-        {
-            if (GameModeManager.Instance != null)
-            {
-                GameModeManager.Instance.BotPlayerId = botPlayerId;
-            }
-
-            PlayerNamesManager.Instance?.SetPlayerName(botPlayerId, "🤖 IA");
-        }
-
-        // Debug.Log($"[GameSpawner] 🤖 {spawnedCount} bille(s) IA spawnée(s) (PlayerId {botPlayerId})");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
@@ -333,7 +193,7 @@ private void SpawnOfflineGame()
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a rejoint");
+        Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a rejoint");        
     }
 
     /// <summary>

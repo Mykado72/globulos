@@ -321,7 +321,7 @@ public class BallAimController : NetworkBehaviour
         {
             // ✅ Enregistrement de la force localement
             _localQueuedForce = forceToApply;
-            Debug.Log($"[BallAimController] 🎯 Force enregistrée pour la bille {OwnerPlayerId} : {_localQueuedForce}");
+            // Debug.Log($"[BallAimController] 🎯 Force enregistrée pour la bille {OwnerPlayerId} : {_localQueuedForce}");
         }
         else
         {
@@ -349,7 +349,7 @@ public class BallAimController : NetworkBehaviour
         if (_rb != null)
         {
             _rb.AddForce(force, ForceMode2D.Impulse);
-            Debug.Log($"[BallAimController] 💥 Impulsion appliquée : {force}");
+            // Debug.Log($"[BallAimController] 💥 Impulsion appliquée : {force}");
         }
     }
 
@@ -435,7 +435,7 @@ public class BallAimController : NetworkBehaviour
         // Vérifie si le rebond est assez violent
         if (_rb.velocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
         {
-            Debug.Log($"[BallAimController] 💥 Rebond! Velocity: {_rb.velocity.magnitude}");
+            // Debug.Log($"[BallAimController] 💥 Rebond! Velocity: {_rb.velocity.magnitude}");
 
             // ✅ NOUVEAU : son de rebond. Pas de RPC ici (contrairement au tir) : comme pour
             // l'effet squash juste en dessous, OnCollisionEnter2D se déclenche localement sur
