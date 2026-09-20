@@ -1,12 +1,11 @@
 using System.Collections.Generic;
-using Fusion;
 using TMPro;
 using UnityEngine;
+using Fusion;
 
-/// ✅ CLIENT/SERVER MODE
-/// TurnUI est peu impacté : il lit juste les propriétés [Networked] du TurnManager
-/// et du BallAimController, qui sont maintenant centralisées sur le serveur
-/// et répliquées aux clients.
+/// ✅ CLIENT/SERVER & LOCAL
+/// TurnUI est complètement agnostique au mode (Local ou Network).
+/// Il lit simplement les données via ITurnManagerCore.
 public class TurnUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text timerText;
@@ -17,7 +16,8 @@ public class TurnUI : MonoBehaviour
     [Header("Messages d'événements")]
     [SerializeField] private float ballDownMessageDuration = 2f;
 
-    private readonly Dictionary<NetworkId, bool> _previousDeadState = new Dictionary<NetworkId, bool>();
+    private ITurnManagerCore _turnManager;
+    private readonly Dictionary<int, bool> _previousDeadState = new Dictionary<int, bool>();
     private float _eventMessageTimer = 0f;
     private string _eventMessage = "";
     private bool _endGameSoundPlayed = false;
@@ -26,22 +26,33 @@ public class TurnUI : MonoBehaviour
     {
         if (panelWIN != null) panelWIN.SetActive(false);
         if (panelDRAW != null) panelDRAW.SetActive(false);
+
+        // ✅ DÉTECTION AUTOMATIQUE du mode (Local ou Network)
+        _turnManager = FindTurnManager();
+        if (_turnManager == null)
+        {
+            Debug.LogError("[TurnUI] ❌ Aucun ITurnManagerCore trouvé (LocalTurnManager ou TurnManager)!");
+        }
     }
 
     private void Update()
     {
-        // ✅ CLIENT/SERVER : Tous les clients reçoivent les données du serveur
-        if (TurnManager.Instance == null || !TurnManager.Instance.Object.IsValid) 
+        if (_turnManager == null)
+            return;
+        // ✅ Attendre que TurnManager soit spawné
+        if (!IsTurnManagerReady())
             return;
 
-        DetectBallDeaths();
+        // Maintenant safe d'accéder à CurrentState
+        if (_turnManager.CurrentState == TurnState.Finished)
+            DetectBallDeaths();
 
         // --- Fin de partie ---
-        if (TurnManager.Instance.CurrentState == TurnManager.TurnState.Finished)
+        if (_turnManager.CurrentState == TurnState.Finished)
         {
-            int winnerId = TurnManager.Instance.WinnerPlayerId;
+            int winnerId = _turnManager.WinnerPlayerId;
             bool isDraw = winnerId < 0;
-            string winnerName = TurnManager.Instance.GetPlayerName(winnerId);
+            string winnerName = _turnManager.GetPlayerName(winnerId);
 
             if (panelDRAW != null) panelDRAW.SetActive(isDraw);
             if (panelWIN != null) panelWIN.SetActive(!isDraw);
@@ -70,7 +81,7 @@ public class TurnUI : MonoBehaviour
         if (panelDRAW != null) panelDRAW.SetActive(false);
 
         // Chrono
-        float remaining = TurnManager.Instance.GetRemainingTime();
+        float remaining = _turnManager.GetRemainingTime();
         if (timerText != null) timerText.text = Mathf.CeilToInt(remaining).ToString();
 
         // Message temporaire : prioritaire
@@ -84,42 +95,97 @@ public class TurnUI : MonoBehaviour
         // Affichage normal
         if (stateText == null) return;
 
-        switch (TurnManager.Instance.CurrentState)
+        switch (_turnManager.CurrentState)
         {
-            case TurnManager.TurnState.Aiming:
+            case TurnState.Aiming:
                 stateText.text = "Phase de préparation des tirs";
                 break;
-            case TurnManager.TurnState.Resolution:
+            case TurnState.Resolution:
                 stateText.text = "Déplacements en cours...";
                 break;
-            case TurnManager.TurnState.CheckResult:
+            case TurnState.CheckResult:
                 stateText.text = "Fin du tour";
                 break;
         }
     }
 
+    private bool IsTurnManagerReady()
+    {
+        // Mode Local : toujours prêt
+        if (_turnManager is LocalTurnManager)
+            return true;
+
+        // Mode Network : vérifier IsSpawned
+        if (_turnManager is TurnManager networkTM)
+        {
+            if (networkTM.Object == null || !networkTM.Object.IsValid || !networkTM.Object.IsValid)
+                return false;
+        }
+
+        return true;
+    }
     private void DetectBallDeaths()
     {
-        foreach (BallAimController ball in BallAimController.AllBalls)
+        // Mode Local
+        foreach (var ball in LocalBallAimController.AllBalls)
         {
             if (ball == null) continue;
 
-            NetworkObject netObj = ball.NetObj;
-            if (netObj == null || !netObj.IsValid) continue;
+            int ballId = ball.GetInstanceID();
+            bool wasDead = _previousDeadState.TryGetValue(ballId, out bool prev) && prev;
+            bool isDeadNow = ball.IsDead;
 
-            NetworkId id = netObj.Id;
-            bool wasDead = _previousDeadState.TryGetValue(id, out bool prev) && prev;
+            if (isDeadNow && !wasDead)
+            {
+                int ownerId = ball.OwnerPlayerId; 
+                string ownerName = _turnManager.GetPlayerName(ownerId);
+                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !";
+                _eventMessageTimer = ballDownMessageDuration;
+            }
+
+            _previousDeadState[ballId] = isDeadNow;
+        }
+
+        // Mode Network (Fusion)
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball == null) continue;
+
+            int ballId = ball.GetInstanceID();
+            bool wasDead = _previousDeadState.TryGetValue(ballId, out bool prev) && prev;
             bool isDeadNow = ball.IsDead;
 
             if (isDeadNow && !wasDead)
             {
                 int ownerId = ball.OwnerPlayerId;
-                string ownerName = TurnManager.Instance != null ? TurnManager.Instance.GetPlayerName(ownerId) : $"Joueur {ownerId}";
-                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !"; // ✅ Pseudo au lieu de ID
+                string ownerName = _turnManager.GetPlayerName(ownerId);
+                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !";
                 _eventMessageTimer = ballDownMessageDuration;
             }
 
-            _previousDeadState[id] = isDeadNow;
+            _previousDeadState[ballId] = isDeadNow;
         }
+    }
+
+    /// ✅ Détecte automatiquement le TurnManager du mode courant
+    private ITurnManagerCore FindTurnManager()
+    {
+        // Cherche d'abord LocalTurnManager
+        LocalTurnManager localTM = FindObjectOfType<LocalTurnManager>();
+        if (localTM != null)
+        {
+            Debug.Log("[TurnUI] ✅ Mode LOCAL détecté");
+            return localTM;
+        }
+
+        // Sinon cherche TurnManager (réseau)
+        TurnManager networkTM = FindObjectOfType<TurnManager>();
+        if (networkTM != null)
+        {
+            Debug.Log("[TurnUI] ✅ Mode NETWORK détecté");
+            return networkTM;
+        }
+
+        return null;
     }
 }

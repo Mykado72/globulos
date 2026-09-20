@@ -42,14 +42,18 @@ public class SoccerBallController : NetworkBehaviour
         Debug.Log($"[SoccerBallController] ⚽ BUT ! Marqué par PlayerId {scorerId}");
 
         // ✅ RPC : Diffuse le son à tous les clients
-        RPC_PlayGoalSound();
+        if (AudioManager.Instance != null)
+        {
+            RPC_PlayGoalSound();
+        }
 
         // ✅ Signale au TurnManager (serveur) la victoire
-        TurnManager.Instance?.RPC_RequestWinBySoccerGoal(scorerId);
+        if (TurnManager.Instance != null)
+        {
+            TurnManager.Instance.RequestWinBySoccerGoal(scorerId);
+        }
 
         // ✨ FIX: Despawn du ballon après but pour éviter artefacts
-        // Raison: Le ballon reste visible/physiquement actif après le but
-        // Solution: Despawner sur le serveur (StateAuthority)
         if (HasStateAuthority)
         {
             RPC_DespawnBall();
@@ -59,7 +63,10 @@ public class SoccerBallController : NetworkBehaviour
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void RPC_PlayGoalSound()
     {
-        AudioManager.Instance?.PlaySoccerGoal();
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySoccerGoal();
+        }
     }
 
     /// <summary>

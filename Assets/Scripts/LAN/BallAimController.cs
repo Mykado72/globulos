@@ -239,7 +239,7 @@ public class BallAimController : NetworkBehaviour
         }
 
         // 2. Bloquer la visée si le jeu n'est pas en phase de visée (Aiming)
-        if (TurnManager.Instance != null && TurnManager.Instance.CurrentState != TurnManager.TurnState.Aiming)
+        if (TurnManager.Instance != null && TurnManager.Instance.CurrentState != TurnState.Aiming)
         {
             return;
         }
@@ -265,7 +265,7 @@ public class BallAimController : NetworkBehaviour
         if (TurnManager.Instance == null) return;
 
         // On ne décide qu'une seule fois par phase de visée
-        if (TurnManager.Instance.CurrentState != TurnManager.TurnState.Aiming)
+        if (TurnManager.Instance.CurrentState != TurnState.Aiming)
         {
             _botHasQueuedThisTurn = false;
             return;

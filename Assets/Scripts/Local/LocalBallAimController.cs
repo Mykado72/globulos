@@ -179,7 +179,7 @@ public class LocalBallAimController : MonoBehaviour
         }
 
         // 2. Vérifier si on est bien en phase de visée
-        if (LocalTurnManager.Instance != null && LocalTurnManager.Instance.CurrentState != LocalTurnManager.TurnState.Aiming)
+        if (LocalTurnManager.Instance != null && LocalTurnManager.Instance.CurrentState != TurnState.Aiming)
         {
             return;
         }
@@ -210,7 +210,7 @@ public class LocalBallAimController : MonoBehaviour
     {
         if (LocalTurnManager.Instance == null) return;
 
-        if (LocalTurnManager.Instance.CurrentState != LocalTurnManager.TurnState.Aiming)
+        if (LocalTurnManager.Instance.CurrentState != TurnState.Aiming)
         {
             _botHasQueuedThisTurn = false;
             return;

@@ -39,7 +39,7 @@ public class LocalTurnUI : MonoBehaviour
         DetectBallDeaths();
 
         // --- Fin de partie ---
-        if (LocalTurnManager.Instance.CurrentState == LocalTurnManager.TurnState.Finished)
+        if (LocalTurnManager.Instance.CurrentState == TurnState.Finished)
         {
             int winnerId = LocalTurnManager.Instance.WinnerPlayerId;
             bool isDraw = winnerId < 0;
@@ -96,13 +96,13 @@ public class LocalTurnUI : MonoBehaviour
 
         switch (LocalTurnManager.Instance.CurrentState)
         {
-            case LocalTurnManager.TurnState.Aiming:
+            case TurnState.Aiming:
                 stateText.text = "Phase de préparation des tirs";
                 break;
-            case LocalTurnManager.TurnState.Resolution:
+            case TurnState.Resolution:
                 stateText.text = "Déplacements en cours...";
                 break;
-            case LocalTurnManager.TurnState.CheckResult:
+            case TurnState.CheckResult:
                 stateText.text = "Fin du tour";
                 break;
         }
