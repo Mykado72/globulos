@@ -42,9 +42,12 @@
         /* position: fixed;  */
         inset: 0;
         width: 100%;
+        height: 100%;
         display: flex;             /* Active Flexbox */
         justify-content: center;   /* Centre horizontalement */
         align-items: center;       /* Centre verticalement */
+        aspect-ratio: 16 / 9; /* 👈 Force le ratio sans étirer l'image */
+        object-fit: contain;  /* 👈 Empêche toute déformation */
         position: relative;
       }
 
@@ -55,7 +58,7 @@
         max-width: 100vw;   /* 👈 Empêche le canvas de dépasser en largeur */
         max-height: 100dvh; /* 👈 Empêche le canvas de dépasser en hauteur */
         aspect-ratio: 16 / 9; /* 👈 Force le ratio sans étirer l'image */
-          object-fit: contain;  /* 👈 Empêche toute déformation */
+        object-fit: contain;  /* 👈 Empêche toute déformation */
         display: block;
       }
       
