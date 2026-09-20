@@ -155,14 +155,6 @@
           <div id="unity-progress-bar-full"></div>
         </div>
       </div>
-
-      <div id="unity-warning"></div>
-
-      <div id="unity-footer">
-        <div id="unity-webgl-logo"></div>
-        <div id="unity-fullscreen-button"></div>
-        <div id="unity-build-title">Globulos</div>
-      </div>
     </div>
 
     <script>
@@ -232,9 +224,6 @@
           progressBar.style.width = (100 * progress) + "%";
         }).then(function (unityInstance) {
           loadingBar.style.display = "none";
-          fullscreenBtn.onclick = function () {
-            unityInstance.SetFullscreen(1);
-          };
         }).catch(function (message) {
           alert(message);
         });
