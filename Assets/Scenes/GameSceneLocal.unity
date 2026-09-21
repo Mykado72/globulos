@@ -564,7 +564,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d09d4d90e9176e43b5434f0b912f541, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  aimDuration: 10
+  aimDuration: 5
   resolutionSettleDuration: 0
 --- !u!1 &478503305
 GameObject:

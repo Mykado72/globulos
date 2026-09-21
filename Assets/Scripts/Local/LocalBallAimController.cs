@@ -49,7 +49,14 @@ public class LocalBallAimController : MonoBehaviour
     [SerializeField, Range(0f, 45f)] private float aiAimInaccuracyDegrees = 12f;
     [Tooltip("Fraction min de la force max utilisée par l'IA.")]
     [SerializeField, Range(0.5f, 1f)] private float aiMinForceFraction = 0.7f;
+    [Header("IA (bot) - Simplifié")]
+    [SerializeField] private BotAIStrategy.AIDifficulty aiDifficulty = BotAIStrategy.AIDifficulty.Medium;
+    [SerializeField] private float botReactionDelaySeconds = 0.3f; // Délai avant tir (plus naturel)
 
+    private BotAIStrategy _botAI;
+    private GoalZone _enemyGoal; // Cache du but adverse
+    private Transform _soccerBallTransform; // Cache du ballon
+    private float _botReactionTimer = 0f;
     public static readonly List<LocalBallAimController> AllBalls = new List<LocalBallAimController>();
 
     public int OwnerPlayerId { get; private set; }
@@ -82,6 +89,113 @@ public class LocalBallAimController : MonoBehaviour
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _originalScale = transform.localScale;
         ConfigureArrowVisual();
+        // 🤖 Initialiser l'IA du bot
+        _botAI = new BotAIStrategy(aiDifficulty);
+    }
+
+    // ======================== SETTER POUR DIFFICULTÉ ========================
+    public void SetBotDifficulty(BotAIStrategy.AIDifficulty difficulty)
+    {
+        aiDifficulty = difficulty;
+        if (_botAI != null)
+        {
+            _botAI.SetDifficulty(difficulty);
+        }
+    }
+
+    // ======================== UPDATE BOT AIMING - VERSION SIMPLIFIÉE ========================
+    private void UpdateBotAiming()
+    {
+        if (LocalTurnManager.Instance == null) return;
+
+        // Vérifier qu'on est en phase de visée
+        if (LocalTurnManager.Instance.CurrentState != TurnState.Aiming)
+        {
+            _botHasQueuedThisTurn = false;
+            _botReactionTimer = 0f;
+            return;
+        }
+
+        // Le bot a déjà tiré ce tour
+        if (_botHasQueuedThisTurn) return;
+
+        // Trouver le ballon s'il n'est pas en cache
+        if (_soccerBallTransform == null)
+        {
+            FindSoccerBall();
+        }
+
+        if (_soccerBallTransform == null)
+        {
+            _botHasQueuedThisTurn = true;
+            return;
+        }
+
+        if (_enemyGoal == null)
+        {
+            _enemyGoal = _botAI.FindEnemyGoal();
+            Debug.Log("🤖 Bot " + OwnerPlayerId + " IA PlayerId=" + _botAI._ownerPlayerId);  // ← Vérifier
+            if (_enemyGoal != null)
+                Debug.Log("✅ But adverse trouvé: " + _enemyGoal.name);
+            else
+                Debug.Log("❌ But adverse NULL!");
+        }
+
+        // Ajouter un délai de "réaction" pour rendre le bot moins instantané
+        _botReactionTimer += Time.deltaTime;
+        if (_botReactionTimer < botReactionDelaySeconds)
+        {
+            return;
+        }
+
+        // 🎯 CALCULER LE TIR: viser le BUT ADVERSE (pas un but contre son camp!)
+        var (direction, forceFraction) = _botAI.CalculateBotShot(
+            botPosition: transform.position,
+            ballPosition: _soccerBallTransform.position,
+            enemyGoalPosition: _enemyGoal.transform.position
+        );
+
+        // Appliquer la force
+        float force = Mathf.Lerp(maxForce * 0.3f, maxForce, forceFraction);
+        _localQueuedForce = direction * force;
+        _botHasQueuedThisTurn = true;
+
+        Debug.Log($"🤖 Bot {OwnerPlayerId} tire vers le but adverse! Direction={direction}, Force={force:F2}");
+        Debug.Log($"   Pos Bot: {transform.position}, Pos Ballon: {_soccerBallTransform.position}, Pos But: {_enemyGoal.transform.position}");
+        Debug.Log($"   _localQueuedForce = {_localQueuedForce}");
+    }
+
+    // ======================== TROUVER LE BALLON ========================
+    private void FindSoccerBall()
+    {
+        // Chercher par tag (recommandé)
+        GameObject ballGO = GameObject.FindWithTag("SoccerBall");
+        if (ballGO != null)
+        {
+            _soccerBallTransform = ballGO.transform;
+            Debug.Log($"✅ Ballon trouvé: {ballGO.name}");
+            return;
+        }
+
+        // Fallback: chercher par nom
+        var allTransforms = FindObjectsOfType<Transform>();
+        foreach (var t in allTransforms)
+        {
+            if (t.name.Contains("Ball") || t.name.Contains("Soccer"))
+            {
+                _soccerBallTransform = t;
+                return;
+            }
+        }
+
+        Debug.LogWarning("⚠️ Ballon non trouvé! Tag le ballon avec 'Ball' ou mets 'Ball' dans son nom.");
+    }
+
+    // ======================== RESET (à appeler avant chaque tour du bot) ========================
+    public void ResetBotState()
+    {
+        _botHasQueuedThisTurn = false;
+        _botReactionTimer = 0f;
     }
 
     private void Start()
@@ -100,7 +214,16 @@ public class LocalBallAimController : MonoBehaviour
         AllBalls.Remove(this);
     }
 
-    public void SetOwner(int playerId) => OwnerPlayerId = playerId;
+    public void SetOwner(int playerId)
+    {
+        OwnerPlayerId = playerId;
+
+        // 🔴 CETTE LIGNE EST MANQUANTE!
+        if (_botAI != null)
+        {
+            _botAI.SetOwnerPlayerId(playerId);
+        }
+    }
 
     public void SetBotControlled(bool isBot)
     {
@@ -206,42 +329,6 @@ public class LocalBallAimController : MonoBehaviour
         return false;
     }
 
-    private void UpdateBotAiming()
-    {
-        if (LocalTurnManager.Instance == null) return;
-
-        if (LocalTurnManager.Instance.CurrentState != TurnState.Aiming)
-        {
-            _botHasQueuedThisTurn = false;
-            return;
-        }
-
-        if (_botHasQueuedThisTurn) return;
-
-        if (_aiTargetGoal == null) FindTargetGoal();
-
-        if (_aiTargetGoal == null)
-        {
-            _botHasQueuedThisTurn = true;
-            return;
-        }
-
-        Vector2 toGoal = (Vector2)_aiTargetGoal.transform.position - (Vector2)transform.position;
-        if (toGoal.sqrMagnitude < 0.0001f)
-        {
-            _botHasQueuedThisTurn = true;
-            return;
-        }
-
-        float randomAngleOffset = Random.Range(-aiAimInaccuracyDegrees, aiAimInaccuracyDegrees);
-        Vector2 aimDirection = Quaternion.Euler(0f, 0f, randomAngleOffset) * toGoal.normalized;
-
-        float forceMagnitude = maxForce * Random.Range(aiMinForceFraction, 1f);
-
-        _localQueuedForce = aimDirection * forceMagnitude;
-        _botHasQueuedThisTurn = true;
-    }
-
     private void FindTargetGoal()
     {
         GoalZone.GoalTeam ownTeam = (OwnerPlayerId % 2 == 0) ? GoalZone.GoalTeam.Jaune : GoalZone.GoalTeam.Rouge;
@@ -287,6 +374,7 @@ public class LocalBallAimController : MonoBehaviour
     {
         if (_localQueuedForce.sqrMagnitude > 0.01f)
         {
+            Debug.Log($"⚡ ExecuteQueuedShot: applying force {_localQueuedForce}");            
             if (_rb != null)
             {
                 _rb.AddForce(_localQueuedForce, ForceMode2D.Impulse);

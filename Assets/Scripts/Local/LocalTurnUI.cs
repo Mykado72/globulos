@@ -25,7 +25,6 @@ public class LocalTurnUI : MonoBehaviour
         if (panelWIN != null) panelWIN.SetActive(false);
         if (panelDRAW != null) panelDRAW.SetActive(false);
 
-        Debug.Log("[LocalTurnUI] ✅ LocalTurnUI démarré");
     }
 
     private void Update()
