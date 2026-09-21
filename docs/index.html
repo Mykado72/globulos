@@ -53,13 +53,11 @@
 
       /* Le canvas prend tout l ecran sur mobile */
       #unity-canvas {
-        /*width: 960px;
-        height: 540px;*/
-        max-width: 95dvw;   /* 👈 Empêche le canvas de dépasser en largeur */
-        max-height: 95dvh; /* 👈 Empêche le canvas de dépasser en hauteur */
-        aspect-ratio: 16 / 9; /* 👈 Force le ratio sans étirer l'image */
-        object-fit: contain;  /* 👈 Empêche toute déformation */
+        width: auto;
+        height: 100%;
+        aspect-ratio: 16 / 9;
         display: block;
+        max-width: 100dvw;
       }
       
 
