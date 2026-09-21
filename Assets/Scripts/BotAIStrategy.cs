@@ -31,8 +31,8 @@ public class BotAIStrategy
     private static readonly DifficultyConfig[] DifficultySettings = new[]
     {
         new DifficultyConfig(inaccuracy: 25f, minForce: 0.5f, maxForce: 0.8f),   // Easy
-        new DifficultyConfig(inaccuracy: 12f, minForce: 0.7f, maxForce: 0.95f),  // Medium
-        new DifficultyConfig(inaccuracy: 5f, minForce: 0.85f, maxForce: 1.0f)    // Hard
+        new DifficultyConfig(inaccuracy: 10f, minForce: 0.7f, maxForce: 0.95f),  // Medium
+        new DifficultyConfig(inaccuracy: 0f, minForce: 0.85f, maxForce: 1.0f)    // Hard
     };
 
     public BotAIStrategy(AIDifficulty difficulty = AIDifficulty.Medium, int ownerPlayerId = -1)
@@ -51,9 +51,11 @@ public class BotAIStrategy
         _ownerPlayerId = playerId;
     }
 
-    /// <summary>
-    /// Calcule le tir du bot pour frapper le ballon VERS LE BUT ADVERSE
-    /// </summary>
+    /// 
+    /// Calcule le tir du bot :
+    /// - Vise le ballon s'il est du bon côté (derrière le ballon par rapport à son camp).
+    /// - Sinon, tire vers l'arrière avec un décalage vertical pour se replacer sans marquer CSC.
+    /// 
     public (Vector2 direction, float forceFraction) CalculateBotShot(
         Vector2 botPosition,
         Vector2 ballPosition,
@@ -61,17 +63,48 @@ public class BotAIStrategy
     {
         var config = DifficultySettings[(int)_difficulty];
 
-        // 🎯 Direction: du ballon vers le but adverse (pas juste vers le ballon!)
-        Vector2 directionToEnemyGoal = (enemyGoalPosition - ballPosition).normalized;
+        // 1. Sens de l'attaque : vecteur qui va du terrain vers le but adverse
+        // Si enemyGoalPosition.x > 0, l'attaque va vers la droite (+1), donc la défense est à gauche (-1)
+        float attackXDirection = Mathf.Sign(enemyGoalPosition.x - botPosition.x);
+        float defenseXDirection = -attackXDirection;
 
-        // Ajouter imprécision
-        Vector2 aimWithInaccuracy = AddAimInaccuracy(directionToEnemyGoal, config.aimInaccuracyDegrees);
+        // 2. Vérification du bon côté
+        // Bon côté = le bot est en amont du ballon par rapport au sens de l'attaque
+        bool isGoodSide = (attackXDirection > 0)
+            ? (botPosition.x < ballPosition.x)   // Attaque vers la droite : bot doit être à gauche du ballon
+            : (botPosition.x > ballPosition.x);  // Attaque vers la gauche : bot doit être à droite du ballon
 
-        // Force aléatoire entre min et max
-        float forceFraction = Random.Range(config.minForceFraction, config.maxForceFraction);
+        Vector2 targetDirection;
+        float forceFraction;
 
+        if (isGoodSide)
+        {
+            // 🎯 BON CÔTÉ : Attaque directe du ballon
+            targetDirection = (ballPosition - botPosition).normalized;
+            forceFraction = Random.Range(config.minForceFraction, config.maxForceFraction);
+            Debug.Log("🤖 Bot du BON CÔTÉ -> Attaque le ballon");
+        }
+        else
+        {
+            // 🛡️ MAUVAIS CÔTÉ : Replacement vers son propre camp (à l'opposé du but adverse)
+            // Dégagement latéral avec offset vertical (+1.5 ou -1.5) pour éviter de rentrer dans ses propres cages
+            float offsetY = (botPosition.y >= 0) ? 1.5f : -1.5f;
+
+            Vector2 replacementTarget = new Vector2(
+                botPosition.x + (defenseXDirection * 3f),
+                botPosition.y + offsetY
+            );
+
+            targetDirection = (replacementTarget - botPosition).normalized;
+            Debug.Log("⚠️ Bot du MAUVAIS CÔTÉ -> Contournement vers son camp");
+            forceFraction = Random.Range(config.minForceFraction, config.maxForceFraction/2f);  // pour se déplacer sans trop de force
+        }
+
+        // 3. Imprécision et force
+        Vector2 aimWithInaccuracy = AddAimInaccuracy(targetDirection, config.aimInaccuracyDegrees);
         return (aimWithInaccuracy, forceFraction);
     }
+
 
     /// <summary>
     /// Trouve le GoalZone qui est adverse pour ce bot

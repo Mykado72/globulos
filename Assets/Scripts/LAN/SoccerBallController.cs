@@ -1,63 +1,55 @@
+using System.Collections;
 using Fusion;
 using UnityEngine;
 
-/// ✅ VERSION OPTIMISÉE v3
-/// - Serveur : State Authority, gère la physique du ballon et détecte les buts
-/// - Clients : Reçoivent les mises à jour de position/rotation
-/// ✨ FIX: Despawn du ballon après but pour éviter les artefacts
 [RequireComponent(typeof(Collider2D))]
 [RequireComponent(typeof(NetworkObject))]
 public class SoccerBallController : NetworkBehaviour
 {
     [Networked] private bool _goalScored { get; set; }
 
+    [Header("Goal Animation Settings")]
+    [SerializeField] private float fallDuration = 1f;
+    [SerializeField] private float totalRotation = 90f;
+    [SerializeField] private float targetScaleFraction = 0.99f;
+    [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f);
+
     public override void Spawned()
     {
         _goalScored = false;
-        // Debug.Log("[SoccerBallController] ⚽ Ballon spawned (Serveur gère la physique)");
     }
 
-    // ✅ CLIENT/SERVER : Seul le serveur vérifie les collisions avec les buts
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (!HasStateAuthority || _goalScored) return;
         if (!collision.CompareTag("Goal")) return;
 
         GoalZone goal = collision.GetComponent<GoalZone>();
-        if (goal == null)
-        {
-            Debug.LogWarning("[SoccerBallController] ⚠️ Le but n'a pas de composant GoalZone");
-            return;
-        }
+        if (goal == null) return;
 
-        // Déterminer le marqueur (celui qui n'est pas dans l'équipe adverse)
         int scorerId = FindScoringPlayer(goal.DefendingTeam);
-        if (scorerId < 0)
-        {
-            Debug.LogWarning("[SoccerBallController] ⚠️ Impossible de déterminer le marqueur");
-            return;
-        }
+        if (scorerId < 0) return;
 
         _goalScored = true;
         Debug.Log($"[SoccerBallController] ⚽ BUT ! Marqué par PlayerId {scorerId}");
 
-        // ✅ RPC : Diffuse le son à tous les clients
+        // 1. Jouer le son
         if (AudioManager.Instance != null)
         {
             RPC_PlayGoalSound();
         }
 
-        // ✅ Signale au TurnManager (serveur) la victoire
+        // 2. Transmettre l'animation à tous les clients
+        RPC_AnimateGoalBall();
+
+        // 3. Notifier le TurnManager
         if (TurnManager.Instance != null)
         {
             TurnManager.Instance.RequestWinBySoccerGoal(scorerId);
         }
 
-        // ✨ FIX: Despawn du ballon après but pour éviter artefacts
-        if (HasStateAuthority)
-        {
-            RPC_DespawnBall();
-        }
+        // 4. Lancer la suppression différée (seulement sur le serveur)
+        StartCoroutine(DespawnAfterDelayCoroutine(fallDuration));
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -69,16 +61,74 @@ public class SoccerBallController : NetworkBehaviour
         }
     }
 
-    /// <summary>
-    /// ✨ FIX: RPC pour despawner le ballon côté serveur
-    /// Appelé depuis OnTriggerEnter2D quand un but est marqué
-    /// </summary>
-    [Rpc(RpcSources.StateAuthority, RpcTargets.StateAuthority)]
-    private void RPC_DespawnBall()
+    /// 
+    /// ✨ RPC appelé sur TOUS les clients pour animer le ballon
+    /// 
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_AnimateGoalBall()
     {
+        StartCoroutine(GoalAnimationCoroutine());
+    }
+
+    private IEnumerator GoalAnimationCoroutine()
+    {
+        // Désactiver la physique pour figer le ballon dans les cages
+        Rigidbody2D rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.velocity /= 5f;
+            rb.angularVelocity /= 5f;
+        }
+
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+
+        float elapsedTime = 0f;
+        Vector3 initialScale = transform.localScale;
+        Quaternion initialRotation = transform.rotation;
+        Color initialColor = sr != null ? sr.color : Color.white;
+
+        while (elapsedTime < fallDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float t = elapsedTime / fallDuration;
+
+            // 1. Calcul de l'échelle (maintenant exact selon targetScaleFraction)
+            float currentScale = Mathf.Lerp(1f, targetScaleFraction, t);
+            transform.localScale = initialScale * currentScale;
+
+            // 2. Calcul propre de la rotation (évite la déformation matricielle)
+            float currentAngle = (totalRotation / fallDuration) * elapsedTime;
+            transform.rotation = initialRotation * Quaternion.Euler(0f, 0f, currentAngle);
+
+            // Transition vers le gris
+            if (sr != null)
+            {
+                sr.color = Color.Lerp(initialColor, goalGrayColor, t);
+            }
+            yield return new WaitForSeconds(0.05f);
+        }
+        if (rb != null)
+        {
+            rb.velocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            rb.isKinematic = true;
+        }
+
+    }
+
+    /// 
+    /// Attend la fin de l'animation avant de Despawn le NetworkObject
+    /// 
+    private IEnumerator DespawnAfterDelayCoroutine(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
         if (HasStateAuthority && Runner != null)
         {
-            Debug.Log("[SoccerBallController] 🗑️ Despawn du ballon après but");
+            Debug.Log("[SoccerBallController] 🗑️ Despawn du ballon après animation");
             Runner.Despawn(Object);
         }
     }
@@ -87,12 +137,10 @@ public class SoccerBallController : NetworkBehaviour
     {
         if (Runner == null) return -1;
 
-        // ✅ L'équipe qui marque est l'opposée de celle qui défend ce but
         GoalZone.GoalTeam scoringTeam = (defendingTeam == GoalZone.GoalTeam.Jaune)
             ? GoalZone.GoalTeam.Rouge
             : GoalZone.GoalTeam.Jaune;
 
-        // 1. Chercher parmi les vrais joueurs connectés
         foreach (PlayerRef player in Runner.ActivePlayers)
         {
             GoalZone.GoalTeam playerTeam = (player.PlayerId % 2 == 0)
@@ -105,8 +153,6 @@ public class SoccerBallController : NetworkBehaviour
             }
         }
 
-        // 2. ✨ NEW : le bot (mode vs IA) n'est pas un vrai PlayerRef réseau,
-        // donc il n'apparaît jamais dans Runner.ActivePlayers.
         if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI && GameModeManager.Instance.BotPlayerId >= 0)
         {
             GoalZone.GoalTeam botTeam = (GameModeManager.Instance.BotPlayerId % 2 == 0)
@@ -119,7 +165,6 @@ public class SoccerBallController : NetworkBehaviour
             }
         }
 
-        Debug.LogWarning($"[SoccerBallController] ⚠️ Aucun joueur/bot trouvé pour l'équipe {scoringTeam} (adverse de {defendingTeam})");
         return -1;
     }
 }

@@ -1,9 +1,25 @@
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider2D))]
 public class LocalSoccerBallController : MonoBehaviour
 {
     private bool _goalScored = false;
+
+    [Header("Goal Animation Settings")]
+    [SerializeField] private float fallDuration = 0.75f;
+    [SerializeField] private float totalRotation = 180f;
+    [SerializeField] private float targetScaleFraction = 0.99f; // Taille finale (85%)
+    [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f); // Gris foncé
+
+    private SpriteRenderer _spriteRenderer;
+    private Rigidbody2D _rb;
+
+    private void Awake()
+    {
+        _spriteRenderer = GetComponent<SpriteRenderer>();
+        _rb = GetComponent<Rigidbody2D>();
+    }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -22,8 +38,7 @@ public class LocalSoccerBallController : MonoBehaviour
         AudioManager.Instance?.PlaySoccerGoal();
         LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
 
-        // ✨ CLEANUP: Nettoyer la bille si elle a un composant LocalBallAimController
-        // (au cas où elle serait aussi marquée comme "à jouer")
+        // ✨ CLEANUP: Retirer de la liste des billes jouables si nécessaire
         LocalBallAimController ballController = GetComponent<LocalBallAimController>();
         if (ballController != null)
         {
@@ -31,8 +46,58 @@ public class LocalSoccerBallController : MonoBehaviour
             LocalBallAimController.AllBalls.Remove(ballController);
         }
 
-        Debug.Log("[LocalSoccerBallController] 💥 Destruction du ballon");
-        Destroy(gameObject);
+        // Lancer l'animation au lieu de détruire instantanément
+        StartCoroutine(GoalAnimationCoroutine());
+    }
+
+    private IEnumerator GoalAnimationCoroutine()
+    {
+        // Stopper la physique
+        if (_rb != null)
+        {
+            _rb.velocity /= 5f; 
+            _rb.angularVelocity /= 5f;
+
+        }
+
+        // Désactiver les collisions pour éviter d'autres déclenchements
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        float elapsedTime = 0f;
+        Vector3 initialScale = transform.localScale;
+        Quaternion initialRotation = transform.rotation;
+        Color initialColor = _spriteRenderer != null ? _spriteRenderer.color : Color.white;
+
+        while (elapsedTime < fallDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float t = elapsedTime / fallDuration;
+
+            // 1. Calcul de l'échelle (maintenant exact selon targetScaleFraction)
+            float currentScale = Mathf.Lerp(1f, targetScaleFraction, t);
+            transform.localScale = initialScale * currentScale;
+
+            // 2. Calcul propre de la rotation (évite la déformation matricielle)
+            float currentAngle = (totalRotation / fallDuration) * elapsedTime;
+            transform.rotation = initialRotation * Quaternion.Euler(0f, 0f, currentAngle);
+
+            // 3. Transition vers la couleur grise (sans baisser l'alpha)
+            if (_spriteRenderer != null)
+            {
+                _spriteRenderer.color = Color.Lerp(initialColor, goalGrayColor, t);
+            }
+
+            yield return new WaitForSeconds(0.05f);
+            // Stopper la physique
+            if (_rb != null)
+            {
+                _rb.velocity = Vector2.zero;
+                _rb.angularVelocity = 0f;
+                _rb.isKinematic = true;
+            }
+
+        }
     }
 
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)
@@ -40,14 +105,6 @@ public class LocalSoccerBallController : MonoBehaviour
         GoalZone.GoalTeam scoringTeam = (defendingTeam == GoalZone.GoalTeam.Jaune)
             ? GoalZone.GoalTeam.Rouge
             : GoalZone.GoalTeam.Jaune;
-
-        // Joueur 1 (Humain) : ID 1
-        // Joueur 2 (IA) : ID 2
-        // GoalTeam.Jaune = Joueur pair (ex: 2)
-        // GoalTeam.Rouge = Joueur impair (ex: 1)
-
-        // Donc si scoringTeam == Jaune → Joueur pair (2)
-        //       si scoringTeam == Rouge → Joueur impair (1)
 
         return (scoringTeam == GoalZone.GoalTeam.Jaune) ? 2 : 1;
     }
