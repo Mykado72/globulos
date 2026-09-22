@@ -28,17 +28,8 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
 private async void Start()
 {
-    // Mode Offline (vs IA)
-    /*
-    if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI)
-    {
-        SpawnOfflineGame();
-        return;
-    }
-    */
-
     // Mode En Ligne (Fusion)
-    _runner = FindObjectOfType<NetworkRunner>();
+    _runner = FindFirstObjectByType<NetworkRunner>();
     if (_runner != null)
     {
         _runner.AddCallbacks(this);
@@ -174,7 +165,6 @@ private async void Start()
 
             if (ball != null)
             {
-                // Debug.Log("[GameSpawner] ⚽ Ballon spawné avec succès");
             }
             else
             {

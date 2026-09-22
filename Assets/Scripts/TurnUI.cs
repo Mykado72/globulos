@@ -40,7 +40,7 @@ public class TurnUI : MonoBehaviour
         }
 
         // ✅ DÉTECTION AUTOMATIQUE du mode (Local ou Network)
-        _turnManager = FindTurnManager();
+        _turnManager = TurnManagerFactory.GetTurnManager();
         if (_turnManager == null)
         {
             Debug.LogError("[TurnUI] ❌ Aucun ITurnManagerCore trouvé (LocalTurnManager ou TurnManager)!");
@@ -208,27 +208,5 @@ public class TurnUI : MonoBehaviour
 
             _previousDeadState[ballId] = isDeadNow;
         }
-    }
-
-    /// ✅ Détecte automatiquement le TurnManager du mode courant
-    private ITurnManagerCore FindTurnManager()
-    {
-        // Cherche d'abord LocalTurnManager
-        LocalTurnManager localTM = FindObjectOfType<LocalTurnManager>();
-        if (localTM != null)
-        {
-            Debug.Log("[TurnUI] ✅ Mode LOCAL détecté");
-            return localTM;
-        }
-
-        // Sinon cherche TurnManager (réseau)
-        TurnManager networkTM = FindObjectOfType<TurnManager>();
-        if (networkTM != null)
-        {
-            Debug.Log("[TurnUI] ✅ Mode NETWORK détecté");
-            return networkTM;
-        }
-
-        return null;
     }
 }

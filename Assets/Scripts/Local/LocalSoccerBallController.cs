@@ -67,6 +67,7 @@ public class LocalSoccerBallController : MonoBehaviour
             ? GoalZone.GoalTeam.Rouge
             : GoalZone.GoalTeam.Jaune;
 
-        return (scoringTeam == GoalZone.GoalTeam.Jaune) ? 2 : 1;
+        // Convention (voir LocalGameSpawner) : Joueur 1 = Jaune (humain), Joueur 2 = Rouge (bot).
+        return (scoringTeam == GoalZone.GoalTeam.Jaune) ? 1 : 2;
     }
 }

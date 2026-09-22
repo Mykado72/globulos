@@ -15,8 +15,21 @@ public class BotAIStrategy
     // ballon façon gardien de but.
     public enum BotRole { Offensive, Defensive, Mixte }
 
+    /// <summary>
+    /// Convention reliant la parité du PlayerId à la couleur d'équipe. Cette convention
+    /// diffère entre les modes :
+    /// - Local (LocalGameSpawner) : Joueur 1 (humain) = Jaune, Joueur 2 (bot) = Rouge
+    ///   → PlayerId IMPAIR = Jaune (OddIsJaune)
+    /// - LAN (Fusion) : celui qui crée la room est automatiquement Jaune, et
+    ///   SoccerBallController.FindScoringPlayer() attribue Jaune au PlayerId PAIR
+    ///   → PlayerId PAIR = Jaune (EvenIsJaune)
+    /// Chaque appelant doit passer la convention qui correspond à SON mode.
+    /// </summary>
+    public enum PlayerIdConvention { OddIsJaune, EvenIsJaune }
+
     private AIDifficulty _difficulty;
     private BotRole _role;
+    private PlayerIdConvention _convention;
     public int _ownerPlayerId;
 
     public BotRole Role => _role;
@@ -43,10 +56,11 @@ public class BotAIStrategy
         new DifficultyConfig(inaccuracy: 0f, minForce: 0.85f, maxForce: 1.0f)    // Hard
     };
 
-    public BotAIStrategy(AIDifficulty difficulty = AIDifficulty.Medium, int ownerPlayerId = -1, BotRole role = BotRole.Offensive)
+    public BotAIStrategy(AIDifficulty difficulty = AIDifficulty.Medium, int ownerPlayerId = -1, BotRole role = BotRole.Offensive, PlayerIdConvention convention = PlayerIdConvention.OddIsJaune)
     {
         _ownerPlayerId = ownerPlayerId;
         _role = role;
+        _convention = convention;
         SetDifficulty(difficulty, ownerPlayerId);
     }
 
@@ -59,6 +73,11 @@ public class BotAIStrategy
     public void SetRole(BotRole role)
     {
         _role = role;
+    }
+
+    public void SetPlayerIdConvention(PlayerIdConvention convention)
+    {
+        _convention = convention;
     }
 
     public void SetOwnerPlayerId(int playerId)
@@ -242,6 +261,17 @@ public class BotAIStrategy
 
 
     /// <summary>
+    /// Détermine la couleur d'équipe du bot à partir de son PlayerId, selon la convention
+    /// du mode courant (voir <see cref="PlayerIdConvention"/>).
+    /// </summary>
+    private GoalZone.GoalTeam GetBotTeam()
+    {
+        bool idIsEven = _ownerPlayerId % 2 == 0;
+        bool isJaune = (_convention == PlayerIdConvention.EvenIsJaune) ? idIsEven : !idIsEven;
+        return isJaune ? GoalZone.GoalTeam.Jaune : GoalZone.GoalTeam.Rouge;
+    }
+
+    /// <summary>
     /// Trouve le GoalZone qui est adverse pour ce bot
     /// </summary>
     public GoalZone FindEnemyGoal()
@@ -252,13 +282,11 @@ public class BotAIStrategy
             return null;
         }
 
-        // Déterminer l'équipe du bot
-        // PlayerId pair = Jaune, impair = Rouge
-        GoalZone.GoalTeam botTeam = _ownerPlayerId % 2 == 0 ? GoalZone.GoalTeam.Rouge : GoalZone.GoalTeam.Jaune;
+        GoalZone.GoalTeam botTeam = GetBotTeam();
         GoalZone.GoalTeam enemyTeam = botTeam == GoalZone.GoalTeam.Jaune ? GoalZone.GoalTeam.Rouge : GoalZone.GoalTeam.Jaune;
 
         // Chercher tous les GoalZone
-        GoalZone[] allGoals = Object.FindObjectsOfType<GoalZone>();
+        GoalZone[] allGoals = Object.FindObjectsByType<GoalZone>(FindObjectsSortMode.None);
 
         foreach (GoalZone goal in allGoals)
         {
@@ -285,9 +313,9 @@ public class BotAIStrategy
             return null;
         }
 
-        GoalZone.GoalTeam botTeam = _ownerPlayerId % 2 == 0 ? GoalZone.GoalTeam.Rouge : GoalZone.GoalTeam.Jaune;
+        GoalZone.GoalTeam botTeam = GetBotTeam();
 
-        GoalZone[] allGoals = Object.FindObjectsOfType<GoalZone>();
+        GoalZone[] allGoals = Object.FindObjectsByType<GoalZone>(FindObjectsSortMode.None);
 
         foreach (GoalZone goal in allGoals)
         {

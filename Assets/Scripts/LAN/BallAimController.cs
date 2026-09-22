@@ -43,7 +43,6 @@ public class BallAimController : NetworkBehaviour
     [SerializeField] private float stretchAmount = 1.2f;
     [SerializeField] private float flashDuration = 0.08f;
 
-    [SerializeField] private float maxTurnDuration = 6.0f; // Durée max d'un tir en secondes
     [SerializeField] private float stationaryVelocityThreshold = 2f;
 
 
@@ -97,11 +96,13 @@ public class BallAimController : NetworkBehaviour
         _spriteRenderer = GetComponent<SpriteRenderer>();
         originalScale = transform.localScale;
         _arrow = new AimArrowVisual(transform, arrowShaftSprite, arrowHeadSprite, arrowSortingOrder, arrowSortingLayerName);
-        _botAI = new BotAIStrategy(aiDifficulty, OwnerPlayerId);
+        // Convention LAN : celui qui crée la room est toujours Jaune (voir SoccerBallController.
+        // FindScoringPlayer, qui attribue Jaune au PlayerId pair) — distincte de la convention Local.
+        _botAI = new BotAIStrategy(aiDifficulty, OwnerPlayerId, BotAIStrategy.BotRole.Offensive, BotAIStrategy.PlayerIdConvention.EvenIsJaune);
         _botAI.SetRole(aiRole);
 
         _mainCamera = Camera.main;
-        if (_mainCamera == null) _mainCamera = FindObjectOfType<Camera>();
+        if (_mainCamera == null) _mainCamera = FindAnyObjectByType<Camera>();
 
         if (!AllBalls.Contains(this)) AllBalls.Add(this);
     }
@@ -267,7 +268,7 @@ public class BallAimController : NetworkBehaviour
             return;
         }
 
-        foreach (var t in FindObjectsOfType<Transform>())
+        foreach (var t in FindObjectsByType<Transform>(FindObjectsSortMode.None))
         {
             if (t.name.Contains("Ball") || t.name.Contains("Soccer"))
             {
@@ -327,7 +328,6 @@ public class BallAimController : NetworkBehaviour
         if (_rb != null)
         {
             _rb.AddForce(force, ForceMode2D.Impulse);
-            // Debug.Log($"[BallAimController] 💥 Impulsion appliquée : {force}");
         }
     }
 
@@ -375,7 +375,6 @@ public class BallAimController : NetworkBehaviour
         // Vérifie si le rebond est assez violent
         if (_rb.velocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
         {
-            // Debug.Log($"[BallAimController] 💥 Rebond! Velocity: {_rb.velocity.magnitude}");
 
             // ✅ NOUVEAU : son de rebond. Pas de RPC ici (contrairement au tir) : comme pour
             // l'effet squash juste en dessous, OnCollisionEnter2D se déclenche localement sur
@@ -386,7 +385,6 @@ public class BallAimController : NetworkBehaviour
 
             // Lance tous les effets en parallèle
             StartCoroutine(BallImpactEffects.Squash(transform, originalScale, squashDuration, squashAmount, stretchAmount));
-            // StartCoroutine(FlashCoroutine());
         }
     }
 

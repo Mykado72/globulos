@@ -1,4 +1,4 @@
-﻿using Fusion;
+using Fusion;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -28,7 +28,6 @@ public class PlayerData : NetworkBehaviour
         Nickname = nickname;
         PlayerId = playerId;
 
-        // Debug.Log($"[PlayerData] ✅ RPC_SetPlayerInfo: {nickname} (ID: {playerId})");
 
         // ✅ Mise à jour immédiate du PlayerNamesManager local
         if (PlayerNamesManager.Instance != null && !string.IsNullOrEmpty(Nickname))

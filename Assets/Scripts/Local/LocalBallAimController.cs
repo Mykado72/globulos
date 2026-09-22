@@ -41,14 +41,9 @@ public class LocalBallAimController : MonoBehaviour
     [SerializeField] private float squashAmount = 0.7f;
     [SerializeField] private float stretchAmount = 1.2f;
 
-    [SerializeField] private float maxTurnDuration = 6.0f; // Durée max d'un tir en secondes
     [SerializeField] private float stationaryVelocityThreshold = 2f;
 
-    [Header("IA (bot)")]
-    [Tooltip("Décalage angulaire max (en degrés) ajouté à la visée de l'IA pour simuler l'imprécision.")]
-    [SerializeField, Range(0f, 45f)] private float aiAimInaccuracyDegrees = 12f;
-    [Tooltip("Fraction min de la force max utilisée par l'IA.")]
-    [SerializeField, Range(0.5f, 1f)] private float aiMinForceFraction = 0.7f;
+
     [Header("IA (bot) - Simplifié")]
     [SerializeField] private BotAIStrategy.AIDifficulty aiDifficulty = BotAIStrategy.AIDifficulty.Medium;
     [SerializeField] private BotAIStrategy.BotRole aiRole = BotAIStrategy.BotRole.Defensive;
@@ -143,7 +138,7 @@ public class LocalBallAimController : MonoBehaviour
         if (_enemyGoal == null)
         {
             _enemyGoal = _botAI.FindEnemyGoal();
-            Debug.Log("🤖 Bot " + OwnerPlayerId + " IA PlayerId=" + _botAI._ownerPlayerId);  // ← Vérifier
+            Debug.Log("🤖 Bot " + OwnerPlayerId + " IA PlayerId=" + _botAI._ownerPlayerId);
             if (_enemyGoal != null)
                 Debug.Log("✅ But adverse trouvé: " + _enemyGoal.name);
             else
@@ -169,11 +164,6 @@ public class LocalBallAimController : MonoBehaviour
         float force = Mathf.Lerp(maxForce * 0.3f, maxForce, forceFraction);
         _localQueuedForce = direction * force;
         _botHasQueuedThisTurn = true;
-        /*
-        Debug.Log($"🤖 Bot {OwnerPlayerId} tire vers le but adverse! Direction={direction}, Force={force:F2}");
-        Debug.Log($"   Pos Bot: {transform.position}, Pos Ballon: {_soccerBallTransform.position}, Pos But: {_enemyGoal.transform.position}");
-        Debug.Log($"   _localQueuedForce = {_localQueuedForce}");
-        */
     }
 
     // ======================== TROUVER LE BALLON ========================
@@ -189,7 +179,7 @@ public class LocalBallAimController : MonoBehaviour
         }
 
         // Fallback: chercher par nom
-        var allTransforms = FindObjectsOfType<Transform>();
+        var allTransforms = FindObjectsByType<Transform>(FindObjectsSortMode.None);
         foreach (var t in allTransforms)
         {
             if (t.name.Contains("Ball") || t.name.Contains("Soccer"))
@@ -212,7 +202,7 @@ public class LocalBallAimController : MonoBehaviour
     private void Start()
     {
         _mainCamera = Camera.main;
-        if (_mainCamera == null) _mainCamera = FindObjectOfType<Camera>();
+        if (_mainCamera == null) _mainCamera = FindAnyObjectByType<Camera>();
     }
 
     private void OnEnable()
@@ -229,7 +219,6 @@ public class LocalBallAimController : MonoBehaviour
     {
         OwnerPlayerId = playerId;
 
-        // 🔴 CETTE LIGNE EST MANQUANTE!
         if (_botAI != null)
         {
             _botAI.SetOwnerPlayerId(playerId);
@@ -369,7 +358,6 @@ public class LocalBallAimController : MonoBehaviour
     {
         if (_localQueuedForce.sqrMagnitude > 0.01f)
         {
-            // Debug.Log($"⚡ ExecuteQueuedShot: applying force {_localQueuedForce}");            
             if (_rb != null)
             {
                 _rb.AddForce(_localQueuedForce, ForceMode2D.Impulse);

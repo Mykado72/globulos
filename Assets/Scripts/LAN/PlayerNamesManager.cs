@@ -28,7 +28,6 @@ public class PlayerNamesManager : MonoBehaviour
     public void SetPlayerName(int playerId, string name)
     {
         _playerNames[playerId] = name;
-        // Debug.Log($"[PlayerNamesManager] Joueur {playerId} = {name}");
     }
 
     /// <summary>

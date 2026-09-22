@@ -123,7 +123,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     public string GetPlayerName(int playerId)
     {
         // ✅ Cherche d'abord dans les PlayerData réseau
-        foreach (var player in FindObjectsOfType<PlayerData>())
+        foreach (var player in FindObjectsByType<PlayerData>(FindObjectsSortMode.None))
         {
             if (player.Object != null && player.Object.InputAuthority.PlayerId == playerId)
             {

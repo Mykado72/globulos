@@ -51,7 +51,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
                 if (_timer <= 0f)
                 {
-                    //Debug.Log("[LocalTurnManager] ⏰ Timer écoulé - Forçage fin de l'aiming");
                     ForceStopAiming();
                     ExecuteTurnResolution();
                 }
@@ -61,7 +60,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                 _settleTimer -= Time.deltaTime;
                 if (_settleTimer <= 0f && AreAllBallsStopped())
                 {
-                    // Debug.Log("[LocalTurnManager] 📊 Toutes les balles se sont arrêtées");
                     CurrentState = TurnState.CheckResult;
                 }
                 break;
@@ -86,7 +84,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         CurrentState = TurnState.Aiming;
         _timer = aimDuration;
 
-        // Debug.Log($"[LocalTurnManager] 🎮 Tour {CurrentTurnNumber} - Phase d'aiming ({aimDuration}s)");        
     }
 
     public float GetRemainingTime() => Mathf.Max(0f, _timer);
@@ -140,7 +137,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         // Debug
         foreach (var kvp in aliveBallsPerPlayer)
         {
-            //Debug.Log($"[LocalTurnManager] 📊 Joueur {kvp.Key}: {kvp.Value} balle(s) vivante(s)");
         }
 
         int playersWithNoBalls = 0;
@@ -185,13 +181,11 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         CurrentState = TurnState.Resolution;
         _settleTimer = resolutionSettleDuration;
 
-        // Debug.Log("[LocalTurnManager] 💥 Exécution des tirs");
 
         foreach (var ball in LocalBallAimController.AllBalls)
         {
             if (ball != null)
             {
-                // Debug.Log($"[LocalTurnManager] 🔄 Exécution tir pour balle {ball.gameObject.name}");
                 ball.ExecuteQueuedShot();
             }
         }
@@ -199,7 +193,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
     public void ForceStopAiming()
     {
-        // Debug.Log("[LocalTurnManager] ⛔ Forçage fin de l'aiming");
 
         foreach (var ball in LocalBallAimController.AllBalls)
         {

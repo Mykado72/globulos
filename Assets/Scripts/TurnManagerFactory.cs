@@ -11,12 +11,12 @@ public static class TurnManagerFactory
     public static ITurnManagerCore GetTurnManager()
     {
         // Mode Local
-        LocalTurnManager localTM = Object.FindObjectOfType<LocalTurnManager>();
+        LocalTurnManager localTM = Object.FindFirstObjectByType<LocalTurnManager>();
         if (localTM != null)
             return localTM;
 
         // Mode Network (Fusion)
-        TurnManager networkTM = Object.FindObjectOfType<TurnManager>();
+        TurnManager networkTM = Object.FindFirstObjectByType<TurnManager>();
         if (networkTM != null)
             return networkTM;
 

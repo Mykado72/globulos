@@ -14,11 +14,10 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Start()
     {
-        _runner = FindObjectOfType<NetworkRunner>();
+        _runner = FindFirstObjectByType<NetworkRunner>();
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-            // Debug.Log("[PlayerDataSpawner] ✅ Callbacks enregistrés");
         }
     }
 
@@ -71,7 +70,6 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 // ✨ FIX: Utiliser le nouveau RPC fusionné RPC_SetPlayerInfo
                 playerData.RPC_SetPlayerInfo(playerNickname, player.PlayerId);
-                // Debug.Log($"[PlayerDataSpawner] 🌐 Pseudo {playerNickname} assigné à PlayerData du joueur {player.PlayerId}");
             }
             else
             {

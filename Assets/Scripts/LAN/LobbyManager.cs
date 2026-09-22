@@ -287,7 +287,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (_currentRunner.IsSharedModeMasterClient && count >= requiredPlayers)
         {
             _isInLobby = false;  // ✨ Marquer qu'on quitte le Lobby
-            var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameScene"));
+            var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameSceneLAN"));
             _currentRunner.LoadScene(sceneRef);
         }
     }
@@ -300,7 +300,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public PlayerData GetPlayerDataById(int playerId)
     {
-        foreach (var playerData in FindObjectsOfType<PlayerData>())
+        foreach (var playerData in FindObjectsByType<PlayerData>(FindObjectsSortMode.None))
         {
             if ((playerData.Object != null) && (playerData.Object.InputAuthority.PlayerId == playerId))
             {
