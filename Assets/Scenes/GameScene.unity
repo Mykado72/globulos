@@ -544,7 +544,7 @@ GameObject:
   - component: {fileID: 223904466}
   - component: {fileID: 223904468}
   - component: {fileID: 223904467}
-  m_Layer: 3
+  m_Layer: 7
   m_Name: Droit(Rouge)
   m_TagString: Goal
   m_Icon: {fileID: 0}
@@ -2356,7 +2356,7 @@ GameObject:
   - component: {fileID: 1860379014}
   - component: {fileID: 1860379016}
   - component: {fileID: 1860379015}
-  m_Layer: 3
+  m_Layer: 7
   m_Name: Gauche(jaune)
   m_TagString: Goal
   m_Icon: {fileID: 0}

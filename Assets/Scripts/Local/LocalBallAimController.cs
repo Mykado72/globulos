@@ -156,10 +156,11 @@ public class LocalBallAimController : MonoBehaviour
         float force = Mathf.Lerp(maxForce * 0.3f, maxForce, forceFraction);
         _localQueuedForce = direction * force;
         _botHasQueuedThisTurn = true;
-
+        /*
         Debug.Log($"🤖 Bot {OwnerPlayerId} tire vers le but adverse! Direction={direction}, Force={force:F2}");
         Debug.Log($"   Pos Bot: {transform.position}, Pos Ballon: {_soccerBallTransform.position}, Pos But: {_enemyGoal.transform.position}");
         Debug.Log($"   _localQueuedForce = {_localQueuedForce}");
+        */
     }
 
     // ======================== TROUVER LE BALLON ========================
@@ -306,11 +307,12 @@ public class LocalBallAimController : MonoBehaviour
         Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
         RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero);
 
-        if (hit.collider != null && hit.collider.gameObject == gameObject)
+        if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
         {
             IsAiming = true;
             _startDragPos = mouseWorld;
         }
+        
     }
 
     // Ajouter cette méthode utilitaire dans LocalBallAimController.cs
@@ -354,7 +356,7 @@ public class LocalBallAimController : MonoBehaviour
     {
         if (_localQueuedForce.sqrMagnitude > 0.01f)
         {
-            Debug.Log($"⚡ ExecuteQueuedShot: applying force {_localQueuedForce}");            
+            // Debug.Log($"⚡ ExecuteQueuedShot: applying force {_localQueuedForce}");            
             if (_rb != null)
             {
                 _rb.AddForce(_localQueuedForce, ForceMode2D.Impulse);

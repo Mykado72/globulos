@@ -199,7 +199,7 @@ public class BallAimController : NetworkBehaviour
         Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
         RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero);
 
-        if (hit.collider != null && hit.collider.gameObject == gameObject)
+        if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
         {
             IsAiming = true;
             _startDragPos = mouseWorld;

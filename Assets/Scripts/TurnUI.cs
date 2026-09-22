@@ -22,10 +22,21 @@ public class TurnUI : MonoBehaviour
     private string _eventMessage = "";
     private bool _endGameSoundPlayed = false;
 
+    // ✅ Valeurs d'origine du timer, capturées une fois, pour pouvoir y revenir après le
+    // pulse d'urgence (voir TimerPulseEffect).
+    private Vector3 _timerBaseScale = Vector3.one;
+    private Color _timerBaseColor = Color.white;
+
     private void Start()
     {
         if (panelWIN != null) panelWIN.SetActive(false);
         if (panelDRAW != null) panelDRAW.SetActive(false);
+
+        if (timerText != null)
+        {
+            _timerBaseScale = timerText.transform.localScale;
+            _timerBaseColor = timerText.color;
+        }
 
         // ✅ DÉTECTION AUTOMATIQUE du mode (Local ou Network)
         _turnManager = FindTurnManager();
@@ -66,7 +77,11 @@ public class TurnUI : MonoBehaviour
                 else AudioManager.Instance?.PlayWin();
             }
 
-            if (timerText != null) timerText.text = "";
+            if (timerText != null)
+            {
+                timerText.text = "";
+                TimerPulseEffect.Reset(timerText, _timerBaseScale, _timerBaseColor);
+            }
 
             if (stateText != null)
             {
@@ -84,7 +99,12 @@ public class TurnUI : MonoBehaviour
 
         // Chrono
         float remaining = _turnManager.GetRemainingTime();
-        if (timerText != null) timerText.text = Mathf.CeilToInt(remaining).ToString();
+        if (timerText != null)
+        {
+            timerText.text = Mathf.CeilToInt(remaining).ToString();
+            // ✅ Animation d'urgence : le chiffre grossit et passe au rouge sous 3 secondes
+            TimerPulseEffect.Apply(timerText, remaining, _timerBaseScale, _timerBaseColor);
+        }
 
         // Message temporaire : prioritaire
         if (_eventMessageTimer > 0f)

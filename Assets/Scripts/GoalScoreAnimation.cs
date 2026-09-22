@@ -34,7 +34,7 @@ public static class GoalScoreAnimation
             t.rotation = initialRotation * Quaternion.Euler(0f, 0f, currentAngle);
 
             float currentScaleFraction = Mathf.Lerp(1f, targetScaleFraction, progress);
-            Debug.Log($"[GoalScoreAnimation] progress: {progress:F2}, currentScaleFraction: {currentScaleFraction:F2} cible : {targetScaleFraction:F2}");
+            
             t.localScale = initialScale * currentScaleFraction;
 
             if (spriteRenderer != null)

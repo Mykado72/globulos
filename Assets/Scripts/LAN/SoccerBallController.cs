@@ -11,7 +11,7 @@ public class SoccerBallController : NetworkBehaviour
     [Header("Goal Animation Settings")]
     [SerializeField] private float fallDuration = 1f;
     [SerializeField] private float totalRotation = 90f;
-    [SerializeField] private float targetScaleFraction = 0.1f;
+    [SerializeField] private float targetScaleFraction = 0.99f;
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f);
 
     public override void Spawned()
@@ -39,8 +39,8 @@ public class SoccerBallController : NetworkBehaviour
             RPC_PlayGoalSound();
         }
 
-        // 2. Transmettre l'animation à tous les clients
-        RPC_AnimateGoalBall();
+        // 2. Transmettre l'animation à tous les clients (+ célébration visuelle "BUT !")
+        RPC_AnimateGoalBall(scorerId);
 
         // 3. Notifier le TurnManager
         if (TurnManager.Instance != null)
@@ -65,12 +65,21 @@ public class SoccerBallController : NetworkBehaviour
     /// ✨ RPC appelé sur TOUS les clients pour animer le ballon
     /// 
     // ✅ REFACTOR : animation partagée avec LocalSoccerBallController, voir GoalScoreAnimation.cs
+    // ✅ Reçoit scorerId pour déclencher la célébration visuelle sur CHAQUE client (l'UI n'est
+    // pas réseau : sans ça seul l'hôte, qui a HasStateAuthority, verrait l'animation).
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_AnimateGoalBall()
+    private void RPC_AnimateGoalBall(int scorerId)
     {
         StartCoroutine(GoalScoreAnimation.Run(
             transform, GetComponent<SpriteRenderer>(), GetComponent<Rigidbody2D>(), GetComponent<Collider2D>(),
             fallDuration, totalRotation, targetScaleFraction, goalGrayColor));
+
+        string scorerName = TurnManager.Instance != null ? TurnManager.Instance.GetPlayerName(scorerId) : $"Joueur {scorerId}";
+        if (GoalCelebrationUI.Instance == null)
+        {
+            Debug.LogWarning("[SoccerBallController] ⚠️ GoalCelebrationUI.Instance est null — as-tu bien un GameObject avec ce script dans la scène ?");
+        }
+        GoalCelebrationUI.Instance?.PlayGoalCelebration(scorerName);
     }
 
     /// 

@@ -8,7 +8,7 @@ public class LocalSoccerBallController : MonoBehaviour
     [Header("Goal Animation Settings")]
     [SerializeField] private float fallDuration = 0.75f;
     [SerializeField] private float totalRotation = 180f;
-    [SerializeField] private float targetScaleFraction = 0.5f; // Taille finale (85%)
+    [SerializeField] private float targetScaleFraction = 0.99f; // Taille finale (85%)
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f); // Gris foncé
 
     private SpriteRenderer _spriteRenderer;
@@ -35,6 +35,13 @@ public class LocalSoccerBallController : MonoBehaviour
         Debug.Log($"[LocalSoccerBallController] ⚽ But marqué! Scoreur: Joueur {scorerId}");
 
         AudioManager.Instance?.PlaySoccerGoal();
+
+        // ✅ Célébration visuelle "BUT !", partagée avec SoccerBallController (réseau)
+        if (GoalCelebrationUI.Instance == null)
+        {
+            Debug.LogWarning("[LocalSoccerBallController] ⚠️ GoalCelebrationUI.Instance est null — as-tu bien un GameObject avec ce script dans la scène ?");
+        }
+        GoalCelebrationUI.Instance?.PlayGoalCelebration(TurnManagerFactory.GetPlayerName(scorerId));
         LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
 
         // ✨ CLEANUP: Retirer de la liste des billes jouables si nécessaire
