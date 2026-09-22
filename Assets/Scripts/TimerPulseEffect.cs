@@ -25,7 +25,8 @@ public static class TimerPulseEffect
     /// <param name="remainingSeconds">Temps restant en secondes.</param>
     /// <param name="baseScale">Échelle normale du texte (capturée une fois, avant toute animation).</param>
     /// <param name="baseColor">Couleur normale du texte (capturée une fois, avant toute animation).</param>
-    public static void Apply(TMP_Text text, float remainingSeconds, Vector3 baseScale, Color baseColor)
+    /// <param name="baseFontSize">Taille de police normale du texte (capturée une fois, avant toute animation).</param>
+    public static void Apply(TMP_Text text, float remainingSeconds, Vector3 baseScale, Color baseColor, int baseFontSize)
     {
         if (text == null) return;
 
@@ -33,7 +34,8 @@ public static class TimerPulseEffect
 
         if (!isUrgent)
         {
-            text.transform.localScale = baseScale;
+            // text.transform.localScale = baseScale;
+            text.fontSize = baseFontSize;
             text.color = baseColor;
             return;
         }
@@ -46,15 +48,16 @@ public static class TimerPulseEffect
         float pulse = Mathf.Sin(pulsePhase * Mathf.PI * 0.5f);
 
         float scale = Mathf.Lerp(1f, MaxPulseScale, pulse);
-        text.transform.localScale = baseScale * scale;
+        text.fontSize = Mathf.RoundToInt(baseFontSize * scale);
         text.color = WarningColor;
     }
 
     /// <summary>Force le retour à l'état normal (à appeler en fin de partie par exemple).</summary>
-    public static void Reset(TMP_Text text, Vector3 baseScale, Color baseColor)
+    public static void Reset(TMP_Text text, Vector3 baseScale, Color baseColor, float baseFontSize)
     {
         if (text == null) return;
-        text.transform.localScale = baseScale;
+        //text.transform.localScale = baseScale;
+        text.fontSize = baseFontSize;
         text.color = baseColor;
     }
 }

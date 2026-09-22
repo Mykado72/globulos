@@ -70,6 +70,7 @@ public class BallAimController : NetworkBehaviour
     // au lieu de tirer quand il est du mauvais côté.
     [Header("IA (bot) - Simplifié")]
     [SerializeField] private BotAIStrategy.AIDifficulty aiDifficulty = BotAIStrategy.AIDifficulty.Medium;
+    [SerializeField] private BotAIStrategy.BotRole aiRole = BotAIStrategy.BotRole.Defensive;
     [SerializeField] private float botReactionDelaySeconds = 0.3f;
     private BotAIStrategy _botAI;
     private GoalZone _enemyGoal;
@@ -97,6 +98,7 @@ public class BallAimController : NetworkBehaviour
         originalScale = transform.localScale;
         _arrow = new AimArrowVisual(transform, arrowShaftSprite, arrowHeadSprite, arrowSortingOrder, arrowSortingLayerName);
         _botAI = new BotAIStrategy(aiDifficulty, OwnerPlayerId);
+        _botAI.SetRole(aiRole);
 
         _mainCamera = Camera.main;
         if (_mainCamera == null) _mainCamera = FindObjectOfType<Camera>();
@@ -249,7 +251,7 @@ public class BallAimController : NetworkBehaviour
         var (direction, forceFraction) = _botAI.CalculateBotShot(
             botPosition: transform.position,
             ballPosition: _soccerBallTransform.position,
-            enemyGoalPosition: _enemyGoal.transform.position);
+            enemyGoal: _enemyGoal);
 
         float force = Mathf.Lerp(maxForce * 0.3f, maxForce, forceFraction);
         _localQueuedForce = direction * force;

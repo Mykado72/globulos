@@ -14,10 +14,6 @@ public class SoccerBallController : NetworkBehaviour
     [SerializeField] private float targetScaleFraction = 0.99f;
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f);
 
-    [Header("Célébration")]
-    [Tooltip("Délai avant de notifier la fin de partie, pour laisser le temps à l'animation GoalCelebrationUI de jouer entièrement (sinon le panneau de victoire et le rechargement de scène l'interrompent).")]
-    [SerializeField] private float winNotificationDelay = 2.2f;
-
     public override void Spawned()
     {
         _goalScored = false;
@@ -46,23 +42,15 @@ public class SoccerBallController : NetworkBehaviour
         // 2. Transmettre l'animation à tous les clients (+ célébration visuelle "BUT !")
         RPC_AnimateGoalBall(scorerId);
 
-        // 3. Notifier le TurnManager, après un délai pour laisser jouer la célébration.
-        // ✅ FIX : appelé auparavant immédiatement, ce qui basculait l'état en Finished
-        // (panneau de victoire + rechargement de scène) pendant que GoalCelebrationUI
-        // était encore en train de jouer sur les clients.
-        StartCoroutine(NotifyWinAfterDelay(scorerId));
-
-        // 4. Lancer la suppression différée (seulement sur le serveur)
-        StartCoroutine(DespawnAfterDelayCoroutine(fallDuration));
-    }
-
-    private IEnumerator NotifyWinAfterDelay(int scorerId)
-    {
-        yield return new WaitForSeconds(winNotificationDelay);
+        // 3. Notifier le TurnManager. Il bascule d'abord en TurnState.Celebrating (timer
+        // gelé, voir GoalCelebrationUI) avant de terminer réellement la partie.
         if (TurnManager.Instance != null)
         {
             TurnManager.Instance.RequestWinBySoccerGoal(scorerId);
         }
+
+        // 4. Lancer la suppression différée (seulement sur le serveur)
+        StartCoroutine(DespawnAfterDelayCoroutine(fallDuration));
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]

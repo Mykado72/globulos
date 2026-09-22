@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider2D))]
@@ -11,10 +10,6 @@ public class LocalSoccerBallController : MonoBehaviour
     [SerializeField] private float totalRotation = 180f;
     [SerializeField] private float targetScaleFraction = 0.99f; // Taille finale (85%)
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f); // Gris foncé
-
-    [Header("Célébration")]
-    [Tooltip("Délai avant de notifier la fin de partie, pour laisser le temps à l'animation GoalCelebrationUI de jouer entièrement (sinon le panneau de victoire et le rechargement de scène l'interrompent).")]
-    [SerializeField] private float winNotificationDelay = 2.2f;
 
     private SpriteRenderer _spriteRenderer;
     private Rigidbody2D _rb;
@@ -48,11 +43,9 @@ public class LocalSoccerBallController : MonoBehaviour
         }
         GoalCelebrationUI.Instance?.PlayGoalCelebration(TurnManagerFactory.GetPlayerName(scorerId));
 
-        // ✅ FIX : RequestWinBySoccerGoal était appelé immédiatement, ce qui bascule l'état
-        // en Finished (panneau de victoire + rechargement de scène 2s après) pendant que la
-        // célébration est encore en train de jouer. On retarde donc la notification pour
-        // laisser le temps à l'animation de se terminer avant l'écran de victoire.
-        StartCoroutine(NotifyWinAfterDelay(scorerId));
+        // ✅ LocalTurnManager bascule d'abord en TurnState.Celebrating (timer gelé, voir
+        // GoalCelebrationUI) avant de terminer réellement la partie après celebrationDuration.
+        LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
 
         // ✨ CLEANUP: Retirer de la liste des billes jouables si nécessaire
         LocalBallAimController ballController = GetComponent<LocalBallAimController>();
@@ -66,12 +59,6 @@ public class LocalSoccerBallController : MonoBehaviour
         StartCoroutine(GoalScoreAnimation.Run(
             transform, _spriteRenderer, _rb, GetComponent<Collider2D>(),
             fallDuration, totalRotation, targetScaleFraction, goalGrayColor));
-    }
-
-    private IEnumerator NotifyWinAfterDelay(int scorerId)
-    {
-        yield return new WaitForSeconds(winNotificationDelay);
-        LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
     }
 
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)

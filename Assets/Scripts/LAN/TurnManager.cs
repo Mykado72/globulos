@@ -15,6 +15,9 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [SerializeField] private float aimDuration = 15f;
     [SerializeField] private float resolutionSettleDuration = 0.2f;
 
+    [Tooltip("Durée de l'état Celebrating (voir GoalCelebrationUI) avant de passer en Finished. Doit correspondre à peu près à la durée totale de l'animation de célébration.")]
+    [SerializeField] private float celebrationDuration = 2.2f;
+
     // ✅ État réseau synchronisé (Serveur → Clients)
     [Networked] public NetworkBool IsTurnBased { get; set; }
     [Networked] public TurnState CurrentState { get; set; }
@@ -257,8 +260,24 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     private void RPC_RequestWinBySoccerGoal(int winnerId)
     {
         if (!HasStateAuthority) return;
-        if (CurrentState == TurnState.Finished) return;
+        if (CurrentState == TurnState.Finished || CurrentState == TurnState.Celebrating) return;
 
+        // ✅ Geler le timer affiché : TurnTimer.RemainingTime continuerait sinon de décompter
+        // en temps réel même hors des cases gérées par FixedUpdateNetwork (contrairement au
+        // mode Local où l'absence de case correspondante dans Update() suffit à figer _timer).
+        TurnTimer = TickTimer.None;
+        CurrentState = TurnState.Celebrating;
+
+        StartCoroutine(CelebrateThenEndGame(winnerId));
+    }
+
+    /// <summary>
+    /// ✅ Laisse jouer GoalCelebrationUI sur tous les clients avant de terminer réellement
+    /// la partie. Seul le serveur (StateAuthority) exécute cette coroutine.
+    /// </summary>
+    private IEnumerator CelebrateThenEndGame(int winnerId)
+    {
+        yield return new WaitForSeconds(celebrationDuration);
         EndGameWinBySoccerGoal(winnerId);
     }
 

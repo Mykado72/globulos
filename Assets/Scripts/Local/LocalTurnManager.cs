@@ -11,6 +11,9 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     [SerializeField] private float aimDuration = 15f;
     [SerializeField] private float resolutionSettleDuration = 0.2f;
 
+    [Tooltip("Durée de l'état Celebrating (voir GoalCelebrationUI) avant de passer en Finished. Doit correspondre à peu près à la durée totale de l'animation de célébration.")]
+    [SerializeField] private float celebrationDuration = 2.2f;
+
     public TurnState CurrentState { get; private set; }
     public int CurrentTurnNumber { get; private set; }
     public int WinnerPlayerId { get; private set; } = -1;
@@ -100,7 +103,20 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     {
         Debug.Log($"[LocalTurnManager] ⚽ But marqué par le joueur {winnerId}!");
 
-        if (CurrentState == TurnState.Finished) return;
+        if (CurrentState == TurnState.Finished || CurrentState == TurnState.Celebrating) return;
+
+        StartCoroutine(CelebrateThenEndGame(winnerId));
+    }
+
+    /// <summary>
+    /// ✅ Bascule en Celebrating (le timer se fige automatiquement, aucun case du switch
+    /// de Update() ne correspondant à cet état), laisse jouer GoalCelebrationUI, puis
+    /// termine réellement la partie.
+    /// </summary>
+    private IEnumerator CelebrateThenEndGame(int winnerId)
+    {
+        CurrentState = TurnState.Celebrating;
+        yield return new WaitForSeconds(celebrationDuration);
         EndGame(winnerId);
     }
 

@@ -367,5 +367,6 @@ MonoBehaviour:
   stationaryVelocityThreshold: 4
   aiAimInaccuracyDegrees: 12
   aiMinForceFraction: 0.7
-  aiDifficulty: 1
+  aiDifficulty: 2
+  aiRole: 2
   botReactionDelaySeconds: 0.3

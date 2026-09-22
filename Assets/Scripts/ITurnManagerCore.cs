@@ -53,5 +53,6 @@ public enum TurnState
     Aiming,        // Phase de visée
     Resolution,    // Exécution des tirs
     CheckResult,   // Vérification du résultat
+    Celebrating,   // ⚽ But marqué : célébration en cours, timer gelé, avant la fin de partie
     Finished       // Partie finie
 }

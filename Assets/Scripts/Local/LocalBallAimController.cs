@@ -51,6 +51,7 @@ public class LocalBallAimController : MonoBehaviour
     [SerializeField, Range(0.5f, 1f)] private float aiMinForceFraction = 0.7f;
     [Header("IA (bot) - Simplifié")]
     [SerializeField] private BotAIStrategy.AIDifficulty aiDifficulty = BotAIStrategy.AIDifficulty.Medium;
+    [SerializeField] private BotAIStrategy.BotRole aiRole = BotAIStrategy.BotRole.Defensive;
     [SerializeField] private float botReactionDelaySeconds = 0.3f; // Délai avant tir (plus naturel)
 
     private BotAIStrategy _botAI;
@@ -88,6 +89,7 @@ public class LocalBallAimController : MonoBehaviour
         _arrow = new AimArrowVisual(transform, arrowShaftSprite, arrowHeadSprite, arrowSortingOrder, arrowSortingLayerName);
         // 🤖 Initialiser l'IA du bot
         _botAI = new BotAIStrategy(aiDifficulty);
+        _botAI.SetRole(aiRole);
     }
 
     // ======================== SETTER POUR DIFFICULTÉ ========================
@@ -96,9 +98,19 @@ public class LocalBallAimController : MonoBehaviour
         aiDifficulty = difficulty;
         if (_botAI != null)
         {
-            _botAI.SetDifficulty(difficulty);
+            _botAI.SetDifficulty(difficulty, OwnerPlayerId);
         }
     }
+
+    public void SetBotRole(BotAIStrategy.BotRole role)
+    {
+        aiRole = role;
+        if (_botAI != null)
+        {
+            _botAI.SetRole(aiRole);
+        }
+    }
+
 
     // ======================== UPDATE BOT AIMING - VERSION SIMPLIFIÉE ========================
     private void UpdateBotAiming()
@@ -145,11 +157,12 @@ public class LocalBallAimController : MonoBehaviour
             return;
         }
 
-        // 🎯 CALCULER LE TIR: viser le BUT ADVERSE (pas un but contre son camp!)
-        var (direction, forceFraction) = _botAI.CalculateBotShot(
+        // Decision de l'IA : direction et force
+        var (direction, forceFraction) = _botAI.CalculateBotDecision(
             botPosition: transform.position,
             ballPosition: _soccerBallTransform.position,
-            enemyGoalPosition: _enemyGoal.transform.position
+            enemyGoal: _enemyGoal,
+            ownGoal: _botAI.FindOwnGoal()
         );
 
         // Appliquer la force

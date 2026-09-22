@@ -26,6 +26,7 @@ public class TurnUI : MonoBehaviour
     // pulse d'urgence (voir TimerPulseEffect).
     private Vector3 _timerBaseScale = Vector3.one;
     private Color _timerBaseColor = Color.white;
+    private int _timerFontSize = 50;
 
     private void Start()
     {
@@ -54,10 +55,6 @@ public class TurnUI : MonoBehaviour
         if (!IsTurnManagerReady())
             return;
 
-        // ✅ FIX : DetectBallDeaths() était auparavant conditionné à CurrentState == Finished,
-        // donc le message "une bille est tombée dans un but" ne s'affichait jamais pendant
-        // une partie réseau en cours (seulement une fois la partie déjà terminée, trop tard).
-        // Comportement aligné sur LocalTurnUI (désormais supprimé, TurnUI le remplace).
         DetectBallDeaths();
 
         // --- Fin de partie ---
@@ -67,8 +64,8 @@ public class TurnUI : MonoBehaviour
             bool isDraw = winnerId < 0;
             string winnerName = _turnManager.GetPlayerName(winnerId);
 
-            //if (panelDRAW != null) panelDRAW.SetActive(isDraw);
-            //if (panelWIN != null) panelWIN.SetActive(!isDraw);
+            if (panelDRAW != null) panelDRAW.SetActive(isDraw);
+            if (panelWIN != null) panelWIN.SetActive(!isDraw);
 
             if (!_endGameSoundPlayed)
             {
@@ -80,7 +77,7 @@ public class TurnUI : MonoBehaviour
             if (timerText != null)
             {
                 timerText.text = "";
-                TimerPulseEffect.Reset(timerText, _timerBaseScale, _timerBaseColor);
+                TimerPulseEffect.Reset(timerText, _timerBaseScale, _timerBaseColor, _timerFontSize);
             }
 
             if (stateText != null)
@@ -88,6 +85,30 @@ public class TurnUI : MonoBehaviour
                 stateText.text = isDraw
                     ? "Match nul !"
                     : $"🎉 Victoire du Joueur {winnerName} !";
+            }
+
+            return;
+        }
+
+        if (_turnManager.CurrentState == TurnState.Celebrating)
+        {
+            if (panelWIN != null) panelWIN.SetActive(false);
+            if (panelDRAW != null) panelDRAW.SetActive(false);
+
+            if (timerText != null)
+            {
+                timerText.text = "";
+                TimerPulseEffect.Reset(timerText, _timerBaseScale, _timerBaseColor, _timerFontSize);
+            }
+
+            if (_eventMessageTimer > 0f)
+            {
+                _eventMessageTimer -= Time.deltaTime;
+                if (stateText != null) stateText.text = _eventMessage;
+            }
+            else if (stateText != null)
+            {
+                stateText.text = "⚽ GOAAALLLLL !!!!!!";
             }
 
             return;
@@ -103,7 +124,7 @@ public class TurnUI : MonoBehaviour
         {
             timerText.text = Mathf.CeilToInt(remaining).ToString();
             // ✅ Animation d'urgence : le chiffre grossit et passe au rouge sous 3 secondes
-            TimerPulseEffect.Apply(timerText, remaining, _timerBaseScale, _timerBaseColor);
+            TimerPulseEffect.Apply(timerText, remaining, _timerBaseScale, _timerBaseColor, _timerFontSize);
         }
 
         // Message temporaire : prioritaire
