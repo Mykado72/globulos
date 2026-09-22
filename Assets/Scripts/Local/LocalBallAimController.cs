@@ -66,29 +66,26 @@ public class LocalBallAimController : MonoBehaviour
 
     private bool _isBotControlled = false;
     private bool _botHasQueuedThisTurn = false;
-    private GoalZone _aiTargetGoal;
 
     private Rigidbody2D _rb;
     private Camera _mainCamera;
     private SpriteRenderer _spriteRenderer;
-    private Transform _shaftTransform;
-    private SpriteRenderer _shaftRenderer;
-    private Transform _headTransform;
-    private SpriteRenderer _headRenderer;
+
+    // ✅ REFACTOR : flèche de visée gérée par la classe partagée AimArrowVisual
+    // (voir AimArrowVisual.cs), remplace ConfigureArrowVisual/GetOrCreate*Sprite/UpdateAimVisual
+    // qui étaient dupliqués à l'identique dans BallAimController (réseau).
+    private AimArrowVisual _arrow;
 
     private Vector2 _startDragPos;
     private Vector2 _localQueuedForce = Vector2.zero;
     private Vector3 _originalScale;
-
-    private static Sprite _cachedShaftSprite;
-    private static Sprite _cachedHeadSprite;
 
     private void Awake()
     {
         _rb = GetComponent<Rigidbody2D>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _originalScale = transform.localScale;
-        ConfigureArrowVisual();
+        _arrow = new AimArrowVisual(transform, arrowShaftSprite, arrowHeadSprite, arrowSortingOrder, arrowSortingLayerName);
         // 🤖 Initialiser l'IA du bot
         _botAI = new BotAIStrategy(aiDifficulty);
     }
@@ -229,13 +226,12 @@ public class LocalBallAimController : MonoBehaviour
     {
         _isBotControlled = isBot;
         _botHasQueuedThisTurn = false;
-        _aiTargetGoal = null;
     }
 
     public void ForceStopAiming()
     {
         IsAiming = false;
-        HideAimVisual();
+        _arrow.Hide();
     }
 
     private void Update()
@@ -270,7 +266,7 @@ public class LocalBallAimController : MonoBehaviour
 
         if (_localQueuedForce.sqrMagnitude > 0.01f && !IsAiming)
         {
-            UpdateAimVisual(_localQueuedForce);
+            UpdateAimVisualDisplay(_localQueuedForce);
         }
 
         if (Input.GetMouseButtonDown(0))
@@ -314,8 +310,6 @@ public class LocalBallAimController : MonoBehaviour
         {
             IsAiming = true;
             _startDragPos = mouseWorld;
-            _shaftRenderer.enabled = true;
-            _headRenderer.enabled = true;
         }
     }
 
@@ -329,26 +323,12 @@ public class LocalBallAimController : MonoBehaviour
         return false;
     }
 
-    private void FindTargetGoal()
-    {
-        GoalZone.GoalTeam ownTeam = (OwnerPlayerId % 2 == 0) ? GoalZone.GoalTeam.Jaune : GoalZone.GoalTeam.Rouge;
-
-        foreach (GoalZone goal in FindObjectsOfType<GoalZone>())
-        {
-            if (goal.DefendingTeam != ownTeam)
-            {
-                _aiTargetGoal = goal;
-                return;
-            }
-        }
-    }
-
     private void ContinueAiming()
     {
         if (_mainCamera == null) return;
         Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
         Vector2 forceToApply = ComputeClampedForce(currentMousePos);
-        UpdateAimVisual(forceToApply);
+        UpdateAimVisualDisplay(forceToApply);
     }
 
     private void FinishAiming()
@@ -366,7 +346,7 @@ public class LocalBallAimController : MonoBehaviour
         else
         {
             _localQueuedForce = Vector2.zero;
-            HideAimVisual();
+            _arrow.Hide();
         }
     }
 
@@ -383,125 +363,26 @@ public class LocalBallAimController : MonoBehaviour
             _localQueuedForce = Vector2.zero;
         }
 
-        HideAimVisual();
+        _arrow.Hide();
     }
+
+    // ✅ REFACTOR : les méthodes ci-dessous délèguent maintenant à AimForceUtility et
+    // AimArrowVisual (classes partagées avec BallAimController, voir ces fichiers).
 
     private Vector2 ComputeClampedForce(Vector2 currentMousePos)
     {
-        Vector2 dragVector = currentMousePos - _startDragPos;
-        float viewHeight = GetViewHeight();
-        float maxDragDistance = maxDragDistanceFraction * viewHeight;
-
-        float dragRatio = maxDragDistance > 0f ? Mathf.Clamp01(dragVector.magnitude / maxDragDistance) : 0f;
-        return dragVector.normalized * dragRatio * maxForce;
+        return AimForceUtility.ComputeClampedForce(_startDragPos, currentMousePos, maxDragDistanceFraction, GetViewHeight(), maxForce);
     }
 
     private float GetViewHeight()
     {
-        return (_mainCamera != null && _mainCamera.orthographic) ? _mainCamera.orthographicSize * 2f : fallbackViewHeight;
+        return AimForceUtility.GetViewHeight(_mainCamera, fallbackViewHeight);
     }
 
-    private void ConfigureArrowVisual()
+    private void UpdateAimVisualDisplay(Vector2 clampedForce)
     {
-        GameObject shaftObj = new GameObject("AimArrowShaft");
-        shaftObj.transform.SetParent(transform, false);
-        _shaftTransform = shaftObj.transform;
-        _shaftRenderer = shaftObj.AddComponent<SpriteRenderer>();
-        _shaftRenderer.sprite = arrowShaftSprite != null ? arrowShaftSprite : GetOrCreateShaftSprite();
-        _shaftRenderer.sortingOrder = arrowSortingOrder;
-        _shaftRenderer.sortingLayerName = arrowSortingLayerName;
-        _shaftRenderer.enabled = false;
-
-        GameObject headObj = new GameObject("AimArrowHead");
-        headObj.transform.SetParent(transform, false);
-        _headTransform = headObj.transform;
-        _headRenderer = headObj.AddComponent<SpriteRenderer>();
-        _headRenderer.sprite = arrowHeadSprite != null ? arrowHeadSprite : GetOrCreateHeadSprite();
-        _headRenderer.sortingOrder = arrowSortingOrder + 1;
-        _headRenderer.sortingLayerName = arrowSortingLayerName;
-        _headRenderer.enabled = false;
-    }
-
-    private static Sprite GetOrCreateShaftSprite()
-    {
-        if (_cachedShaftSprite != null) return _cachedShaftSprite;
-        Texture2D tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
-        Color[] pixels = new Color[16];
-        for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
-        tex.SetPixels(pixels);
-        tex.Apply();
-        _cachedShaftSprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0f, 0.5f), 4f);
-        return _cachedShaftSprite;
-    }
-
-    private static Sprite GetOrCreateHeadSprite()
-    {
-        if (_cachedHeadSprite != null) return _cachedHeadSprite;
-        const int size = 32;
-        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        Color[] pixels = new Color[size * size];
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float t = (float)x / (size - 1);
-                float halfHeight = (1f - t) * (size / 2f);
-                float distFromCenter = Mathf.Abs(y - size / 2f);
-                pixels[y * size + x] = distFromCenter <= halfHeight ? Color.white : new Color(1f, 1f, 1f, 0f);
-            }
-        }
-        tex.SetPixels(pixels);
-        tex.Apply();
-        _cachedHeadSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0f, 0.5f), size);
-        return _cachedHeadSprite;
-    }
-
-    private void UpdateAimVisual(Vector2 clampedForce)
-    {
-        float forceRatio = maxForce > 0f ? clampedForce.magnitude / maxForce : 0f;
-        float viewHeight = GetViewHeight();
-
-        Color color = Color.Lerp(aimColor, activeColor, forceRatio);
-        float thickness = Mathf.Lerp(thicknessFraction * 0.6f, thicknessFraction * 1.4f, forceRatio) * viewHeight;
-        float currentHeadSize = Mathf.Lerp(headSizeFraction * 0.7f, headSizeFraction * 1.3f, forceRatio) * viewHeight;
-
-        bool hasDirection = clampedForce.sqrMagnitude > 0.0001f;
-        _shaftRenderer.enabled = hasDirection;
-        _headRenderer.enabled = hasDirection;
-
-        if (!hasDirection) return;
-
-        // Calcul de la longueur (Unité fixe vs Fraction de la vue)
-        float length = useAbsoluteMaxArrowLength
-            ? forceRatio * maxArrowLength
-            : forceRatio * maxArrowLengthFraction * viewHeight;
-
-        float shaftLength = Mathf.Max(length - currentHeadSize, 0f);
-        float angle = Mathf.Atan2(clampedForce.y, clampedForce.x) * Mathf.Rad2Deg;
-
-        float parentAngle = transform.eulerAngles.z;
-        float localAngle = angle - parentAngle;
-
-        Quaternion rot = Quaternion.Euler(0f, 0f, localAngle);
-
-        _shaftTransform.localPosition = Vector3.zero;
-        _shaftTransform.localRotation = rot;
-        _shaftTransform.localScale = new Vector3(shaftLength, thickness, 1f);
-        _shaftRenderer.color = color;
-
-        float localAngleRad = localAngle * Mathf.Deg2Rad;
-        Vector2 dirLocal = new Vector2(Mathf.Cos(localAngleRad), Mathf.Sin(localAngleRad));
-
-        _headTransform.localPosition = (Vector3)(dirLocal * shaftLength);
-        _headTransform.localRotation = rot;
-        _headTransform.localScale = new Vector3(currentHeadSize, currentHeadSize, 1f);
-        _headRenderer.color = color;
-    }
-
-    private void HideAimVisual()
-    {
-        if (_shaftRenderer != null) _shaftRenderer.enabled = false;
-        if (_headRenderer != null) _headRenderer.enabled = false;
+        _arrow.Show(clampedForce, maxForce, GetViewHeight(), transform, aimColor, activeColor,
+            thicknessFraction, headSizeFraction, useAbsoluteMaxArrowLength, maxArrowLength, maxArrowLengthFraction);
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
@@ -512,30 +393,8 @@ public class LocalBallAimController : MonoBehaviour
         {
             Vector2 contactPoint = collision.GetContact(0).point;
             AudioManager.Instance?.PlayBounce(contactPoint);
-            StartCoroutine(SquashAnimationCoroutine());
+            StartCoroutine(BallImpactEffects.Squash(transform, _originalScale, squashDuration, squashAmount, stretchAmount));
         }
-    }
-
-    private IEnumerator SquashAnimationCoroutine()
-    {
-        float elapsedTime = 0f;
-
-        while (elapsedTime < squashDuration)
-        {
-            elapsedTime += Time.deltaTime;
-            float t = elapsedTime / squashDuration;
-
-            float squash = Mathf.Lerp(1f, squashAmount, Mathf.Sin(t * Mathf.PI));
-
-            float scaleX = _originalScale.x * stretchAmount * (1f - (1f - squash) / 5f);
-            float scaleY = _originalScale.y * squash;
-
-            transform.localScale = new Vector3(scaleX, scaleY, _originalScale.z);
-
-            yield return null;
-        }
-
-        transform.localScale = _originalScale;
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -543,43 +402,12 @@ public class LocalBallAimController : MonoBehaviour
         if (collision.CompareTag("Goal") && !IsDead)
         {
             IsAiming = false;
-            HideAimVisual();
-            StartCoroutine(FallAnimationCoroutine());
+            _arrow.Hide();
+            IsDead = true;
+            StartCoroutine(BallImpactEffects.Fall(
+                transform, _spriteRenderer, _rb, GetComponent<Collider2D>(),
+                fallDuration, shrinkStartTime, fallCurve, rotateCurve, totalRotation,
+                onFallStarted: () => AudioManager.Instance?.PlayBallDeath(transform.position)));
         }
-    }
-
-    private IEnumerator FallAnimationCoroutine()
-    {
-        IsDead = true;
-        _rb.isKinematic = true;
-        _rb.velocity = Vector2.zero;
-
-        AudioManager.Instance?.PlayBallDeath(transform.position);
-
-        float elapsedTime = 0f;
-        Vector3 startScale = transform.localScale;
-
-        while (elapsedTime < fallDuration)
-        {
-            elapsedTime += Time.deltaTime;
-            float t = elapsedTime / fallDuration;
-
-            float currentRotation = rotateCurve.Evaluate(t) * totalRotation;
-            transform.Rotate(Vector3.forward, currentRotation - (rotateCurve.Evaluate(t - Time.deltaTime / fallDuration) * totalRotation));
-
-            float shrinkRatio = Mathf.Max(0f, t - shrinkStartTime) / (1f - shrinkStartTime);
-            float scale = Mathf.Lerp(1f, 0f, shrinkRatio);
-            transform.localScale = startScale * scale;
-
-            float alpha = fallCurve.Evaluate(t);
-            Color color = _spriteRenderer.color;
-            color.a = 1f - alpha;
-            _spriteRenderer.color = color;
-
-            yield return null;
-        }
-
-        Collider2D col = GetComponent<Collider2D>();
-        if (col != null) col.enabled = false;
     }
 }

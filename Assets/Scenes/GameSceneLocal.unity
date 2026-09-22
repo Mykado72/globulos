@@ -1097,7 +1097,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 966706949}
-  - component: {fileID: 966706950}
+  - component: {fileID: 966706951}
   m_Layer: 0
   m_Name: TurnUI
   m_TagString: Untagged
@@ -1120,7 +1120,7 @@ Transform:
   m_Father: {fileID: 673820178}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &966706950
+--- !u!114 &966706951
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1129,7 +1129,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 966706948}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 52ba3a98479773f47bb931041063bb60, type: 3}
+  m_Script: {fileID: 11500000, guid: b9d671508636fd4499ea7b21c9e3884c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   timerText: {fileID: 1806360357}

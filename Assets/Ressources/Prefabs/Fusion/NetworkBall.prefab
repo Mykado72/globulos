@@ -159,6 +159,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cef2efd2eecf624b8ffcc70465cfa0a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fallDuration: 1
+  totalRotation: 90
+  targetScaleFraction: 0.4
+  goalGrayColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
 --- !u!114 &5941013327794056758
 MonoBehaviour:
   m_ObjectHideFlags: 0

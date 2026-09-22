@@ -11,7 +11,7 @@ public class SoccerBallController : NetworkBehaviour
     [Header("Goal Animation Settings")]
     [SerializeField] private float fallDuration = 1f;
     [SerializeField] private float totalRotation = 90f;
-    [SerializeField] private float targetScaleFraction = 0.99f;
+    [SerializeField] private float targetScaleFraction = 0.1f;
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f);
 
     public override void Spawned()
@@ -64,59 +64,13 @@ public class SoccerBallController : NetworkBehaviour
     /// 
     /// ✨ RPC appelé sur TOUS les clients pour animer le ballon
     /// 
+    // ✅ REFACTOR : animation partagée avec LocalSoccerBallController, voir GoalScoreAnimation.cs
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void RPC_AnimateGoalBall()
     {
-        StartCoroutine(GoalAnimationCoroutine());
-    }
-
-    private IEnumerator GoalAnimationCoroutine()
-    {
-        // Désactiver la physique pour figer le ballon dans les cages
-        Rigidbody2D rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            rb.velocity /= 5f;
-            rb.angularVelocity /= 5f;
-        }
-
-        Collider2D col = GetComponent<Collider2D>();
-        if (col != null) col.enabled = false;
-
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-
-        float elapsedTime = 0f;
-        Vector3 initialScale = transform.localScale;
-        Quaternion initialRotation = transform.rotation;
-        Color initialColor = sr != null ? sr.color : Color.white;
-
-        while (elapsedTime < fallDuration)
-        {
-            elapsedTime += Time.deltaTime;
-            float t = elapsedTime / fallDuration;
-
-            // 1. Calcul de l'échelle (maintenant exact selon targetScaleFraction)
-            float currentScale = Mathf.Lerp(1f, targetScaleFraction, t);
-            transform.localScale = initialScale * currentScale;
-
-            // 2. Calcul propre de la rotation (évite la déformation matricielle)
-            float currentAngle = (totalRotation / fallDuration) * elapsedTime;
-            transform.rotation = initialRotation * Quaternion.Euler(0f, 0f, currentAngle);
-
-            // Transition vers le gris
-            if (sr != null)
-            {
-                sr.color = Color.Lerp(initialColor, goalGrayColor, t);
-            }
-            yield return new WaitForSeconds(0.05f);
-        }
-        if (rb != null)
-        {
-            rb.velocity = Vector2.zero;
-            rb.angularVelocity = 0f;
-            rb.isKinematic = true;
-        }
-
+        StartCoroutine(GoalScoreAnimation.Run(
+            transform, GetComponent<SpriteRenderer>(), GetComponent<Rigidbody2D>(), GetComponent<Collider2D>(),
+            fallDuration, totalRotation, targetScaleFraction, goalGrayColor));
     }
 
     /// 

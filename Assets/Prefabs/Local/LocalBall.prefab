@@ -99,6 +99,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b03351d379fc5b468b4ed39ede90b43, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fallDuration: 1
+  totalRotation: 90
+  targetScaleFraction: 0.4
+  goalGrayColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
 --- !u!50 &9077199550864838909
 Rigidbody2D:
   serializedVersion: 4

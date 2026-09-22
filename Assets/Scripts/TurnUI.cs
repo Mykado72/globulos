@@ -43,9 +43,11 @@ public class TurnUI : MonoBehaviour
         if (!IsTurnManagerReady())
             return;
 
-        // Maintenant safe d'accéder à CurrentState
-        if (_turnManager.CurrentState == TurnState.Finished)
-            DetectBallDeaths();
+        // ✅ FIX : DetectBallDeaths() était auparavant conditionné à CurrentState == Finished,
+        // donc le message "une bille est tombée dans un but" ne s'affichait jamais pendant
+        // une partie réseau en cours (seulement une fois la partie déjà terminée, trop tard).
+        // Comportement aligné sur LocalTurnUI (désormais supprimé, TurnUI le remplace).
+        DetectBallDeaths();
 
         // --- Fin de partie ---
         if (_turnManager.CurrentState == TurnState.Finished)
