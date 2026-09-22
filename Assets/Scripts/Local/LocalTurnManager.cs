@@ -101,7 +101,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         Debug.Log($"[LocalTurnManager] ⚽ But marqué par le joueur {winnerId}!");
 
         if (CurrentState == TurnState.Finished) return;
-        // EndGame(winnerId);
+        EndGame(winnerId);
     }
 
     public void CheckGameEnd()
@@ -147,7 +147,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         {
             string winnerName = GetPlayerName(lastAlivePlayer);
             Debug.Log($"[LocalTurnManager] 🎉 VICTOIRE du joueur {lastAlivePlayer} ({winnerName})!");
-            // EndGame(lastAlivePlayer);
+            EndGame(lastAlivePlayer);
         }
     }
 

@@ -67,8 +67,8 @@ public class TurnUI : MonoBehaviour
             bool isDraw = winnerId < 0;
             string winnerName = _turnManager.GetPlayerName(winnerId);
 
-            if (panelDRAW != null) panelDRAW.SetActive(isDraw);
-            if (panelWIN != null) panelWIN.SetActive(!isDraw);
+            //if (panelDRAW != null) panelDRAW.SetActive(isDraw);
+            //if (panelWIN != null) panelWIN.SetActive(!isDraw);
 
             if (!_endGameSoundPlayed)
             {

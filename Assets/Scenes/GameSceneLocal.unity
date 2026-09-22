@@ -2308,10 +2308,10 @@ MonoBehaviour:
   flashOverlay: {fileID: 1195161574}
   confettiParticles: {fileID: 0}
   shakeCamera: {fileID: 2059892010}
-  popDuration: 0.4
-  holdDuration: 1.2
-  fadeOutDuration: 0.5
-  flashDuration: 0.25
+  popDuration: 1
+  holdDuration: 10
+  fadeOutDuration: 1
+  flashDuration: 2
   overshootScale: 1.3
   wobbleMagnitudeDegrees: 15
   cameraShakeMagnitude: 0.15
