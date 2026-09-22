@@ -583,7 +583,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efd14a30fc624bb4792eeabefd067986, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  defendingTeam: 0
+  defendingTeam: 1
 --- !u!61 &223904468
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -2730,7 +2730,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efd14a30fc624bb4792eeabefd067986, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  defendingTeam: 1
+  defendingTeam: 0
 --- !u!61 &1860379016
 BoxCollider2D:
   m_ObjectHideFlags: 0

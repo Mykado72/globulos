@@ -105,11 +105,15 @@ public class SoccerBallController : NetworkBehaviour
             ? GoalZone.GoalTeam.Rouge
             : GoalZone.GoalTeam.Jaune;
 
+        // ⚠️ Convention (corrigée) : PlayerId IMPAIR = Jaune, PAIR = Rouge.
+        // Le créateur de la room est toujours Jaune (constaté en jeu) ; l'ancienne version
+        // de cette fonction faisait l'inverse, ce qui inversait les couleurs affichées
+        // dans les messages (buteur, vainqueur, etc.).
         foreach (PlayerRef player in Runner.ActivePlayers)
         {
             GoalZone.GoalTeam playerTeam = (player.PlayerId % 2 == 0)
-                ? GoalZone.GoalTeam.Jaune
-                : GoalZone.GoalTeam.Rouge;
+                ? GoalZone.GoalTeam.Rouge
+                : GoalZone.GoalTeam.Jaune;
 
             if (playerTeam == scoringTeam)
             {
@@ -120,8 +124,8 @@ public class SoccerBallController : NetworkBehaviour
         if (GameModeManager.Instance != null && GameModeManager.Instance.IsVsAI && GameModeManager.Instance.BotPlayerId >= 0)
         {
             GoalZone.GoalTeam botTeam = (GameModeManager.Instance.BotPlayerId % 2 == 0)
-                ? GoalZone.GoalTeam.Jaune
-                : GoalZone.GoalTeam.Rouge;
+                ? GoalZone.GoalTeam.Rouge
+                : GoalZone.GoalTeam.Jaune;
 
             if (botTeam == scoringTeam)
             {

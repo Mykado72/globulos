@@ -16,14 +16,13 @@ public class BotAIStrategy
     public enum BotRole { Offensive, Defensive, Mixte }
 
     /// <summary>
-    /// Convention reliant la parité du PlayerId à la couleur d'équipe. Cette convention
-    /// diffère entre les modes :
+    /// Convention reliant la parité du PlayerId à la couleur d'équipe.
     /// - Local (LocalGameSpawner) : Joueur 1 (humain) = Jaune, Joueur 2 (bot) = Rouge
-    ///   → PlayerId IMPAIR = Jaune (OddIsJaune)
-    /// - LAN (Fusion) : celui qui crée la room est automatiquement Jaune, et
-    ///   SoccerBallController.FindScoringPlayer() attribue Jaune au PlayerId PAIR
-    ///   → PlayerId PAIR = Jaune (EvenIsJaune)
-    /// Chaque appelant doit passer la convention qui correspond à SON mode.
+    /// - LAN (Fusion, voir SoccerBallController.FindScoringPlayer) : celui qui crée la
+    ///   room est toujours Jaune, et son PlayerId Fusion s'avère impair en pratique.
+    /// Les deux modes utilisent donc actuellement la même règle : PlayerId IMPAIR = Jaune
+    /// (OddIsJaune). L'enum reste distinct pour documenter explicitement cette convention
+    /// par appelant, au cas où l'un des deux modes changerait sa logique d'attribution.
     /// </summary>
     public enum PlayerIdConvention { OddIsJaune, EvenIsJaune }
 

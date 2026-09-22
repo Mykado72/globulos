@@ -26,6 +26,10 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Networked] public int CurrentTurnNumber { get; set; }
     [Networked] public int WinnerPlayerId { get; set; }
 
+    // ✅ FIX : Timers et données pour la célébration (synchronisés sur tous les clients)
+    [Networked] private TickTimer CelebrationTimer { get; set; }
+    [Networked] private int CelebrationWinnerId { get; set; }
+
     public static TurnManager Instance { get; private set; }
 
     public override void Spawned()
@@ -94,6 +98,19 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
                 {
                     StartNewTurn();
                 }
+                break;
+
+            case TurnState.Celebrating:
+                // ✅ FIX : Gestion de l'état Celebrating avec timer synchronisé
+                if (CelebrationTimer.Expired(Runner))
+                {
+                    Debug.Log($"[TurnManager] 🎉 Fin de célébration → Terminer le jeu (Gagnant: {CelebrationWinnerId})");
+                    EndGameWinBySoccerGoal(CelebrationWinnerId);
+                }
+                break;
+
+            default:
+                Debug.LogWarning($"[TurnManager] ⚠️ État non géré : {CurrentState}");
                 break;
         }
     }
@@ -260,7 +277,11 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     private void RPC_RequestWinBySoccerGoal(int winnerId)
     {
         if (!HasStateAuthority) return;
-        if (CurrentState == TurnState.Finished || CurrentState == TurnState.Celebrating) return;
+        if (CurrentState == TurnState.Finished || CurrentState == TurnState.Celebrating)
+        {
+            Debug.LogWarning($"[TurnManager] ⚠️ Tentative de BUT quand état = {CurrentState}. Ignorée.");
+            return;
+        }
 
         // ✅ Geler le timer affiché : TurnTimer.RemainingTime continuerait sinon de décompter
         // en temps réel même hors des cases gérées par FixedUpdateNetwork (contrairement au
@@ -268,24 +289,20 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         TurnTimer = TickTimer.None;
         CurrentState = TurnState.Celebrating;
 
-        StartCoroutine(CelebrateThenEndGame(winnerId));
-    }
+        // ✅ FIX : Utiliser un timer synchronisé au lieu d'une coroutine
+        // Cela garantit que TOUS les clients (serveur ET clients) attendent exactement le même délai
+        CelebrationTimer = TickTimer.CreateFromSeconds(Runner, celebrationDuration);
+        CelebrationWinnerId = winnerId;
 
-    /// <summary>
-    /// ✅ Laisse jouer GoalCelebrationUI sur tous les clients avant de terminer réellement
-    /// la partie. Seul le serveur (StateAuthority) exécute cette coroutine.
-    /// </summary>
-    private IEnumerator CelebrateThenEndGame(int winnerId)
-    {
-        yield return new WaitForSeconds(celebrationDuration);
-        EndGameWinBySoccerGoal(winnerId);
+        Debug.Log($"[TurnManager] 🎉 CELEBRATION START - PlayerId: {winnerId}, " +
+                  $"Duration: {celebrationDuration}s");
     }
 
     private bool AreAllBallsStopped()
     {
         foreach (var ball in BallAimController.AllBalls)
         {
-            if (ball != null && !ball.IsDead && ball.IsMoving) 
+            if (ball != null && !ball.IsDead && ball.IsMoving)
                 return false;
         }
         return true;
