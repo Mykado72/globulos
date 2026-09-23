@@ -36,7 +36,70 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     private bool _cogepRoomExists = false;
 
     public string playerNickname => _playerNickname;
+    private bool _isLoadingScene = false;
 
+    private void CheckPlayersAndStartGame()
+    {
+        if (_currentRunner == null || !_currentRunner.IsRunning) return;
+
+        // Compter les joueurs actifs
+        int count = 0;
+        if (_currentRunner.ActivePlayers != null)
+        {
+            foreach (var p in _currentRunner.ActivePlayers)
+            {
+                count++;
+            }
+        }
+
+        int requiredPlayers = _isVsAIMode ? 1 : nbOfPlayers;
+        UpdateStatus($"Joueurs connectés : {count}/{requiredPlayers}");
+
+        // Si le nombre de joueurs est atteint et qu'aucun chargement n'est déjà en cours
+        if (count >= requiredPlayers && !_isLoadingScene)
+        {
+            // On vérifie qui est le MasterClient
+            if (_currentRunner.IsSharedModeMasterClient)
+            {
+                _isLoadingScene = true;
+                UpdateStatus("Tous les joueurs sont présents ! Lancement par le MasterClient...");
+                _ = StartGameSceneForMaster();
+            }
+            else
+            {
+                UpdateStatus("Tous les joueurs sont connectés. En attente du MasterClient...");
+            }
+        }
+    }
+
+    private async Task StartGameSceneForMaster()
+    {
+        // Attente de sécurité pour laisser Fusion stabiliser l'autorité Shared Mode
+        await Task.Delay(1000);
+
+        if (_currentRunner == null || !_currentRunner.IsRunning) return;
+
+        // S'assurer qu'on est toujours MasterClient après le délai
+        if (_currentRunner.IsSharedModeMasterClient)
+        {
+            int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
+            if (sceneIndex < 0)
+            {
+                sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/GameSceneLAN.unity");
+            }
+
+            if (sceneIndex >= 0)
+            {
+                Debug.Log($"[LobbyManager] 🚀 MasterClient charge la scène index : {sceneIndex}");
+                _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
+            }
+            else
+            {
+                Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
+                _isLoadingScene = false;
+            }
+        }
+    }
     private async void Start()
     {
         _isInLobby = true;
@@ -179,41 +242,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    private async void CheckPlayersAndStartGame()
-    {
-        if (_currentRunner == null) return;
-
-        int count = 0;
-        if (_currentRunner.ActivePlayers != null)
-        {
-            foreach (var p in _currentRunner.ActivePlayers) count++;
-        }
-
-        int requiredPlayers = _isVsAIMode ? 1 : nbOfPlayers;
-        UpdateStatus($"Joueurs connectés : {count}/{requiredPlayers}");
-
-        if (count >= requiredPlayers && _isInLobby)
-        {
-            _isInLobby = false;
-            UpdateStatus("Tous les joueurs sont présents ! Lancement de la partie...");
-
-            // Pause de stabilisation réseau
-            await Task.Delay(300);
-
-            if (_currentRunner != null && _currentRunner.IsRunning && _currentRunner.IsSharedModeMasterClient)
-            {
-                int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
-                if (sceneIndex >= 0)
-                {
-                    await _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
-                }
-                else
-                {
-                    Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
-                }
-            }
-        }
-    }
+ 
 
     private void UpdateStatus(string message)
     {
