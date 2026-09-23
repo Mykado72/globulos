@@ -9,9 +9,18 @@ using UnityEngine;
 /// </summary>
 public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
 {
-    // ✅ Scores synchronisés en réseau
-    [Networked] private int Team1ScoreNet { get; set; }
-    [Networked] private int Team2ScoreNet { get; set; }
+    // ✅ FIX : [Networked] n'a aucun effet ici — ScoreManagerNetwork hérite de ScoreManagerBase
+    // (un simple MonoBehaviour), pas de NetworkBehaviour, donc Fusion ne synchronisait jamais
+    // réellement ces deux champs. Ce sont maintenant de simples champs locaux tenus à jour
+    // manuellement sur chaque client via TurnManager.BroadcastScoreSync/RPC_SyncScore (voir
+    // AddGoal / ApplySyncedScore ci-dessous), TurnManager étant lui un vrai NetworkBehaviour.
+    private int Team1ScoreNet;
+    private int Team2ScoreNet;
+
+    private void Start()
+    {
+        Initialize();  // ✅ Appelé automatiquement au démarrage
+    }
 
     public override void Initialize()
     {
@@ -41,11 +50,44 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
             Debug.Log($"[ScoreManagerNetwork] 🎯 BUT ! Équipe Rouge : {Team1ScoreNet} - {Team2ScoreNet}");
         }
 
-        // Notifier l'UI
+        // Notifier l'UI (sur CE client, celui qui a l'autorité sur le ballon)
         NotifyScoreChanged();
+
+        // ✅ FIX : sans ça, seul ce client voyait son score changer. On diffuse le score à
+        // jour à tous les autres clients via TurnManager (voir ApplySyncedScore plus bas).
+        if (TurnManager.Instance != null)
+        {
+            TurnManager.Instance.BroadcastScoreSync(Team1ScoreNet, Team2ScoreNet);
+        }
+
+        // ✅ FIX : cet appel manquait. AddGoal() est entièrement redéfinie ici (elle n'appelle
+        // pas base.AddGoal()), donc ResetTurnAfterGoal() n'était jamais déclenché en mode
+        // Réseau — TurnManager.RequestTurnReset() n'était donc jamais appelé après un but qui
+        // ne terminait pas la partie. Comme dans ScoreManagerBase.AddGoal(), on l'appelle
+        // AVANT de vérifier la victoire.
+        ResetTurnAfterGoal(scorerPlayerId);
 
         // Vérifier condition de victoire
         CheckWinCondition();
+    }
+
+    /// <summary>
+    /// ✅ FIX : en mode Réseau, délègue à TurnManager.RequestTurnReset(), qui programme le
+    /// repositionnement des billes/du ballon pour APRÈS la fin de la célébration de but (voir
+    /// TurnManager.IsPendingGoalReset), au lieu de le faire immédiatement.
+    /// </summary>
+    protected override void ResetTurnAfterGoal(int scorerPlayerId)
+    {
+        Debug.Log($"[ScoreManagerNetwork] 🔄 ResetTurnAfterGoal appelée pour joueur {scorerPlayerId}");
+
+        if (TurnManager.Instance != null)
+        {
+            TurnManager.Instance.RequestTurnReset();
+        }
+        else
+        {
+            Debug.LogWarning("[ScoreManagerNetwork] ⚠️ TurnManager.Instance est NULL !");
+        }
     }
 
     public override (int team1, int team2) GetScores()
@@ -110,4 +152,12 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    
+    // Ajout de la méthode manquante pour corriger CS1061
+    public void ApplySyncedScore(int team1Score, int team2Score)
+    {
+        Team1ScoreNet = team1Score;
+        Team2ScoreNet = team2Score;
+        NotifyScoreChanged();
+    }
 }

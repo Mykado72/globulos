@@ -10,8 +10,6 @@ public class TurnUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text stateText;
-    [SerializeField] private GameObject panelWIN;
-    [SerializeField] private GameObject panelDRAW;
 
     [Header("Messages d'événements")]
     [SerializeField] private float ballDownMessageDuration = 2f;
@@ -30,9 +28,6 @@ public class TurnUI : MonoBehaviour
 
     private void Start()
     {
-        if (panelWIN != null) panelWIN.SetActive(false);
-        if (panelDRAW != null) panelDRAW.SetActive(false);
-
         if (timerText != null)
         {
             _timerBaseScale = timerText.transform.localScale;
@@ -64,9 +59,6 @@ public class TurnUI : MonoBehaviour
             bool isDraw = winnerId < 0;
             string winnerName = _turnManager.GetPlayerName(winnerId);
 
-            if (panelDRAW != null) panelDRAW.SetActive(isDraw);
-            if (panelWIN != null) panelWIN.SetActive(!isDraw);
-
             if (!_endGameSoundPlayed)
             {
                 _endGameSoundPlayed = true;
@@ -92,9 +84,6 @@ public class TurnUI : MonoBehaviour
 
         if (_turnManager.CurrentState == TurnState.Celebrating)
         {
-            if (panelWIN != null) panelWIN.SetActive(false);
-            if (panelDRAW != null) panelDRAW.SetActive(false);
-
             if (timerText != null)
             {
                 timerText.text = "";
@@ -113,10 +102,6 @@ public class TurnUI : MonoBehaviour
 
             return;
         }
-
-        // Partie en cours
-        if (panelWIN != null) panelWIN.SetActive(false);
-        if (panelDRAW != null) panelDRAW.SetActive(false);
 
         // Chrono
         float remaining = _turnManager.GetRemainingTime();

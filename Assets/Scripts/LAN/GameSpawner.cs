@@ -1,50 +1,40 @@
 using Fusion;
 using Fusion.Sockets;
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
+    [Header("Prefabs")]
     [SerializeField] private NetworkPrefabRef player1Prefab;
     [SerializeField] private NetworkPrefabRef player2Prefab;
     [SerializeField] private NetworkPrefabRef soccerBallPrefab;
 
-    // Prefabs Unity à utiliser en mode Offline (Inspector) 
-    [SerializeField] private GameObject player1PrefabGameObject;
-    [SerializeField] private GameObject player2PrefabGameObject;
-    [SerializeField] private GameObject soccerBallPrefabGameObject;
-
+    [Header("Spawn Points")]
     [SerializeField] private Transform[] player1SpawnPoints;
     [SerializeField] private Transform[] player2SpawnPoints;
     [SerializeField] private Transform soccerBallSpawnPoint;
 
-    private bool _isSpawning = false;
-
-    // ✅ FIX : Remplacer bool par HashSet pour tracker par joueur
-    private HashSet<int> _spawnedPlayerIds = new HashSet<int>();
-
-    private bool _hasSpawnedBall = false;
+    private bool _hasSpawnedLocalPlayer = false;
+    private bool _hasSpawnedSoccerBall = false;
     private NetworkRunner _runner;
 
-    private async void Start()
+    private void Start()
     {
-        // Mode En Ligne (Fusion)
         _runner = FindFirstObjectByType<NetworkRunner>();
         if (_runner != null)
         {
             _runner.AddCallbacks(this);
-        }
-        // Laisser 0.5s à Fusion pour stabiliser la scène et les autorités
-        await System.Threading.Tasks.Task.Delay(500);
 
-        var runner = NetworkRunner.Instances.FirstOrDefault();
-        if (runner != null && runner.IsRunning)
-        {
-            Debug.Log($"[GameSpawner] 🚀 Tentative de spawn au Start() pour le joueur {runner.LocalPlayer.PlayerId}");
-            _ = TrySpawnLocalPlayer(runner);
+            // Si le Runner est déjà actif et en jeu (ex: cas où la scène est déjà chargée)
+            if (_runner.IsRunning && _runner.LocalPlayer.IsValid)
+            {
+                _ = TrySpawnLocalPlayerWithRetry();
+            }
         }
     }
 
@@ -56,243 +46,145 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    // ✅ Déclenché AUTOMATIQUEMENT quand la scène de jeu a fini de charger sur ce client
     public void OnSceneLoadDone(NetworkRunner runner)
     {
-        _ = TrySpawnLocalPlayer(runner);
+        Debug.Log($"[GameSpawner] 🎬 Scène chargée pour LocalPlayer ID : {runner.LocalPlayer.PlayerId}");
 
-        if (runner.IsSharedModeMasterClient && !_hasSpawnedBall)
+        // 1. Tenter de spawner le joueur local
+        _ = TrySpawnLocalPlayerWithRetry();
+
+        // 2. Le Master Client spawn le ballon
+        if (runner.IsSharedModeMasterClient && !_hasSpawnedSoccerBall)
         {
-            _hasSpawnedBall = true;
+            _hasSpawnedSoccerBall = true;
             SpawnSoccerBall(runner);
         }
     }
 
-    private async System.Threading.Tasks.Task TrySpawnLocalPlayer(NetworkRunner runner)
+    /// 
+    /// Attend que le joueur local soit 100% valide dans la session Fusion avant d'instancier.
+    /// 
+    private async Task TrySpawnLocalPlayerWithRetry()
     {
-        PlayerRef localPlayer = runner.LocalPlayer;
-        if (!localPlayer.IsValid)
+        if (_hasSpawnedLocalPlayer) return;
+
+        int attempts = 0;
+        // Boucle d'attente pour s'assurer que Fusion a attribué un PlayerId valide au client
+        while (_runner != null && _runner.IsRunning && (!_runner.LocalPlayer.IsValid || _runner.LocalPlayer.PlayerId == 0))
         {
-            return;
+            attempts++;
+            if (attempts > 50) // Timeout après ~5 secondes
+            {
+                Debug.LogError("[GameSpawner] ❌ Timeout : LocalPlayer toujours invalide.");
+                return;
+            }
+            await Task.Delay(100);
         }
 
-        // ✅ FIX : Vérifier si CE JOUEUR a déjà spawn (pas globalement!)
-        if (_spawnedPlayerIds.Contains(localPlayer.PlayerId) || _isSpawning)
-        {
-            Debug.LogWarning($"[GameSpawner] ⚠️ Joueur {localPlayer.PlayerId} a déjà spawné ou spawn en cours");
-            return;
-        }
+        if (_hasSpawnedLocalPlayer || _runner == null || !_runner.IsRunning) return;
 
-        _isSpawning = true;
-        _spawnedPlayerIds.Add(localPlayer.PlayerId);  // ✅ Enregistrer CE joueur
+        _hasSpawnedLocalPlayer = true;
+        PlayerRef localPlayer = _runner.LocalPlayer;
 
-        // ✅ Récupère le pseudo depuis le token Fusion du joueur local
-        string playerNickname = $"Joueur {localPlayer.PlayerId}";
-        byte[] token = runner.GetPlayerConnectionToken(localPlayer);
+        // Déterminer s'il s'agit du Joueur 1 (Master) ou Joueur 2
+        bool isPlayer1 = _runner.IsSharedModeMasterClient;
 
-        if (token != null && token.Length > 0)
-        {
-            playerNickname = System.Text.Encoding.UTF8.GetString(token);
-        }
-
-        bool isPlayer1 = runner.IsSharedModeMasterClient;
         NetworkPrefabRef prefab = isPlayer1 ? player1Prefab : player2Prefab;
         Transform[] spawnPoints = isPlayer1 ? player1SpawnPoints : player2SpawnPoints;
 
-        Debug.Log($"[GameSpawner] 👤 Début du spawn pour {(isPlayer1 ? "Joueur 1 (Jaune)" : "Joueur 2 (Rouge)")} - PlayerId: {localPlayer.PlayerId}");
+        Debug.Log($"[GameSpawner] 🚀 Spawning des billes pour {(isPlayer1 ? "JOUEUR 1" : "JOUEUR 2")} (ID: {localPlayer.PlayerId})");
 
-        if (prefab == null || spawnPoints == null || spawnPoints.Length == 0)
+        if (spawnPoints == null || spawnPoints.Length == 0)
         {
-            Debug.LogError($"[GameSpawner] ❌ Prefab ou SpawnPoints manquants pour {(isPlayer1 ? "Player1" : "Player2")}!");
-            _isSpawning = false;
+            Debug.LogError($"[GameSpawner] ❌ Erreur : SpawnPoints non assignés pour {(isPlayer1 ? "Joueur 1" : "Joueur 2")} !");
             return;
         }
 
-        // ✅ Une bille est spawnée pour CHAQUE spawn point défini (design : plusieurs
-        // billes par joueur), et non un seul point choisi au hasard.
-        int i = 0;
+        // Récupération du pseudo
+        string nickname = $"Joueur {localPlayer.PlayerId}";
+        byte[] token = _runner.GetPlayerConnectionToken(localPlayer);
+        if (token != null && token.Length > 0)
+        {
+            nickname = System.Text.Encoding.UTF8.GetString(token);
+        }
+
+        int index = 0;
         foreach (Transform spawnPoint in spawnPoints)
         {
-            i++;
+            index++;
             if (spawnPoint == null) continue;
 
             try
             {
-                NetworkObject spawnedBall = await runner.SpawnAsync(
+                // Spawn des billes avec Input Authority attribué au joueur local
+                NetworkObject ballObj = await _runner.SpawnAsync(
                     prefab,
                     spawnPoint.position,
                     Quaternion.identity,
                     inputAuthority: localPlayer
                 );
 
-                if (spawnedBall != null)
+                if (ballObj != null)
                 {
-                    spawnedBall.name = $"Player {localPlayer.PlayerId}_Ball{i}";
+                    ballObj.name = $"Player_{localPlayer.PlayerId}_Ball_{index}";
 
-                    // 1. Définir le propriétaire localement sur le script de la bille
-                    if (spawnedBall.TryGetComponent(out BallAimController ballController))
+                    if (ballObj.TryGetComponent(out BallAimController aimController))
                     {
-                        ballController.SetOwner(localPlayer.PlayerId);
+                        aimController.SetOwner(localPlayer.PlayerId);
                     }
 
-                    // 2. Transmettre le pseudo via le RPC PlayerData
-                    if (spawnedBall.TryGetComponent(out PlayerData playerData))
+                    if (ballObj.TryGetComponent(out PlayerData playerData))
                     {
-                        // En mode Shared, InputAuthority donne la permission d'appeler le RPC
-                        playerData.RPC_SetPlayerInfo(playerNickname, localPlayer.PlayerId);
-                        Debug.Log($"[GameSpawner] ✅ Bille {i} de {(isPlayer1 ? "Joueur 1 (Jaune)" : "Joueur 2 (Rouge)")} spawnée avec succès");
-                    }
-
-                    if (PlayerNamesManager.Instance != null)
-                    {
-                        PlayerNamesManager.Instance.SetPlayerName(localPlayer.PlayerId, playerNickname);
+                        playerData.RPC_SetPlayerInfo(nickname, localPlayer.PlayerId);
                     }
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                Debug.LogError($"[GameSpawner] ❌ Exception Spawn bille {i}: {ex.Message}");
+                Debug.LogError($"[GameSpawner] ❌ Erreur lors du spawn d'une bille ({index}) : {ex.Message}");
             }
         }
 
-        Debug.Log($"[GameSpawner] ✅ Spawn terminé pour {(isPlayer1 ? "Joueur 1 (Jaune)" : "Joueur 2 (Rouge)")} - PlayerId: {localPlayer.PlayerId}");
-        _isSpawning = false;
+        Debug.Log($"[GameSpawner] ✅ Succès : Toutes les billes du Joueur {localPlayer.PlayerId} ont été créées !");
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)
     {
-        if (soccerBallPrefab == null)
-        {
-            Debug.LogWarning("[GameSpawner] ⚠️ Ballon prefab non assigné");
-            return;
-        }
+        if (soccerBallPrefab == null) return;
 
-        Vector3 pos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
+        Vector3 spawnPos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
 
         try
         {
-            NetworkObject ball = runner.Spawn(soccerBallPrefab, pos, Quaternion.identity);
-
-            if (ball != null)
-            {
-                Debug.Log("[GameSpawner] ⚽ Ballon de soccer spawné avec succès");
-            }
-            else
-            {
-                Debug.LogError("[GameSpawner] ❌ Spawn du ballon a retourné null !");
-            }
+            runner.Spawn(soccerBallPrefab, spawnPos, Quaternion.identity);
+            Debug.Log("[GameSpawner] ⚽ Ballon de football spawné sur le terrain.");
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            Debug.LogError($"[GameSpawner] ❌ Exception lors du spawn du ballon : {ex.Message}");
+            Debug.LogError($"[GameSpawner] ❌ Erreur lors du spawn du ballon : {ex.Message}");
         }
     }
 
-    // =========================================================================
-    // Callbacks INetworkRunnerCallbacks
-    // =========================================================================
+    #region Fusion Callbacks
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a rejoint");
-
-        // ✅ FIX : Trigger le spawn pour le joueur local qui vient de rejoindre
-        if (runner.LocalPlayer == player)
+        // Si c'est le joueur local qui rejoint
+        if (player == runner.LocalPlayer)
         {
-            Debug.Log($"[GameSpawner] 🚀 Spawn déclenché pour le joueur local {player.PlayerId}");
-            _ = TrySpawnLocalPlayer(runner);
+            _ = TrySpawnLocalPlayerWithRetry();
         }
     }
 
-    /// <summary>
-    /// ✨ NEW: Quand un joueur quitte la partie en jeu
-    /// </summary>
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
-    {
-        Debug.LogWarning($"[GameSpawner] ⚠️ Joueur {player.PlayerId} a quitté en jeu!");
-
-        // ✨ NEW: Nettoyer le HashSet
-        _spawnedPlayerIds.Remove(player.PlayerId);
-
-        // ✨ NEW: Si un joueur quitte le jeu, retourner au Lobby
-        if (SceneManager.GetActiveScene().name == "GameScene")
-        {
-            ReturnToLobbyOnDisconnect($"Joueur {player.PlayerId} a quitté");
-        }
-    }
-
-    /// <summary>
-    /// ✨ NEW: Arrêt du Runner (erreur réseau, déconnexion, etc.)
-    /// </summary>
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
-    {
-        Debug.LogError($"[GameSpawner] ❌ Runner arrêté - Raison: {shutdownReason}");
-
-        // ✨ NEW: Retourner au Lobby si une erreur survient en jeu
-        if (SceneManager.GetActiveScene().name == "GameScene")
-        {
-            ReturnToLobbyOnDisconnect($"Erreur réseau: {shutdownReason}");
-        }
-    }
-
-    /// <summary>
-    /// ✨ NEW: Déconnexion du serveur
-    /// </summary>
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
-    {
-        Debug.LogError($"[GameSpawner] ❌ Déconnexion serveur: {reason}");
-
-        if (SceneManager.GetActiveScene().name == "GameScene")
-        {
-            ReturnToLobbyOnDisconnect($"Déconnexion du serveur: {reason}");
-        }
-    }
-
-    /// <summary>
-    /// ✨ NEW: Connexion au serveur échouée
-    /// </summary>
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
-    {
-        Debug.LogError($"[GameSpawner] ❌ Connexion échouée: {reason}");
-
-        if (SceneManager.GetActiveScene().name == "GameScene")
-        {
-            ReturnToLobbyOnDisconnect($"Impossible de se reconnecter: {reason}");
-        }
-    }
-
-    /// <summary>
-    /// ✨ NEW: Retourne au Lobby avec message d'erreur
-    /// </summary>
-    private void ReturnToLobbyOnDisconnect(string reason)
-    {
-        Debug.Log($"[GameSpawner] 🔙 Retour au Lobby - Raison: {reason}");
-
-        // Nettoyer les données
-        if (TurnManager.Instance != null)
-        {
-            Destroy(TurnManager.Instance.gameObject);
-        }
-
-        if (PlayerNamesManager.Instance != null)
-        {
-            Destroy(PlayerNamesManager.Instance.gameObject);
-        }
-
-        if (AudioManager.Instance != null)
-        {
-            Destroy(AudioManager.Instance.gameObject);
-        }
-
-        // Revenir au Lobby
-        SceneManager.LoadScene("LobbyScene");
-    }
-
-    // Callbacks non utilisés (obligatoires pour INetworkRunnerCallbacks)
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) { }
@@ -300,4 +192,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+
+    #endregion
 }

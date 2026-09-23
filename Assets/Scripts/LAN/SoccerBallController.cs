@@ -14,9 +14,30 @@ public class SoccerBallController : NetworkBehaviour
     [SerializeField] private float targetScaleFraction = 0.99f;
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f);
 
+    // ✅ FIX : singleton, comme GoalCelebrationUI, pour que TurnManager puisse remettre le
+    // ballon en jeu (ResetForNewRound) sans FindFirstObjectByType à chaque but.
+    public static SoccerBallController Instance { get; private set; }
+
+    // ✅ FIX : état d'origine mémorisé pour pouvoir remettre le ballon en jeu après un but
+    // qui ne termine pas la partie (voir ResetForNewRound).
+    private Vector3 _spawnPosition;
+    private Vector3 _initialScale;
+    private Color _initialColor;
+
     public override void Spawned()
     {
         _goalScored = false;
+        Instance = this;
+
+        _spawnPosition = transform.position;
+        _initialScale = transform.localScale;
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        _initialColor = sr != null ? sr.color : Color.white;
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        if (Instance == this) Instance = null;
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -42,15 +63,32 @@ public class SoccerBallController : NetworkBehaviour
         // 2. Transmettre l'animation à tous les clients (+ célébration visuelle "BUT !")
         RPC_AnimateGoalBall(scorerId);
 
-        // 3. Notifier le TurnManager. Il bascule d'abord en TurnState.Celebrating (timer
-        // gelé, voir GoalCelebrationUI) avant de terminer réellement la partie.
-        if (TurnManager.Instance != null)
+        // 3. ✅ FIX : notifier le système de points au lieu de terminer systématiquement la
+        // partie. ScoreManagerNetwork.AddGoal() décide lui-même, via CheckWinCondition(), si
+        // la partie continue (TurnManager.RequestTurnReset, voir ResetForNewRound) ou se
+        // termine (TurnManager.RequestWinBySoccerGoal).
+        if (ScoreManagerNetwork.Instance != null)
         {
+            ScoreManagerNetwork.Instance.AddGoal(scorerId);
+        }
+        else if (TurnManager.Instance != null)
+        {
+            // Fallback : comportement d'origine si aucun ScoreManagerNetwork n'est présent
+            Debug.LogWarning("[SoccerBallController] ⚠️ ScoreManagerNetwork.Instance est NULL - fin de partie immédiate");
             TurnManager.Instance.RequestWinBySoccerGoal(scorerId);
         }
 
-        // 4. Lancer la suppression différée (seulement sur le serveur)
-        StartCoroutine(DespawnAfterDelayCoroutine(fallDuration));
+        // 4. ✅ FIX : on ne despawn le ballon que si la partie est réellement terminée.
+        // Sinon on le laisse en jeu : TurnManager le repositionnera lui-même
+        // (RPC_ResetAllForNewRound) une fois la célébration de but terminée.
+        bool gameEnding = TurnManager.Instance != null &&
+            (TurnManager.Instance.CurrentState == TurnState.Finished ||
+             TurnManager.Instance.CurrentState == TurnState.Celebrating);
+
+        if (gameEnding)
+        {
+            StartCoroutine(DespawnAfterDelayCoroutine(fallDuration));
+        }
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -95,6 +133,40 @@ public class SoccerBallController : NetworkBehaviour
             Debug.Log("[SoccerBallController] 🗑️ Despawn du ballon après animation");
             Runner.Despawn(Object);
         }
+    }
+
+    /// <summary>
+    /// ✅ FIX : remet le ballon dans son état initial (position, rotation, échelle, couleur,
+    /// physique, collider, _goalScored) pour la manche suivante, après un but qui ne termine
+    /// pas la partie. Appelée localement sur CHAQUE client par
+    /// TurnManager.RPC_ResetAllForNewRound(), une fois la célébration de but terminée — même
+    /// principe que RPC_AnimateGoalBall.
+    /// </summary>
+    public void ResetForNewRound()
+    {
+        StopAllCoroutines();
+
+        _goalScored = false;
+
+        transform.position = _spawnPosition;
+        transform.rotation = Quaternion.identity;
+        transform.localScale = _initialScale;
+
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = _initialColor;
+
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = true;
+
+        Rigidbody2D rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.velocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+        }
+
+        Debug.Log("[SoccerBallController] 🔄 Ballon réinitialisé, prêt pour le prochain tour");
     }
 
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)

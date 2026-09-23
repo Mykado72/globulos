@@ -64,7 +64,7 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
             PlayerData playerData = spawnedPlayerData.GetComponent<PlayerData>();
 
-            string playerNickname = lobbyManager.playerNickname;
+            string playerNickname = lobbyManager != null ? lobbyManager.playerNickname : "Joueur";
 
             if (playerData != null)
             {

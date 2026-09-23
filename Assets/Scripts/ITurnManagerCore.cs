@@ -54,5 +54,6 @@ public enum TurnState
     Resolution,    // Exécution des tirs
     CheckResult,   // Vérification du résultat
     Celebrating,   // ⚽ But marqué : célébration en cours, timer gelé, avant la fin de partie
+    TakingTurn,    // Tour suivant
     Finished       // Partie finie
 }

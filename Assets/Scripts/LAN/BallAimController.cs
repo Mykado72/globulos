@@ -89,12 +89,19 @@ public class BallAimController : NetworkBehaviour
     private Vector2 _localQueuedForce = Vector2.zero;
     private Vector3 originalScale;
 
+    // ✅ FIX : position/couleur d'origine mémorisées pour pouvoir remettre la bille en jeu
+    // après un but qui ne termine pas la partie (voir ResetForNewRound).
+    private Vector3 _spawnPosition;
+    private Color _initialColor;
+
     public override void Spawned()
     {
         _rb = GetComponent<Rigidbody2D>();
         _networkObject = GetComponent<NetworkObject>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         originalScale = transform.localScale;
+        _spawnPosition = transform.position;
+        _initialColor = _spriteRenderer != null ? _spriteRenderer.color : Color.white;
         _arrow = new AimArrowVisual(transform, arrowShaftSprite, arrowHeadSprite, arrowSortingOrder, arrowSortingLayerName);
         // Convention LAN : celui qui crée la room est toujours Jaune (voir SoccerBallController.
         // FindScoringPlayer, qui attribue Jaune au PlayerId pair) — distincte de la convention Local.
@@ -422,5 +429,44 @@ public class BallAimController : NetworkBehaviour
             transform, _spriteRenderer, _rb, GetComponent<Collider2D>(),
             fallDuration, shrinkStartTime, fallCurve, rotateCurve, totalRotation,
             onFallStarted: () => AudioManager.Instance?.PlayBallDeath(transform.position)));
+    }
+
+    /// <summary>
+    /// ✅ FIX : remet cette bille à son état initial (position, rotation, échelle, couleur,
+    /// physique, collider, IsDead) pour la manche suivante, après un but qui ne termine pas
+    /// la partie. Appelée localement sur CHAQUE client par
+    /// TurnManager.RPC_ResetAllForNewRound(), une fois la célébration de but terminée — même
+    /// principe que RPC_PlayFallAnimation / RPC_AnimateGoalBall (chaque client rejoue le même
+    /// résultat déterministe localement plutôt que de dépendre d'une réplication physique).
+    /// </summary>
+    public void ResetForNewRound()
+    {
+        StopAllCoroutines();
+
+        _localQueuedForce = Vector2.zero;
+        _botHasQueuedThisTurn = false;
+        IsAiming = false;
+        _arrow?.Hide();
+
+        transform.position = _spawnPosition;
+        transform.rotation = Quaternion.identity;
+        transform.localScale = originalScale;
+
+        if (_spriteRenderer != null)
+        {
+            _spriteRenderer.color = _initialColor;
+        }
+
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = true;
+
+        if (_rb != null)
+        {
+            _rb.velocity = Vector2.zero;
+            _rb.angularVelocity = 0f;
+        }
+
+        IsDead = false;
+        IsMoving = false;
     }
 }

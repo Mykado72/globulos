@@ -3,453 +3,298 @@ using Fusion.Sockets;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/// ✅ VERSION v4 - AMÉLIORATIONS LOBBY
-/// - Gère la saisie du pseudo
-/// - Stocke le pseudo via PlayerPrefs (persiste entre scènes)
-/// - Passe le pseudo à PlayerNamesManager et PlayerData
-/// ✨ NEW: Refresh périodique de la liste des joueurs (toutes les 1 sec)
-/// ✨ NEW: Retour au Lobby en cas de départ joueur ou erreur réseau
 public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 {
-    [Header("Configuration")]
-    [SerializeField] private string defaultRoomName = "COGEP";
+    [Header("Fusion Setup")]
     [SerializeField] private NetworkRunner runnerPrefab;
-    [SerializeField] private int nbOfPlayers = 3;
 
-    [Header("Lobby Refresh")]
-    [SerializeField] private float playerListRefreshInterval = 1f;  // ✨ Refresh toutes les 1 sec
-
-    [Header("UI")]
-    [SerializeField] private TMP_InputField roomNameInput;
+    [Header("UI References - Controls")]
     [SerializeField] private TMP_InputField playerNicknameInput;
+    [SerializeField] private TMP_InputField roomNameInput;
     [SerializeField] private Button playButton;
-    [SerializeField] private Button playVsAIButton; // ✨ NEW : bouton "Jouer vs IA"
-    [SerializeField] private TextMeshProUGUI statusText;
-    [SerializeField] private TextMeshProUGUI playersNickname;
-    [SerializeField] private TextMeshProUGUI playersListText;
+    [SerializeField] private Button playVsAIButton;
+    [SerializeField] private Button joinRoomButton;
 
-    public string playerNickname { get; private set; }
+    [Header("UI References - Status")]
+    [SerializeField] private TextMeshProUGUI statusText;
+    [SerializeField] private TextMeshProUGUI roomStatusText;
+
+    [Header("Game Settings")]
+    [SerializeField] private string defaultRoomName = "COGEP";
+    [SerializeField] private int nbOfPlayers = 2;
 
     private NetworkRunner _currentRunner;
-    private float _lastRefreshTime = 0f;  // ✨ Timer pour refresh périodique
-    private bool _isInLobby = true;  // ✨ Flag pour savoir si on est au Lobby
-    private bool _isVsAIMode = false;  // ✨ NEW : vrai si la partie a été lancée via "Jouer vs IA"
+    private bool _isInLobby = true;
+    private bool _isVsAIMode = false;
+    private string _playerNickname;
+    private bool _cogepRoomExists = false;
 
-    private void Start()
+    public string playerNickname => _playerNickname;
+
+    private async void Start()
     {
         _isInLobby = true;
-        _lastRefreshTime = 0f;
 
-        if (playButton != null)
+        if (playButton != null) playButton.onClick.AddListener(OnPlayButtonPressed);
+        if (playVsAIButton != null) playVsAIButton.onClick.AddListener(OnPlayVsAIButtonPressed);
+
+        if (joinRoomButton != null)
         {
-            playButton.onClick.AddListener(OnPlayButtonPressed);
+            joinRoomButton.onClick.AddListener(OnJoinCogepRoomPressed);
+            joinRoomButton.interactable = false;
         }
 
-        // ✨ NEW : bouton pour jouer contre l'IA
-        if (playVsAIButton != null)
-        {
-            playVsAIButton.onClick.AddListener(OnPlayVsAIButtonPressed);
-        }
+        _playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
+        if (playerNicknameInput != null) playerNicknameInput.text = _playerNickname;
+        if (roomNameInput != null) roomNameInput.text = defaultRoomName;
 
-        // ✅ Charge le pseudo sauvegardé (si existe)
-        playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
-        if (playerNicknameInput != null)
-        {
-            playerNicknameInput.text = playerNickname;
-        }
+        UpdateStatus("Connexion au lobby Fusion...");
+        await JoinLobbySessionList();
     }
 
-    private void Update()
+    private void OnDisable()
     {
-        // ✨ NEW: Refresh la liste des joueurs toutes les X secondes
-        if (_isInLobby && _currentRunner != null && _currentRunner.IsRunning)
+        if (_currentRunner != null)
         {
-            _lastRefreshTime += Time.deltaTime;
-
-            if ((_lastRefreshTime >= playerListRefreshInterval) && (_isVsAIMode != true))
-            {
-                RefreshPlayersList();
-                _lastRefreshTime = 0f;
-            }
+            _currentRunner.RemoveCallbacks(this);
         }
     }
 
-    public async void OnPlayButtonPressed()
-    {
-        if (playButton != null) playButton.interactable = false;
-
-        // ✅ Récupère et valide le pseudo
-        if (!string.IsNullOrEmpty(playerNicknameInput.text))
-        {
-            playerNickname = playerNicknameInput.text.Trim();
-        }
-
-        if (string.IsNullOrEmpty(playerNickname))
-        {
-            playerNickname = "Joueur";
-        }
-
-        // ✅ Sauvegarde le pseudo
-        PlayerPrefs.SetString("playerNickname", playerNickname);
-        PlayerPrefs.Save();
-
-        string roomName = defaultRoomName;
-        
-        if (roomNameInput != null && !string.IsNullOrEmpty(roomNameInput.text))
-        {
-            roomName = roomNameInput.text;
-        }
-        
-        UpdateStatus($"Connexion en tant que '{playerNickname}'...");
-        await StartGameSession(roomName);
-    }
-
-    /// <summary>
-    /// ✨ NEW: Lance une partie solo contre l'IA. Ne nécessite aucun second joueur :
-    /// démarre la session immédiatement (voir CheckPlayersAndStartGame) et utilise
-    /// une room dédiée générée aléatoirement pour éviter qu'un vrai joueur ne
-    /// rejoigne par hasard une partie censée être vs IA.
-    /// </summary>
-    public void OnPlayVsAIButtonPressed()
-    {
-        if (playButton != null) playButton.interactable = false;
-        if (playVsAIButton != null) playVsAIButton.interactable = false;
-
-        _isVsAIMode = true;
-
-        GameModeManager modeManager = GetOrCreateGameModeManager();
-        modeManager.ResetForNewSession();
-        modeManager.IsVsAI = true;
-
-        // Pseudo
-        if (!string.IsNullOrEmpty(playerNicknameInput.text))
-            playerNickname = playerNicknameInput.text.Trim();
-        if (string.IsNullOrEmpty(playerNickname))
-            playerNickname = "Joueur";
-
-        PlayerPrefs.SetString("playerNickname", playerNickname);
-        PlayerPrefs.Save();
-
-        // Enregistrer le nom du joueur localement
-        PlayerNamesManager.Instance?.SetPlayerName(1, playerNickname);
-
-        UpdateStatus("Lancement de la partie locale...");
-
-        // 🚀 CHARGEMENT EN LOCAL SANS FUSION
-        SceneManager.LoadScene("GameSceneLocal");
-    }
-
-    /// <summary>
-    /// ✨ NEW: Crée le GameModeManager s'il n'existe pas encore dans la scène.
-    /// </summary>
-    private GameModeManager GetOrCreateGameModeManager()
-    {
-        if (GameModeManager.Instance == null)
-        {
-            GameObject go = new GameObject("GameModeManager");
-            go.AddComponent<GameModeManager>();
-        }
-        return GameModeManager.Instance;
-    }
-
-    /// <summary>
-    /// ✨ NEW: Refresh la liste des joueurs actuellement connectés
-    /// Appelée toutes les secondes via Update()
-    /// </summary>
-    public void RefreshPlayersList()
-    {
-        if (_currentRunner == null) return;
-        int count = 0;
-        foreach (var p in _currentRunner.ActivePlayers)
-        {
-            count++;
-        }
-        Debug.Log($"[LobbyManager] 🔄 Liste des joueurs rafraîchie ({count} joueurs)");
-
-    }
-
-    private async Task StartGameSession(string roomName)
+    private async Task JoinLobbySessionList()
     {
         if (_currentRunner == null)
         {
-            _currentRunner = UnityEngine.Object.FindFirstObjectByType<NetworkRunner>();
-
-            if (_currentRunner == null)
-            {
-                if (runnerPrefab != null)
-                {
-                    _currentRunner = Instantiate(runnerPrefab);
-                }
-                else
-                {
-                    GameObject runnerObject = new GameObject("NetworkRunner");
-                    _currentRunner = runnerObject.AddComponent<NetworkRunner>();
-                }
-            }
+            _currentRunner = FindFirstObjectByType<NetworkRunner>() ?? Instantiate(runnerPrefab);
         }
 
         _currentRunner.ProvideInput = true;
         _currentRunner.AddCallbacks(this);
 
-        INetworkSceneManager sceneManager = null;
-        if (!_currentRunner.TryGetComponent<INetworkSceneManager>(out sceneManager) || sceneManager == null)
+        var result = await _currentRunner.JoinSessionLobby(SessionLobby.Shared);
+        if (result.Ok)
         {
-            var concreteSceneManager = _currentRunner.gameObject.AddComponent<NetworkSceneManagerDefault>();
-            sceneManager = concreteSceneManager;
+            UpdateStatus("Connecté au Lobby. Recherche de sessions...");
+        }
+        else
+        {
+            UpdateStatus($"❌ Échec de connexion au Lobby : {result.ShutdownReason}");
+        }
+    }
+
+    private void OnPlayButtonPressed()
+    {
+        _isVsAIMode = false;
+        SaveNicknameAndStart();
+    }
+
+    private void OnPlayVsAIButtonPressed()
+    {
+        _isVsAIMode = true;
+        SaveNicknameAndStart();
+    }
+
+    public void OnJoinCogepRoomPressed()
+    {
+        if (!_cogepRoomExists) return;
+
+        _isVsAIMode = false;
+        SaveNicknameAndStart();
+    }
+
+    private async void SaveNicknameAndStart()
+    {
+        SetAllButtonsInteractable(false);
+
+        if (playerNicknameInput != null && !string.IsNullOrWhiteSpace(playerNicknameInput.text))
+        {
+            _playerNickname = playerNicknameInput.text.Trim();
+        }
+        else
+        {
+            _playerNickname = "Joueur";
         }
 
-        // ✅ Récupère et valide le pseudo
-        if (!string.IsNullOrEmpty(playerNicknameInput.text))
+        PlayerPrefs.SetString("playerNickname", _playerNickname);
+        PlayerPrefs.Save();
+
+        string roomName = GetTargetRoomName();
+
+        UpdateStatus($"Connexion à la room '{roomName}'...");
+
+        // 🔴 CRUCIAL : Quitter le Lobby proprement avant de lancer la session de jeu
+        if (_currentRunner != null && _currentRunner.IsRunning)
         {
-            playerNickname = playerNicknameInput.text.Trim();
+            await _currentRunner.Shutdown();
+            _currentRunner = Instantiate(runnerPrefab);
+            _currentRunner.ProvideInput = true;
+            _currentRunner.AddCallbacks(this);
         }
 
-        if (string.IsNullOrEmpty(playerNickname))
+        await StartGameSession(roomName);
+    }
+
+    private async Task StartGameSession(string roomName)
+    {
+        // 1. Instanciation du nouveau Runner vierge
+        _currentRunner = Instantiate(runnerPrefab);
+        _currentRunner.ProvideInput = true;
+        _currentRunner.AddCallbacks(this);
+
+        // 2. Récupération explicite du NetworkSceneManagerDefault présent sur le prefab
+        var sceneManager = _currentRunner.GetComponent<NetworkSceneManagerDefault>();
+        if (sceneManager == null)
         {
-            playerNickname = "Joueur";
+            sceneManager = _currentRunner.gameObject.AddComponent<NetworkSceneManagerDefault>();
         }
 
-        // ✅ Envoie le pseudo au serveur Fusion via le ConnectionToken
-        byte[] token = System.Text.Encoding.UTF8.GetBytes(playerNickname);
+        var customToken = System.Text.Encoding.UTF8.GetBytes(_playerNickname);
 
-        var result = await _currentRunner.StartGame(new StartGameArgs()
+        // 3. Passer le sceneManager dans les arguments d'initialisation Fusion
+        var startGameArgs = new StartGameArgs()
         {
             GameMode = GameMode.Shared,
             SessionName = roomName,
-            SceneManager = sceneManager,
-            ConnectionToken = token
-        });
+            PlayerCount = _isVsAIMode ? 1 : nbOfPlayers,
+            ConnectionToken = customToken,
+            SceneManager = sceneManager // 👈 Ligne clé pour éviter le freeze de déconnexion
+        };
+
+        var result = await _currentRunner.StartGame(startGameArgs);
 
         if (result.Ok)
         {
-            Debug.Log($"[LobbyManager] ✅ Connecté à '{roomName}'. En attente du second joueur...");
+            UpdateStatus($"Connecté à la room '{roomName}'. Attente des joueurs...");
             CheckPlayersAndStartGame();
         }
         else
         {
-            Debug.LogError($"[LobbyManager] ❌ Échec : {result.ShutdownReason}");
-            UpdateStatus($"Échec : {result.ShutdownReason}");
-            if (playButton != null) playButton.interactable = true;
-        }
-
-    }
-
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
-    {
-        RefreshPlayersList();
-        CheckPlayersAndStartGame();
-    }
-
-    /// <summary>
-    /// ✨ NEW: Appelé quand un joueur quitte
-    /// Retour au Lobby si le Master Client s'en va
-    /// </summary>
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
-    {
-        Debug.Log($"[LobbyManager] 👤 Joueur {player.PlayerId} a quitté");
-
-        // ✨ NEW: Si c'est le Master Client qui part, revenir au Lobby
-        if (player.IsValid && runner.IsSharedModeMasterClient)
-        {
-            Debug.LogWarning("[LobbyManager] ⚠️ Master Client a quitté ! Retour au Lobby...");
-            ReturnToLobby("Master Client a quitté la partie");
-        }
-        else if (_isInLobby)
-        {
-            // On est au Lobby, juste mettre à jour la liste
-            RefreshPlayersList();
+            UpdateStatus($"❌ Échec : {result.ShutdownReason}");
+            await JoinLobbySessionList();
         }
     }
 
-    private void CheckPlayersAndStartGame()
+    private async void CheckPlayersAndStartGame()
     {
         if (_currentRunner == null) return;
 
-        int count = _currentRunner.ActivePlayers != null ? System.Linq.Enumerable.Count(_currentRunner.ActivePlayers) : 0;
-
-        if (playersNickname != null)
+        int count = 0;
+        if (_currentRunner.ActivePlayers != null)
         {
-            string nicknames = "";
-            playersNickname.text = nicknames;
+            foreach (var p in _currentRunner.ActivePlayers) count++;
         }
 
-        // ✨ NEW : en mode vs IA, un seul joueur (le local) suffit pour démarrer
         int requiredPlayers = _isVsAIMode ? 1 : nbOfPlayers;
-
         UpdateStatus($"Joueurs connectés : {count}/{requiredPlayers}");
-        if (_currentRunner.IsSharedModeMasterClient && count >= requiredPlayers)
-        {
-            _isInLobby = false;  // ✨ Marquer qu'on quitte le Lobby
-            var sceneRef = SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath("GameSceneLAN"));
-            _currentRunner.LoadScene(sceneRef);
-        }
-    }
 
-    private PlayerData[] GetAllPlayerData()
-    {
-        PlayerData[] allPlayerData = FindObjectsByType<PlayerData>(FindObjectsSortMode.None);
-        return allPlayerData;
-    }
-
-    public PlayerData GetPlayerDataById(int playerId)
-    {
-        foreach (var playerData in FindObjectsByType<PlayerData>(FindObjectsSortMode.None))
+        if (count >= requiredPlayers && _isInLobby)
         {
-            if ((playerData.Object != null) && (playerData.Object.InputAuthority.PlayerId == playerId))
+            _isInLobby = false;
+            UpdateStatus("Tous les joueurs sont présents ! Lancement de la partie...");
+
+            // Pause de stabilisation réseau
+            await Task.Delay(300);
+
+            if (_currentRunner != null && _currentRunner.IsRunning && _currentRunner.IsSharedModeMasterClient)
             {
-                Debug.Log($"[LobbyManager] 🔍 Trouvé PlayerData pour ID {playerId}: {playerData.GetNickname()}");
-                return playerData;
+                int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
+                if (sceneIndex >= 0)
+                {
+                    await _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
+                }
+                else
+                {
+                    Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
+                }
             }
         }
-        Debug.Log($"[LobbyManager] 🔍 pas de PlayerData Trouvé pour ID {playerId}");
-        return null;
     }
 
     private void UpdateStatus(string message)
     {
         if (statusText != null) statusText.text = message;
+        Debug.Log($"[LobbyManager] {message}");
     }
 
-    private void OnEnable()
+    private void SetAllButtonsInteractable(bool state)
     {
-        var runner = NetworkRunner.Instances.FirstOrDefault();
-        if (runner != null)
-        {
-            runner.AddCallbacks(this);
-        }
+        if (playButton != null) playButton.interactable = state;
+        if (playVsAIButton != null) playVsAIButton.interactable = state;
+        if (joinRoomButton != null) joinRoomButton.interactable = state;
     }
 
-    private void OnDisable()
+    private void UpdateButtonsState()
     {
-        var runner = NetworkRunner.Instances.FirstOrDefault();
-        if (runner != null)
+        if (_cogepRoomExists)
         {
-            runner.RemoveCallbacks(this);
-        }
-    }
+            if (playButton != null) playButton.interactable = false;
+            if (joinRoomButton != null) joinRoomButton.interactable = true;
 
-
-
-    /// <summary>
-    /// ✨ NEW: Retourne au Lobby en cas d'erreur réseau ou départ joueur
-    /// </summary>
-    /// 
-
-    private void ReturnToLobby(string reason)
-    {
-        _isInLobby = true;
-        _isVsAIMode = false; // ✨ NEW
-
-        Debug.Log($"[LobbyManager] 🔙 Retour au Lobby - Raison: {reason}");
-
-        // Arrêter le Runner si actif
-        if (_currentRunner != null)
-        {
-            _currentRunner.Shutdown();
-            Destroy(_currentRunner.gameObject);
-            _currentRunner = null;
-        }
-
-        // Afficher message d'erreur
-        UpdateStatus($"Erreur: {reason}");
-
-        // Réactiver les boutons Play / Play vs IA
-        if (playButton != null)
-        {
-            playButton.interactable = true;
-        }
-        if (playVsAIButton != null)
-        {
-            playVsAIButton.interactable = true;
-        }
-
-        // Réinitialiser la liste des joueurs
-        if (playersListText != null)
-        {
-            playersListText.text = "🎮 Joueurs connectés:\n(Aucun)";
-        }
-
-        // Nettoyer les données réseau
-        PlayerNamesManager.Instance?.Clear();
-    }
-
-    // === INetworkRunnerCallbacks ===
-
-    public void OnInput(NetworkRunner runner, NetworkInput input) { }
-
-    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-
-    /// <summary>
-    /// ✨ NEW: Appelé quand le Runner s'arrête (erreur réseau, déconnexion, etc.)
-    /// </summary>
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
-    {
-        Debug.LogWarning($"[LobbyManager] ⚠️ Runner arrêté - Raison: {shutdownReason}");
-
-        if (_isInLobby)
-        {
-            ReturnToLobby($"Problème réseau: {shutdownReason}");
+            if (roomStatusText != null)
+                roomStatusText.text = $"🟢 Room '{GetTargetRoomName()}' disponible !";
         }
         else
         {
-            // On était en jeu, revenir au Lobby
-            Debug.Log("[LobbyManager] 🔄 Déconnexion en jeu - Retour au Lobby");
-            LoadLobbyScene();
+            if (playButton != null) playButton.interactable = true;
+            if (joinRoomButton != null) joinRoomButton.interactable = false;
+
+            if (roomStatusText != null)
+                roomStatusText.text = $"⚪ Aucune partie '{GetTargetRoomName()}' en cours";
         }
     }
 
-    /// <summary>
-    /// ✨ NEW: Appelé quand la connexion au serveur est perdue
-    /// </summary>
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    private string GetTargetRoomName()
     {
-        Debug.LogError($"[LobbyManager] ❌ Déconnexion du serveur: {reason}");
-        ReturnToLobby($"Déconnexion serveur: {reason}");
+        return roomNameInput != null && !string.IsNullOrWhiteSpace(roomNameInput.text)
+            ? roomNameInput.text.Trim()
+            : defaultRoomName;
     }
 
-    /// <summary>
-    /// ✨ NEW: Appelé quand la connexion au serveur échoue
-    /// </summary>
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
-    {
-        Debug.LogError($"[LobbyManager] ❌ Connexion échouée: {reason}");
-        ReturnToLobby($"Impossible de se connecter: {reason}");
-    }
+    #region Fusion Callbacks
 
-    /// <summary>
-    /// ✨ NEW: Charge la scène du Lobby
-    /// Utilisée en cas de déconnexion ou erreur en jeu
-    /// </summary>
-    private void LoadLobbyScene()
+    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
     {
-        Debug.Log("[LobbyManager] 📍 Chargement de la scène Lobby...");
+        _cogepRoomExists = false;
 
-        // Nettoyer les managers singletons
-        if (PlayerNamesManager.Instance != null)
+        string targetRoom = GetTargetRoomName();
+
+        foreach (var session in sessionList)
         {
-            Destroy(PlayerNamesManager.Instance.gameObject);
+            if (session.Name.Equals(targetRoom, StringComparison.OrdinalIgnoreCase) && session.IsOpen && session.IsVisible)
+            {
+                _cogepRoomExists = true;
+                break;
+            }
         }
 
-        if (AudioManager.Instance != null)
+        if (_isInLobby)
         {
-            Destroy(AudioManager.Instance.gameObject);
+            UpdateButtonsState();
         }
-
-        // Charger la scène du Lobby
-        SceneManager.LoadScene("LobbyScene");
     }
 
-    // Callbacks non utilisés
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        CheckPlayersAndStartGame();
+    }
+
+    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    {
+        CheckPlayersAndStartGame();
+    }
+
+    public void OnInput(NetworkRunner runner, NetworkInput input) { }
+    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) { }
@@ -458,4 +303,6 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+
+    #endregion
 }

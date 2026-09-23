@@ -23,6 +23,12 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     private float _timer;
     private float _settleTimer;
 
+    // ✅ FIX : fige la progression normale de Update() (Resolution -> CheckResult -> Aiming)
+    // pendant que la célébration de but ("BUT !") est affichée, sans toucher à CurrentState
+    // (pour ne pas interférer avec RequestWinBySoccerGoal, qui ignore les appels quand
+    // CurrentState == Celebrating).
+    private bool _pendingGoalReset = false;
+
     private void Awake()
     {
         if (Instance == null)
@@ -38,7 +44,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
     private void Start()
     {
-        Debug.Log($"[LocalTurnManager] ✅ Démarrage du TurnManager (Mode LOCAL)");     
+        Debug.Log($"[LocalTurnManager] ✅ Démarrage du TurnManager (Mode LOCAL)");
         StartNewTurn();
     }
 
@@ -47,6 +53,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         switch (CurrentState)
         {
             case TurnState.Aiming:
+                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 _timer -= Time.deltaTime;
 
                 if (_timer <= 0f)
@@ -57,6 +64,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                 break;
 
             case TurnState.Resolution:
+                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 _settleTimer -= Time.deltaTime;
                 if (_settleTimer <= 0f && AreAllBallsStopped())
                 {
@@ -65,6 +73,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                 break;
 
             case TurnState.CheckResult:
+                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 CheckGameEnd();
                 if (CurrentState == TurnState.CheckResult)
                 {
@@ -94,6 +103,46 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
             return PlayerNamesManager.Instance.GetPlayerName(playerId);
 
         return $"Joueur {playerId}";
+    }
+
+    public void RequestTurnReset()
+    {
+        Debug.Log("[LocalTurnManager] 🔄 Reset du tour demandé après un but (attente fin de célébration)");
+
+        // ✅ FIX : on ne replace plus les billes/le ballon immédiatement. On attend la fin
+        // de l'animation de célébration ("BUT !") avant de le faire, sinon tout saute à sa
+        // position de spawn pendant que le texte "BUT !" est encore affiché.
+        StartCoroutine(ResetTurnAfterCelebration());
+    }
+
+    /// <summary>
+    /// ✅ FIX : attend la durée de la célébration de but avant de replacer les billes/le
+    /// ballon et de relancer un nouveau tour. Pendant l'attente, _pendingGoalReset fige
+    /// Update() pour éviter qu'un nouveau tour ne démarre "en double" via le flux normal
+    /// (Resolution -> CheckResult -> StartNewTurn) pendant que ce reset est en cours.
+    /// </summary>
+    private IEnumerator ResetTurnAfterCelebration()
+    {
+        _pendingGoalReset = true;
+
+        yield return new WaitForSeconds(celebrationDuration);
+
+        _pendingGoalReset = false;
+
+        // Si la partie s'est terminée entre-temps (ce but a déclenché la victoire, voir
+        // ScoreManagerLocal.EndGameWithWinner -> RequestWinBySoccerGoal), on ne repositionne
+        // rien : la scène va être rechargée par ReloadSceneAfterDelay().
+        if (CurrentState == TurnState.Finished || CurrentState == TurnState.Celebrating)
+        {
+            yield break;
+        }
+
+        LocalGameSpawner.Instance?.ResetAllToSpawnPoints();
+
+        // ✅ Réinitialiser pour le prochain tour
+        StartNewTurn();
+
+        Debug.Log("[LocalTurnManager] ✅ Tour réinitialisé - Prêt pour le prochain joueur");
     }
 
     public void RequestWinBySoccerGoal(int winnerId)

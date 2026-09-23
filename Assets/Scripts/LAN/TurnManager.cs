@@ -30,6 +30,15 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Networked] private TickTimer CelebrationTimer { get; set; }
     [Networked] private int CelebrationWinnerId { get; set; }
 
+    // ✅ FIX : identique dans l'esprit à _pendingGoalReset côté LocalTurnManager, mais
+    // synchronisé via Fusion puisque plusieurs clients exécutent FixedUpdateNetwork.
+    // Fige la progression normale des états le temps que la célébration de but ("BUT !")
+    // se termine, avant de replacer les billes/le ballon. Volontairement séparé de
+    // TurnState.Celebrating pour ne pas interférer avec RequestWinBySoccerGoal (qui, lui,
+    // ignore les appels quand CurrentState == Celebrating).
+    [Networked] private TickTimer GoalResetTimer { get; set; }
+    [Networked] private NetworkBool IsPendingGoalReset { get; set; }
+
     public static TurnManager Instance { get; private set; }
 
     public override void Spawned()
@@ -72,6 +81,30 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     {
         // ✅ CLIENT/SERVER : Seul le serveur gère la logique
         if (!HasStateAuthority || !IsTurnBased) return;
+
+        // ✅ FIX : un but vient d'être marqué mais la partie continue (voir
+        // ScoreManagerNetwork.ResetTurnAfterGoal -> RequestTurnReset). On attend que la
+        // célébration ("BUT !") soit terminée avant de replacer billes + ballon, au lieu de
+        // le faire immédiatement (ce qui les faisait sauter à leur position de spawn pendant
+        // que le texte "BUT !" était encore affiché).
+        if (IsPendingGoalReset)
+        {
+            if (GoalResetTimer.Expired(Runner))
+            {
+                IsPendingGoalReset = false;
+
+                // Si ce but a en fait déclenché la victoire entre-temps (RequestWinBySoccerGoal
+                // a pu être appelé juste après, voir ScoreManagerNetwork.CheckWinCondition), on
+                // ne repositionne rien : la partie se termine / la scène va être rechargée.
+                if (CurrentState != TurnState.Finished && CurrentState != TurnState.Celebrating)
+                {
+                    RPC_ResetAllForNewRound();
+                    StartNewTurn();
+                    Debug.Log("[TurnManager] ✅ Tour réinitialisé - Prêt pour le prochain joueur");
+                }
+            }
+            return;
+        }
 
         switch (CurrentState)
         {
@@ -208,15 +241,13 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
         if (playersWithNoBalls >= 2)
         {
-            Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");
-            EndGameDraw();
+            Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");           
             return;
         }
 
         if (playersWithNoBalls == 1 && lastAlivePlayer >= 0)
         {
             Debug.Log($"[TurnManager] 🎊 VICTOIRE du Joueur {lastAlivePlayer}!");
-            EndGameWin(lastAlivePlayer);
             return;
         }
     }
@@ -307,17 +338,79 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         }
         return true;
     }
-
-    private void EndGameWin(int winnerId)
+    /// <summary>
+    /// ✅ FIX : Réinitialise le tour SANS terminer la partie, utilisé après un but si la
+    /// partie continue (ScoreManagerNetwork.ResetTurnAfterGoal). L'ancienne version mettait
+    /// CurrentState = TurnState.TakingTurn, un état non géré par FixedUpdateNetwork (tombait
+    /// dans le "default" avec un warning) et ne repositionnait ni les billes ni le ballon.
+    /// Le repositionnement réel n'a lieu qu'à la fin de la célébration de but, voir
+    /// IsPendingGoalReset dans FixedUpdateNetwork().
+    /// </summary>
+    public void RequestTurnReset()
     {
-        WinnerPlayerId = winnerId;
-        IsTurnBased = false;
-        CurrentState = TurnState.Finished;
+        RPC_RequestTurnReset();
+    }
 
-        string winnerName = GetPlayerName(winnerId);
-        Debug.Log($"[TurnManager] 🎊 VICTOIRE de {winnerName} !");
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RPC_RequestTurnReset()
+    {
+        if (!HasStateAuthority) return;
+        if (CurrentState == TurnState.Finished || CurrentState == TurnState.Celebrating) return;
+        if (IsPendingGoalReset) return; // reset déjà programmé
 
-        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerName));
+        Debug.Log($"[TurnManager] 🔄 But marqué, partie continue - reset programmé dans {celebrationDuration}s (fin de célébration)");
+
+        IsPendingGoalReset = true;
+        GoalResetTimer = TickTimer.CreateFromSeconds(Runner, celebrationDuration);
+    }
+
+    /// <summary>
+    /// ✅ FIX : diffusé à tous les clients une fois la célébration de but terminée. Chaque
+    /// bille et le ballon se remettent eux-mêmes à leur position de spawn d'origine (voir
+    /// BallAimController.ResetForNewRound / SoccerBallController.ResetForNewRound), sur le
+    /// même principe que RPC_AnimateGoalBall pour l'animation de but.
+    /// </summary>
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ResetAllForNewRound()
+    {
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball != null) ball.ResetForNewRound();
+        }
+
+        if (SoccerBallController.Instance != null)
+        {
+            SoccerBallController.Instance.ResetForNewRound();
+        }
+    }
+
+    /// <summary>
+    /// ✅ FIX : ScoreManagerNetwork ne peut pas avoir de vraies propriétés [Networked] (c'est
+    /// un MonoBehaviour, pas un NetworkBehaviour, pour rester compatible avec ScoreManagerBase
+    /// / ScoreManagerLocal). Il transite donc par TurnManager — qui, lui, est un vrai
+    /// NetworkBehaviour déjà fonctionnel — pour diffuser le score à jour à TOUS les clients.
+    /// Sans ça, seul le pair qui a l'autorité sur le ballon voyait son score se mettre à
+    /// jour ; les autres clients restaient bloqués à 0-0.
+    /// </summary>
+    public void BroadcastScoreSync(int team1Score, int team2Score)
+    {
+        RPC_SyncScore(team1Score, team2Score);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_SyncScore(int team1Score, int team2Score)
+    {
+        // Le pair autoritaire a appelé BroadcastScoreSync juste après avoir déjà mis à jour
+        // et notifié son propre ScoreManagerNetwork local (voir ScoreManagerNetwork.AddGoal) —
+        // on ne réapplique donc que sur les AUTRES clients, pour éviter un double
+        // NotifyScoreChanged() sur celui qui a marqué le but.
+        if (HasStateAuthority) return;
+
+        var scoreManager = ScoreManagerNetwork.Instance as ScoreManagerNetwork;
+        if (scoreManager != null)
+        {
+            scoreManager.ApplySyncedScore(team1Score, team2Score);
+        }
     }
 
     private void EndGameWinBySoccerGoal(int winnerId)
@@ -328,15 +421,6 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         string winnerName = GetPlayerName(winnerId);
         Debug.Log($"[TurnManager] ⚽🎊 BUT ! Gagnant : {winnerName}");
         StartCoroutine(ReloadSceneAfterDelay("WIN", winnerName));
-    }
-
-    private void EndGameDraw()
-    {
-        WinnerPlayerId = -1;
-        IsTurnBased = false;
-        CurrentState = TurnState.Finished;
-
-        StartCoroutine(ReloadSceneAfterDelay("DRAW", ""));
     }
 
     private IEnumerator ReloadSceneAfterDelay(string result, string winner)

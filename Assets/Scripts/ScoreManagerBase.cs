@@ -22,6 +22,11 @@ public class ScoreManagerBase : MonoBehaviour
     public delegate void ScoreChangedDelegate(int team1Score, int team2Score);
     public event ScoreChangedDelegate OnScoreChanged;
 
+    private void Start()
+    {
+        Initialize();  // ✅ Appelé automatiquement au démarrage
+    }
+
     public virtual void Initialize()
     {
         Instance = this;
@@ -61,8 +66,23 @@ public class ScoreManagerBase : MonoBehaviour
         // Notifier l'UI
         NotifyScoreChanged();
 
+        // ✅ IMPORTANT : Réinitialiser le tour après le but (AVANT de vérifier la victoire)
+        ResetTurnAfterGoal(scorerPlayerId);
+
         // Vérifier condition de victoire
         CheckWinCondition();
+    }
+
+    /// <summary>
+    /// Réinitialise le tour après un but
+    /// Place le ballon, les joueurs, etc.
+    /// À override si besoin spécifique
+    /// </summary>
+    protected virtual void ResetTurnAfterGoal(int scorerPlayerId)
+    {
+        Debug.Log($"[ScoreManager] 🔄 Réinitialisation du tour après le but du Joueur {scorerPlayerId}");
+
+        // À override dans les sous-classes
     }
 
     /// <summary>

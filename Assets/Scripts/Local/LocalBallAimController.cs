@@ -75,16 +75,61 @@ public class LocalBallAimController : MonoBehaviour
     private Vector2 _startDragPos;
     private Vector2 _localQueuedForce = Vector2.zero;
     private Vector3 _originalScale;
+    private Color _originalColor; // ✅ FIX : capturée pour pouvoir restaurer après l'animation de mort
 
     private void Awake()
     {
         _rb = GetComponent<Rigidbody2D>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _originalScale = transform.localScale;
+        if (_spriteRenderer != null) _originalColor = _spriteRenderer.color;
         _arrow = new AimArrowVisual(transform, arrowShaftSprite, arrowHeadSprite, arrowSortingOrder, arrowSortingLayerName);
         // 🤖 Initialiser l'IA du bot
         _botAI = new BotAIStrategy(aiDifficulty);
         _botAI.SetRole(aiRole);
+    }
+
+    // ======================== ✅ FIX : RESET APRÈS UN BUT ========================
+    /// <summary>
+    /// Replace la bille à sa position de spawn et annule tout effet de "mort"
+    /// (IsDead, animation de chute, collider désactivé, etc.). Appelée par
+    /// LocalGameSpawner.ResetAllToSpawnPoints() quand un but au foot est marqué
+    /// et que la partie continue (avant, RIEN ne repositionnait les billes en
+    /// mode Local, contrairement au mode réseau qui rechargeait toute la scène).
+    /// </summary>
+    public void ResetForNewRound(Vector3 position)
+    {
+        StopAllCoroutines(); // stoppe une éventuelle animation de chute (BallImpactEffects.Fall) en cours
+
+        IsDead = false;
+        IsAiming = false;
+        IsMoving = false;
+        _localQueuedForce = Vector2.zero;
+        _botHasQueuedThisTurn = false;
+        _botReactionTimer = 0f;
+
+        transform.position = position;
+        transform.rotation = Quaternion.identity;
+        transform.localScale = _originalScale;
+
+        if (_rb != null)
+        {
+            _rb.velocity = Vector2.zero;
+            _rb.angularVelocity = 0f;
+            _rb.simulated = true;
+        }
+
+        if (_spriteRenderer != null)
+        {
+            _spriteRenderer.color = _originalColor;
+        }
+
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = true;
+
+        _arrow.Hide();
+
+        if (!AllBalls.Contains(this)) AllBalls.Add(this);
     }
 
     // ======================== SETTER POUR DIFFICULTÉ ========================

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider2D))]
@@ -11,13 +12,29 @@ public class LocalSoccerBallController : MonoBehaviour
     [SerializeField] private float targetScaleFraction = 0.99f; // Taille finale (85%)
     [SerializeField] private Color goalGrayColor = new Color(0.4f, 0.4f, 0.4f, 1f); // Gris foncé
 
+    [Header("Reset Settings")]
+    [Tooltip("Délai après la fin de l'animation de but avant que le ballon ne redevienne jouable.")]
+    [SerializeField] private float respawnDelay = 0.5f;
+
     private SpriteRenderer _spriteRenderer;
     private Rigidbody2D _rb;
+
+    // ✅ FIX : état initial du ballon, mémorisé pour pouvoir le "remplacer" après un but
+    // (position/rotation/scale/couleur au moment du spawn par LocalGameSpawner).
+    private Vector3 _initialPosition;
+    private Quaternion _initialRotation;
+    private Vector3 _initialScale;
+    private Color _initialColor;
 
     private void Awake()
     {
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _rb = GetComponent<Rigidbody2D>();
+
+        _initialPosition = transform.position;
+        _initialRotation = transform.rotation;
+        _initialScale = transform.localScale;
+        _initialColor = _spriteRenderer != null ? _spriteRenderer.color : Color.white;
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -66,10 +83,87 @@ public class LocalSoccerBallController : MonoBehaviour
             LocalBallAimController.AllBalls.Remove(ballController);
         }
 
+        // ✅ FIX : on enchaîne l'animation de but puis la remise en jeu du ballon,
+        // au lieu de le laisser figé/gris indéfiniment sur le terrain.
+        StartCoroutine(PlayGoalAnimationAndReset());
+    }
+
+    private IEnumerator PlayGoalAnimationAndReset()
+    {
         // ✅ REFACTOR : animation partagée avec SoccerBallController (réseau), voir GoalScoreAnimation.cs
-        StartCoroutine(GoalScoreAnimation.Run(
+        yield return StartCoroutine(GoalScoreAnimation.Run(
             transform, _spriteRenderer, _rb, GetComponent<Collider2D>(),
             fallDuration, totalRotation, targetScaleFraction, goalGrayColor));
+
+        if (respawnDelay > 0f)
+        {
+            yield return new WaitForSeconds(respawnDelay);
+        }
+
+        ResetBall();
+    }
+
+    /// <summary>
+    /// Réinitialise la position, la rotation et l'état du ballon pour un nouveau round.
+    /// </summary>
+    /// <param name="spawnPosition">Nouvelle position de spawn.</param>
+    public void ResetForNewRound(Vector3 spawnPosition)
+    {
+        // Arrête toute animation/coroutine en cours
+        StopAllCoroutines();
+
+        // Réinitialise la position, la rotation et l'échelle
+        transform.position = spawnPosition;
+        transform.rotation = Quaternion.identity;
+        transform.localScale = Vector3.one;
+
+        // Réinitialise la vélocité physique
+        if (_rb != null)
+        {
+            _rb.velocity = Vector2.zero;
+            _rb.angularVelocity = 0f;
+        }
+
+        // Réinitialise la couleur si nécessaire
+        if (_spriteRenderer != null)
+        {
+            _spriteRenderer.color = _initialColor;
+        }
+
+        // Réinitialise les états internes
+        _goalScored = false;
+    }
+
+    /// <summary>
+    /// ✅ FIX : remet le ballon dans son état initial (position, rotation, échelle,
+    /// couleur, physique, collider) pour qu'il redevienne jouable après un but.
+    /// Sans ça, le ballon restait figé/gris/rétréci sur le terrain pour le reste
+    /// de la partie en mode local.
+    /// </summary>
+    public void ResetBall()
+    {
+        _goalScored = false;
+
+        transform.position = _initialPosition;
+        transform.rotation = _initialRotation;
+        transform.localScale = _initialScale;
+
+        if (_spriteRenderer != null)
+        {
+            _spriteRenderer.color = _initialColor;
+        }
+
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = true;
+
+        if (_rb != null)
+        {
+            _rb.isKinematic = false;
+            _rb.velocity = Vector2.zero;
+            _rb.angularVelocity = 0f;
+        }
+
+        Debug.Log("[LocalSoccerBallController] 🔄 Ballon réinitialisé, prêt pour le prochain tour");
     }
 
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)

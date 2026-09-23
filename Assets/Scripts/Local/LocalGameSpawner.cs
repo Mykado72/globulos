@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class LocalGameSpawner : MonoBehaviour
 {
+    // ✅ FIX : singleton pour que LocalTurnManager puisse déclencher le reset des positions
+    public static LocalGameSpawner Instance { get; private set; }
+
     [Header("Prefabs (GameObject classique)")]
     [SerializeField] private GameObject player1Prefab;
     [SerializeField] private GameObject player2Prefab;
@@ -11,6 +14,16 @@ public class LocalGameSpawner : MonoBehaviour
     [SerializeField] private Transform[] player1SpawnPoints;
     [SerializeField] private Transform[] player2SpawnPoints;
     [SerializeField] private Transform soccerBallSpawnPoint;
+
+    // ✅ FIX : mémorise le point de spawn d'origine de chaque bille pour pouvoir l'y replacer
+    private readonly System.Collections.Generic.Dictionary<LocalBallAimController, Vector3> _ballSpawnPositions
+        = new System.Collections.Generic.Dictionary<LocalBallAimController, Vector3>();
+    private LocalSoccerBallController _soccerBall;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     private void Start()
     {
@@ -34,6 +47,7 @@ public class LocalGameSpawner : MonoBehaviour
             if (ballObj.TryGetComponent(out LocalBallAimController ballController))
             {
                 ballController.SetOwner(1);
+                _ballSpawnPositions[ballController] = spawnPoint.position; // ✅ FIX
             }
         }
         PlayerNamesManager.Instance?.SetPlayerName(1, playerNickname);
@@ -53,6 +67,7 @@ public class LocalGameSpawner : MonoBehaviour
             {
                 ballController.SetOwner(botPlayerId);
                 ballController.SetBotControlled(true);
+                _ballSpawnPositions[ballController] = spawnPoint.position; // ✅ FIX
             }
         }
 
@@ -66,7 +81,34 @@ public class LocalGameSpawner : MonoBehaviour
         if (soccerBallPrefab != null)
         {
             Vector3 ballPos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
-            Instantiate(soccerBallPrefab, ballPos, Quaternion.identity);
+            GameObject soccerBallObj = Instantiate(soccerBallPrefab, ballPos, Quaternion.identity);
+            _soccerBall = soccerBallObj.GetComponent<LocalSoccerBallController>(); // ✅ FIX
+        }
+    }
+
+    // ======================== ✅ FIX : RESET APRÈS UN BUT ========================
+    /// <summary>
+    /// Replace toutes les billes et le ballon de foot à leur position de spawn d'origine.
+    /// Appelée par LocalTurnManager.RequestTurnReset() après un but marqué (ScoreManagerLocal),
+    /// pour que la partie reparte visuellement comme un nouveau round, sans recharger la scène.
+    /// C'est ce qui manquait en mode Local : le tour se réinitialisait (timer/état) mais
+    /// personne ne repositionnait les billes ni le ballon.
+    /// </summary>
+    public void ResetAllToSpawnPoints()
+    {
+        foreach (var kvp in _ballSpawnPositions)
+        {
+            LocalBallAimController ball = kvp.Key;
+            if (ball != null)
+            {
+                ball.ResetForNewRound(kvp.Value);
+            }
+        }
+
+        if (_soccerBall != null)
+        {
+            Vector3 ballPos = soccerBallSpawnPoint != null ? soccerBallSpawnPoint.position : Vector3.zero;
+            _soccerBall.ResetForNewRound(ballPos);
         }
     }
 }
