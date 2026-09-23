@@ -43,9 +43,20 @@ public class LocalSoccerBallController : MonoBehaviour
         }
         GoalCelebrationUI.Instance?.PlayGoalCelebration(TurnManagerFactory.GetPlayerName(scorerId));
 
-        // ✅ LocalTurnManager bascule d'abord en TurnState.Celebrating (timer gelé, voir
-        // GoalCelebrationUI) avant de terminer réellement la partie après celebrationDuration.
-        LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
+        // ✅ FIX : Ajouter le point au lieu de terminer immédiatement
+        if (ScoreManagerLocal.Instance != null)
+        {
+            ScoreManagerLocal.Instance.AddGoal(scorerId);
+            // ScoreManagerLocal.CheckWinCondition() vérifiera si quelqu'un a gagné
+            // Si oui, il appellera LocalTurnManager.Instance?.RequestWinBySoccerGoal()
+            // Si non, la partie continue
+        }
+        else
+        {
+            // ✨ Fallback si ScoreManager n'existe pas (ancien comportement)
+            Debug.LogWarning("[LocalSoccerBallController] ⚠️ ScoreManagerLocal.Instance est null - fin de partie immédiate");
+            LocalTurnManager.Instance?.RequestWinBySoccerGoal(scorerId);
+        }
 
         // ✨ CLEANUP: Retirer de la liste des billes jouables si nécessaire
         LocalBallAimController ballController = GetComponent<LocalBallAimController>();
