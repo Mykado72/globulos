@@ -194,6 +194,13 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"[GameSpawner] 👤 Joueur {player.PlayerId} a rejoint");
+
+        // ✅ FIX : Trigger le spawn pour le joueur local qui vient de rejoindre
+        if (runner.LocalPlayer == player)
+        {
+            Debug.Log($"[GameSpawner] 🚀 Spawn déclenché pour le joueur local {player.PlayerId}");
+            _ = TrySpawnLocalPlayer(runner);
+        }
     }
 
     /// <summary>
