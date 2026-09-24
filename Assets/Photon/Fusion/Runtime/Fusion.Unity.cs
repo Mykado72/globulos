@@ -1134,7 +1134,7 @@ namespace Fusion {
 
 #region Assets/Photon/Fusion/Runtime/FusionLogConstants.cs
 
-﻿
+
 
 namespace Fusion {
   static class FusionLogConstants {
@@ -1224,9 +1224,6 @@ namespace Fusion {
 #endif
 #if FUSION_TRACE_PLUGINVERSION
       | TraceChannels.PluginVersion
-#endif
-#if FUSION_TRACE_LAGCOMPENSATION
-      | TraceChannels.LagCompensation
 #endif
       ;
   }
@@ -2506,7 +2503,6 @@ namespace Fusion {
   using System.Collections.Generic;
   using System.Linq;
   using System.Text;
-  using JetBrains.Annotations;
   using UnityEditor;
   using UnityEngine;
   using UnityEngine.Pool;
@@ -2517,7 +2513,7 @@ namespace Fusion {
 #else
   using ObjectIdType = System.Int32;
 #endif
-
+  
   /// <summary>
   /// Extension and utility methods for <see cref="SceneManager"/> and <see cref="Scene"/> types.
   /// </summary>
@@ -2684,7 +2680,7 @@ namespace Fusion {
     /// <summary>
     /// Gets a component on a scene. If there are none or more than one, throws an exception.
     /// </summary>
-    public static T GetSingleComponentOrThrow<T>(this Scene scene, bool includeInactive = false, Predicate<T> exclude = null) where T : Component {
+    public static T GetSingleComponentOrThrow<T>(this Scene scene, bool includeInactive = false) where T : Component {
       using (ListPool<GameObject>.Get(out var roots)) {
         // order does not matter
         scene.GetRootGameObjects(roots);
@@ -2696,9 +2692,7 @@ namespace Fusion {
             continue;
           }
 
-          var component = exclude == null
-            ? root.GetComponentInChildren<T>(includeInactive: includeInactive)
-            : GetComponentInChildrenFiltered<T>(root, includeInactive, exclude);
+          var component = root.GetComponentInChildren<T>(includeInactive: includeInactive);
           if (component) {
             if (result) {
               throw new InvalidOperationException($"Multiple components of type {typeof(T).FullName} found");
@@ -2711,24 +2705,22 @@ namespace Fusion {
         if (result == null) {
           throw new InvalidOperationException($"Components of type {typeof(T).FullName} not found");
         }
-
+        
         return result;
       }
     }
-
+    
     /// <summary>
-    /// Gets first component on a scene.
+    /// Gets all the component present on a scene, depth first.
     /// </summary>
-    public static T GetComponentInHierarchyOrder<T>(this Scene scene, bool includeInactive = false, Predicate<T> exclude = null) where T: class{
+    public static T GetComponentInHierarchyOrder<T>(this Scene scene, bool includeInactive = false) where T: class{
       using (ListPool<GameObject>.Get(out var roots)) {
         scene.GetRootGameObjectsInHierarchyOrder(roots);
         foreach (var root in roots) {
           if (!includeInactive && !root.activeInHierarchy) {
             continue;
           }
-          var result = exclude == null
-            ? root.GetComponentInChildren<T>(includeInactive: includeInactive)
-            : GetComponentInChildrenFiltered<T>(root, includeInactive, exclude);
+          var result = root.GetComponentInChildren<T>(includeInactive: includeInactive);
           if (result != null) {
             return result;
           }
@@ -2737,51 +2729,34 @@ namespace Fusion {
         return null;
       }
     }
-
+    
     /// <summary>
     /// Gets all the component present on a scene, depth first.
     /// </summary>
-    public static T[] GetComponentsInHierarchyOrder<T>(this Scene scene, bool includeInactive = false, Predicate<T> exclude = null) where T : class {
+    public static T[] GetComponentsInHierarchyOrder<T>(this Scene scene, bool includeInactive = false) where T : class {
       using (ListPool<GameObject>.Get(out var roots)) {
         scene.GetRootGameObjectsInHierarchyOrder(roots);
-        return GetComponentsInHierarchyOrder<T>(roots, includeInactive, exclude);
+        return GetComponentsInHierarchyOrder<T>(roots, includeInactive);
       }
     }
-
+    
     /// <summary>
     /// Gets all the component present on a scene, depth first.
     /// </summary>
-    public static T[] GetComponentsInHierarchyOrder<T>(IList<GameObject> roots, bool includeInactive = false, Predicate<T> exclude = null) where T : class {
+    public static T[] GetComponentsInHierarchyOrder<T>(IList<GameObject> roots, bool includeInactive = false) where T : class {
       using (ListPool<T>.Get(out var partialResults))
       using (ListPool<T>.Get(out var fullResults)) {
         foreach (var root in roots) {
           if (!includeInactive && !root.activeInHierarchy) {
             continue;
           }
-
+          
           partialResults.Clear();
           root.GetComponentsInChildren<T>(includeInactive: includeInactive, partialResults);
-          if (exclude != null) {
-            partialResults.RemoveAll(exclude);
-          }
           fullResults.AddRange(partialResults);
         }
 
         return fullResults.ToArray();
-      }
-    }
-    
-    static T GetComponentInChildrenFiltered<T>(GameObject root, bool includeInactive, [NotNull] Predicate<T> exclude) where T : class {
-      using (ListPool<T>.Get(out var components)) {
-        root.GetComponentsInChildren(includeInactive, components);
-        foreach (var component in components) {
-          if (exclude(component)) {
-            continue;
-          }
-          return component;
-        }
-
-        return null;
       }
     }
 

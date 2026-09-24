@@ -2622,7 +2622,6 @@ namespace Fusion.Editor {
   using System.IO;
   using System.Linq;
   using UnityEditor;
-  using UnityEditor.AssetImporters;
   using UnityEditor.Build;
   using UnityEditor.PackageManager;
   using UnityEngine;
@@ -3097,6 +3096,27 @@ namespace Fusion.Editor {
     }
 
     /// <summary>
+    /// Iterates over all assets in the project that match the given search criteria, without
+    /// actually loading them.
+    /// </summary>
+    /// <param name="root">The optional root folder</param>
+    /// <param name="label">The optional label</param>
+    internal static AssetDatabaseEnumerable IterateAssets<T>(string root = null, string label = null) where T : UnityEngine.Object {
+      return IterateAssets(root, label, typeof(T));
+    }
+
+    /// <summary>
+    /// Iterates over all assets in the project that match the given search criteria, without
+    /// actually loading them.
+    /// </summary>
+    /// <param name="root">The optional root folder</param>
+    /// <param name="label">The optional label</param>
+    /// <param name="type">The optional type</param>
+    internal static AssetDatabaseEnumerable IterateAssets(string root = null, string label = null, Type type = null) {
+      return new AssetDatabaseEnumerable(root, label, type);
+    }
+
+    /// <summary>
     /// Checks if given path is read only. This can happen e.g. for non-local and non-embedded packages.
     /// </summary>
     public static bool IsPathWritable(string path) {
@@ -3190,21 +3210,6 @@ namespace Fusion.Editor {
 
       return null;
     }
-    
-    /// <summary>
-    /// Instance-free equivalent of <see cref="UnityEditor.ObjectNames.GetClassName"/>
-    /// </summary>
-    internal static string GetNativeTypeName(Type type) {
-      if (typeof(ScriptedImporter).IsAssignableFrom(type)) {
-        return nameof(ScriptedImporter);
-      }
-
-      if (typeof(MonoBehaviour).IsAssignableFrom(type) || typeof(ScriptableObject).IsAssignableFrom(type)) {
-        return nameof(MonoBehaviour);
-      }
-
-      return type.Name;
-    }
 
     /// <summary>
     /// Sends out <see cref="FusionMppmRegisterCustomDependencyCommand"/> command to virtual peers
@@ -3287,51 +3292,6 @@ namespace Fusion.Editor {
 
     /// <summary/>
     public static bool operator !=(GuidFileId left, GuidFileId right) => !left.Equals(right);
-  }
-}
-
-#endregion
-
-
-#region AssetDatabaseUtils.Enumerator.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Collections;
-  using System.Collections.Generic;
-  using System.Linq;
-  using UnityEditor;
-  using UnityEngine;
-
-#if UNITY_6000_3_OR_NEWER
-  using ObjectIdType = UnityEngine.EntityId;
-  using HierarchyIteratorType = UnityEditor.HierarchyIterator;
-#else
-  using ObjectIdType = System.Int32;
-  using HierarchyIteratorType = UnityEditor.HierarchyProperty;
-#endif
-
-  partial class AssetDatabaseUtils {
-    /// <summary>
-    /// Iterates over all assets in the project that match the given search criteria, without
-    /// actually loading them.
-    /// </summary>
-    /// <param name="root">The optional root folder</param>
-    /// <param name="label">The optional label</param>
-    internal static AssetDatabaseEnumerable IterateAssets<T>(string root = null, string label = null) where T : UnityEngine.Object {
-      return IterateAssets(root, label, typeof(T));
-    }
-
-    /// <summary>
-    /// Iterates over all assets in the project that match the given search criteria, without
-    /// actually loading them.
-    /// </summary>
-    /// <param name="root">The optional root folder</param>
-    /// <param name="label">The optional label</param>
-    /// <param name="type">The optional type</param>
-    internal static AssetDatabaseEnumerable IterateAssets(string root = null, string label = null, Type type = null) {
-      return new AssetDatabaseEnumerable(root, label, type);
-    }
   }
 
   /// <summary>
@@ -6804,9 +6764,7 @@ namespace Fusion.Editor {
       }
     }
 
-    
-    internal class PostProcessor : AssetPostprocessor {
-      
+    class PostProcessor : AssetPostprocessor {
       static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths) {
         // clean up the path mapping
         _cache.InvalidatePaths(importedAssets, true);
@@ -8406,67 +8364,67 @@ namespace Fusion.Editor {
 
           switch (p.propertyType) {
             case SerializedPropertyType.Integer:
-              hashCode = HashCode.Combine(hashCode, p.intValue);
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.intValue);
               break;
             case SerializedPropertyType.Boolean:
-              hashCode = HashCode.Combine(hashCode, p.boolValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.boolValue.GetHashCode());
               break;
             case SerializedPropertyType.Float:
-              hashCode = HashCode.Combine(hashCode, p.floatValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.floatValue.GetHashCode());
               break;
             case SerializedPropertyType.String:
-              hashCode = HashCode.Combine(hashCode, p.stringValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.stringValue.GetHashCode());
               break;
             case SerializedPropertyType.Color:
-              hashCode = HashCode.Combine(hashCode, p.colorValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.colorValue.GetHashCode());
               break;
             case SerializedPropertyType.ObjectReference:
-              hashCode = HashCode.Combine(hashCode, p.GetObjectReferenceValue().GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.GetObjectReferenceValue().GetHashCode());
               break;
             case SerializedPropertyType.LayerMask:
-              hashCode = HashCode.Combine(hashCode, p.intValue);
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.intValue);
               break;
             case SerializedPropertyType.Enum:
-              hashCode = HashCode.Combine(hashCode, p.intValue);
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.intValue);
               break;
             case SerializedPropertyType.Vector2:
-              hashCode = HashCode.Combine(hashCode, p.vector2Value.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.vector2Value.GetHashCode());
               break;
             case SerializedPropertyType.Vector3:
-              hashCode = HashCode.Combine(hashCode, p.vector3Value.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.vector3Value.GetHashCode());
               break;
             case SerializedPropertyType.Vector4:
-              hashCode = HashCode.Combine(hashCode, p.vector4Value.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.vector4Value.GetHashCode());
               break;
             case SerializedPropertyType.Vector2Int:
-              hashCode = HashCode.Combine(hashCode, p.vector2IntValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.vector2IntValue.GetHashCode());
               break;
             case SerializedPropertyType.Vector3Int:
-              hashCode = HashCode.Combine(hashCode, p.vector3IntValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.vector3IntValue.GetHashCode());
               break;
             case SerializedPropertyType.Rect:
-              hashCode = HashCode.Combine(hashCode, p.rectValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.rectValue.GetHashCode());
               break;
             case SerializedPropertyType.RectInt:
-              hashCode = HashCode.Combine(hashCode, p.rectIntValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.rectIntValue.GetHashCode());
               break;
             case SerializedPropertyType.ArraySize:
-              hashCode = HashCode.Combine(hashCode, p.intValue);
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.intValue);
               break;
             case SerializedPropertyType.Character:
-              hashCode = HashCode.Combine(hashCode, p.intValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.intValue.GetHashCode());
               break;
             case SerializedPropertyType.AnimationCurve:
-              hashCode = HashCode.Combine(hashCode, p.animationCurveValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.animationCurveValue.GetHashCode());
               break;
             case SerializedPropertyType.Bounds:
-              hashCode = HashCode.Combine(hashCode, p.boundsValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.boundsValue.GetHashCode());
               break;
             case SerializedPropertyType.BoundsInt:
-              hashCode = HashCode.Combine(hashCode, p.boundsIntValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.boundsIntValue.GetHashCode());
               break;
             case SerializedPropertyType.ExposedReference:
-              hashCode = HashCode.Combine(hashCode, p.exposedReferenceValue.GetHashCode());
+              hashCode = HashCodeUtilities.CombineHashCodes(hashCode, p.exposedReferenceValue.GetHashCode());
               break;
             default: {
               enterChildren = true;
@@ -8607,6 +8565,553 @@ namespace Fusion.Editor {
     }
   }
 }
+
+#endregion
+
+
+#region UnityInternal.cs
+
+// ReSharper disable InconsistentNaming
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+namespace Fusion.Editor {
+  using System;
+  using System.Collections;
+  using System.Collections.Generic;
+  using System.Linq;
+  using System.Reflection;
+  using UnityEditor;
+  using UnityEngine;
+  using static ReflectionUtils;
+
+
+  static partial class UnityInternal {
+    
+    [UnityEditor.InitializeOnLoad]
+    public static class AssetDatabase {
+      public delegate bool TryGetAssetFolderInfoDelegate(string path, out bool rootFolder, out bool immutable);
+      public static readonly TryGetAssetFolderInfoDelegate TryGetAssetFolderInfo = typeof(UnityEditor.AssetDatabase).CreateMethodDelegate<TryGetAssetFolderInfoDelegate>(
+#if UNITY_6000_0_OR_NEWER
+        nameof(TryGetAssetFolderInfo)
+#else
+        "GetAssetFolderInfo"
+#endif
+);
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class AssetImporter {
+      public delegate long MakeLocalFileIDWithHashDelegate(int persistentTypeId, string name, long offset);
+      public static readonly MakeLocalFileIDWithHashDelegate MakeLocalFileIDWithHash = typeof(UnityEditor.AssetImporter).CreateMethodDelegate<MakeLocalFileIDWithHashDelegate>(nameof(MakeLocalFileIDWithHash));
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class Event {
+      static readonly StaticAccessor<UnityEngine.Event> s_Current_ = typeof(UnityEngine.Event).CreateStaticFieldAccessor<UnityEngine.Event>(nameof(s_Current));
+      public static UnityEngine.Event s_Current => s_Current_.GetValue();
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class Editor {
+      public delegate bool DoDrawDefaultInspectorDelegate(SerializedObject obj);
+      public delegate void BoolSetterDelegate(UnityEditor.Editor editor, bool value);
+
+      public static readonly DoDrawDefaultInspectorDelegate DoDrawDefaultInspector = typeof(UnityEditor.Editor).CreateMethodDelegate<DoDrawDefaultInspectorDelegate>(nameof(DoDrawDefaultInspector));
+      public static readonly BoolSetterDelegate InternalSetHidden = typeof(UnityEditor.Editor).CreateMethodDelegate<BoolSetterDelegate>(nameof(InternalSetHidden), BindingFlags.NonPublic | BindingFlags.Instance);
+    }
+
+
+    [UnityEditor.InitializeOnLoad]
+    public static class EditorGUI {
+      public delegate string DelayedTextFieldInternalDelegate(Rect position, int id, GUIContent label, string value, string allowedLetters, GUIStyle style);
+      public delegate Rect MultiFieldPrefixLabelDelegate(Rect totalPosition, int id, GUIContent label, int columns);
+      public delegate string TextFieldInternalDelegate(int id, Rect position, string text, GUIStyle style);
+      public delegate string ToolbarSearchFieldDelegate(int id, Rect position, string text, bool showWithPopupArrow);
+      public delegate bool DefaultPropertyFieldDelegate(Rect position, UnityEditor.SerializedProperty property, GUIContent label);
+
+
+      public static readonly MultiFieldPrefixLabelDelegate MultiFieldPrefixLabel = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<MultiFieldPrefixLabelDelegate>(nameof(MultiFieldPrefixLabel));
+      public static readonly TextFieldInternalDelegate TextFieldInternal = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<TextFieldInternalDelegate>(nameof(TextFieldInternal));
+      public static readonly ToolbarSearchFieldDelegate ToolbarSearchField = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<ToolbarSearchFieldDelegate>(nameof(ToolbarSearchField));
+      public static readonly DelayedTextFieldInternalDelegate DelayedTextFieldInternal = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<DelayedTextFieldInternalDelegate>(nameof(DelayedTextFieldInternal));
+      public static readonly DefaultPropertyFieldDelegate DefaultPropertyField = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<DefaultPropertyFieldDelegate>(nameof(DefaultPropertyField));
+
+      private static readonly FieldInfo s_TextFieldHash = typeof(UnityEditor.EditorGUI).GetFieldOrThrow(nameof(s_TextFieldHash));
+      private static readonly FieldInfo s_DelayedTextFieldHash = typeof(UnityEditor.EditorGUI).GetFieldOrThrow(nameof(s_DelayedTextFieldHash));
+      private static readonly StaticAccessor<float> s_indent = typeof(UnityEditor.EditorGUI).CreateStaticPropertyAccessor<float>(nameof(indent));
+      public static readonly Action EndEditingActiveTextField = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<Action>(nameof(EndEditingActiveTextField));
+
+      public static int TextFieldHash => (int)s_TextFieldHash.GetValue(null);
+      public static int DelayedTextFieldHash => (int)s_DelayedTextFieldHash.GetValue(null);
+      internal static float indent => s_indent.GetValue();
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class EditorUtility {
+      public delegate void DisplayCustomMenuDelegate(Rect position, string[] options, int[] selected, UnityEditor.EditorUtility.SelectMenuItemFunction callback, object userData);
+
+      public static DisplayCustomMenuDelegate DisplayCustomMenu = typeof(UnityEditor.EditorUtility).CreateMethodDelegate<DisplayCustomMenuDelegate>(nameof(DisplayCustomMenu), BindingFlags.NonPublic | BindingFlags.Static);
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class GUIClip {
+      public static Type InternalType = typeof(UnityEngine.GUIUtility).Assembly.GetType("UnityEngine.GUIClip", true);
+
+      private static readonly StaticAccessor<Rect> _visibleRect = InternalType.CreateStaticPropertyAccessor<Rect>(nameof(visibleRect));
+      public static Rect visibleRect => _visibleRect.GetValue();
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class HandleUtility {
+      public static readonly Action ApplyWireMaterial = typeof(UnityEditor.HandleUtility).CreateMethodDelegate<Action>(nameof(ApplyWireMaterial));
+    }
+
+
+    [UnityEditor.InitializeOnLoad]
+    public static class LayerMatrixGUI {
+      private const string TypeName =
+#if UNITY_2023_1_OR_NEWER
+        "UnityEditor.LayerCollisionMatrixGUI2D";
+#else
+        "UnityEditor.LayerMatrixGUI";
+#endif
+
+      private static readonly Type InternalType =
+#if UNITY_2023_1_OR_NEWER
+        FindAssembly("UnityEditor.Physics2DModule")?.GetType(TypeName, true);
+#else 
+        typeof(UnityEditor.Editor).Assembly.GetType(TypeName, true);
+#endif
+
+      private static readonly Type InternalGetValueFuncType = InternalType?.GetNestedTypeOrThrow(nameof(GetValueFunc), BindingFlags.Public);
+      private static readonly Type InternalSetValueFuncType = InternalType?.GetNestedTypeOrThrow(nameof(SetValueFunc), BindingFlags.Public);
+
+#if UNITY_2023_1_OR_NEWER
+      private static readonly Delegate _Draw = InternalType?.CreateMethodDelegate(nameof(Draw), BindingFlags.Public | BindingFlags.Static,
+        typeof(Action<,,>).MakeGenericType(
+          typeof(GUIContent), InternalGetValueFuncType, InternalSetValueFuncType)
+      );
+#else
+      private delegate void Ref2Action<T1, T2, T3, T4>(T1 t1, ref T2 t2, T3 t3, T4 t4);
+
+      private static readonly Delegate _DoGUI = InternalType?.CreateMethodDelegate("DoGUI", BindingFlags.Public | BindingFlags.Static,
+        typeof(Ref2Action<,,,>).MakeGenericType(
+          typeof(GUIContent), typeof(bool), InternalGetValueFuncType, InternalSetValueFuncType)
+      );
+#endif
+
+      public delegate bool GetValueFunc(int layerA, int layerB);
+      public delegate void SetValueFunc(int layerA, int layerB, bool val);
+
+      public static void Draw(GUIContent label, GetValueFunc getValue, SetValueFunc setValue) {
+        if (InternalType == null) {
+          throw new InvalidOperationException($"{TypeName} not found");
+        }
+
+        var getter = Delegate.CreateDelegate(InternalGetValueFuncType, getValue.Target, getValue.Method);
+        var setter = Delegate.CreateDelegate(InternalSetValueFuncType, setValue.Target, setValue.Method);
+
+#if UNITY_2023_1_OR_NEWER
+        _Draw.DynamicInvoke(label, getter, setter);
+#else
+        bool show = true;
+        var args = new object[] { label, show, getter, setter };
+        _DoGUI.DynamicInvoke(args);
+#endif
+      }
+    }
+
+
+    [UnityEditor.InitializeOnLoad]
+    public static class DecoratorDrawer {
+      private static InstanceAccessor<PropertyAttribute> m_Attribute = typeof(UnityEditor.DecoratorDrawer).CreateFieldAccessor<PropertyAttribute>(nameof(m_Attribute));
+
+      public static void SetAttribute(UnityEditor.DecoratorDrawer drawer, PropertyAttribute attribute) {
+        m_Attribute.SetValue(drawer, attribute);
+      }
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class PropertyDrawer {
+      private static InstanceAccessor<PropertyAttribute> m_Attribute = typeof(UnityEditor.PropertyDrawer).CreateFieldAccessor<PropertyAttribute>(nameof(m_Attribute));
+      private static InstanceAccessor<FieldInfo> m_FieldInfo = typeof(UnityEditor.PropertyDrawer).CreateFieldAccessor<FieldInfo>(nameof(m_FieldInfo));
+
+      public static void SetAttribute(UnityEditor.PropertyDrawer drawer, PropertyAttribute attribute) {
+        m_Attribute.SetValue(drawer, attribute);
+      }
+
+      public static void SetFieldInfo(UnityEditor.PropertyDrawer drawer, FieldInfo fieldInfo) {
+        m_FieldInfo.SetValue(drawer, fieldInfo);
+      }
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class EditorGUIUtility {
+      private static readonly StaticAccessor<int> s_LastControlID = typeof(UnityEditor.EditorGUIUtility).CreateStaticFieldAccessor<int>(nameof(s_LastControlID));
+
+      private static readonly StaticAccessor<float> _contentWidth = typeof(UnityEditor.EditorGUIUtility).CreateStaticPropertyAccessor<float>(nameof(contextWidth));
+      public static int LastControlID => s_LastControlID.GetValue();
+      public static float contextWidth => _contentWidth.GetValue();
+
+      public delegate UnityEngine.Object GetScriptDelegate(string scriptClass);
+      public delegate Texture2D GetIconForObjectDelegate(UnityEngine.Object obj);
+      public delegate GUIContent TempContentDelegate(string text);
+      public delegate Texture2D GetHelpIconDelegate(MessageType type);
+
+      public static readonly GetScriptDelegate GetScript = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<GetScriptDelegate>(nameof(GetScript));
+      public static readonly GetIconForObjectDelegate GetIconForObject = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<GetIconForObjectDelegate>(nameof(GetIconForObject));
+      public static readonly TempContentDelegate TempContent = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<TempContentDelegate>(nameof(TempContent));
+      public static readonly GetHelpIconDelegate GetHelpIcon = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<GetHelpIconDelegate>(nameof(GetHelpIcon));
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class HierarchyIterator {
+#if UNITY_6000_3_OR_NEWER
+      public delegate void CopySearchFilterFromDelegate(UnityEditor.HierarchyIterator to, UnityEditor.HierarchyIterator from);
+      public static CopySearchFilterFromDelegate CopySearchFilterFrom = typeof(UnityEditor.HierarchyIterator).CreateMethodDelegate<CopySearchFilterFromDelegate>(nameof(CopySearchFilterFrom),
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+#else
+      public delegate void CopySearchFilterFromDelegate(UnityEditor.HierarchyProperty to, UnityEditor.HierarchyProperty from);
+      public static CopySearchFilterFromDelegate CopySearchFilterFrom = typeof(UnityEditor.HierarchyProperty).CreateMethodDelegate<CopySearchFilterFromDelegate>(nameof(CopySearchFilterFrom),
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+#endif
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class ScriptAttributeUtility {
+
+      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ScriptAttributeUtility", true);
+
+      public delegate FieldInfo GetFieldInfoFromPropertyDelegate(UnityEditor.SerializedProperty property, out Type type);
+      public static readonly GetFieldInfoFromPropertyDelegate GetFieldInfoFromProperty =
+        InternalType.CreateMethodDelegate<GetFieldInfoFromPropertyDelegate>(
+          "GetFieldInfoFromProperty",
+          BindingFlags.Static | BindingFlags.NonPublic);
+
+      public delegate Type GetDrawerTypeForTypeDelegate(Type type, bool isManagedReference);
+      public static readonly GetDrawerTypeForTypeDelegate GetDrawerTypeForType =
+        InternalType.CreateMethodDelegate<GetDrawerTypeForTypeDelegate>(
+          "GetDrawerTypeForType",
+          BindingFlags.Static | BindingFlags.NonPublic,
+          null,
+          DelegateSwizzle<Type, bool>.Make((t, b) => t), // post 2023.3
+          DelegateSwizzle<Type, bool>.Make((t, b) => t, (t, b) => (Type[])null, (t, b) => b) // pre 2023.3.23
+        );
+
+      public delegate Type GetDrawerTypeForPropertyAndTypeDelegate(UnityEditor.SerializedProperty property, Type type);
+      public static readonly GetDrawerTypeForPropertyAndTypeDelegate GetDrawerTypeForPropertyAndType =
+        InternalType.CreateMethodDelegate<GetDrawerTypeForPropertyAndTypeDelegate>(
+          "GetDrawerTypeForPropertyAndType",
+          BindingFlags.Static | BindingFlags.NonPublic);
+
+      private static readonly GetHandlerDelegate _GetHandler = InternalType.CreateMethodDelegate<GetHandlerDelegate>("GetHandler", BindingFlags.NonPublic | BindingFlags.Static,
+        MakeFuncType(typeof(UnityEditor.SerializedProperty), PropertyHandler.InternalType)
+      );
+
+      public delegate List<PropertyAttribute> GetFieldAttributesDelegate(FieldInfo field);
+      public static readonly GetFieldAttributesDelegate GetFieldAttributes = InternalType.CreateMethodDelegate<GetFieldAttributesDelegate>(nameof(GetFieldAttributes));
+
+      private static readonly StaticAccessor<object> _propertyHandlerCache = InternalType.CreateStaticPropertyAccessor(nameof(propertyHandlerCache), PropertyHandlerCache.InternalType);
+
+      private static readonly StaticAccessor<object> s_SharedNullHandler = InternalType.CreateStaticFieldAccessor("s_SharedNullHandler", PropertyHandler.InternalType);
+      private static readonly StaticAccessor<object> s_NextHandler = InternalType.CreateStaticFieldAccessor("s_NextHandler", PropertyHandler.InternalType);
+
+      public static PropertyHandlerCache propertyHandlerCache => new() {
+        _instance = _propertyHandlerCache.GetValue()
+      };
+
+      public static PropertyHandler sharedNullHandler => PropertyHandler.Wrap(s_SharedNullHandler.GetValue());
+      public static PropertyHandler nextHandler => PropertyHandler.Wrap(s_NextHandler.GetValue());
+
+      public static PropertyHandler GetHandler(UnityEditor.SerializedProperty property) {
+        return PropertyHandler.Wrap(_GetHandler(property));
+      }
+
+      private delegate object GetHandlerDelegate(UnityEditor.SerializedProperty property);
+    }
+
+    public struct PropertyHandlerCache {
+      [UnityEditor.InitializeOnLoad]
+      private static class Statics {
+        public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.PropertyHandlerCache", true);
+        public static readonly GetPropertyHashDelegate GetPropertyHash = InternalType.CreateMethodDelegate<GetPropertyHashDelegate>(nameof(GetPropertyHash));
+
+        public static readonly GetHandlerDelegate GetHandler = InternalType.CreateMethodDelegate<GetHandlerDelegate>(nameof(GetHandler), BindingFlags.NonPublic | BindingFlags.Instance,
+          MakeFuncType(InternalType, typeof(UnityEditor.SerializedProperty), PropertyHandler.InternalType));
+
+        public static readonly SetHandlerDelegate SetHandler = InternalType.CreateMethodDelegate<SetHandlerDelegate>(nameof(SetHandler), BindingFlags.NonPublic | BindingFlags.Instance,
+          MakeActionType(InternalType, typeof(UnityEditor.SerializedProperty), PropertyHandler.InternalType));
+
+        public static readonly FieldInfo m_PropertyHandlers = InternalType.GetFieldOrThrow(nameof(m_PropertyHandlers));
+      }
+
+      public static Type InternalType => Statics.InternalType;
+
+      public delegate int GetPropertyHashDelegate(UnityEditor.SerializedProperty property);
+
+      public delegate object GetHandlerDelegate(object instance, UnityEditor.SerializedProperty property);
+
+      public delegate void SetHandlerDelegate(object instance, UnityEditor.SerializedProperty property, object handlerInstance);
+
+      public object _instance;
+
+      public PropertyHandler GetHandler(UnityEditor.SerializedProperty property) {
+        return new PropertyHandler {
+          _instance = Statics.GetHandler(_instance, property)
+        };
+      }
+
+      public void SetHandler(UnityEditor.SerializedProperty property, PropertyHandler newHandler) {
+        Statics.SetHandler(_instance, property, newHandler._instance);
+      }
+
+      public IEnumerable<(int, PropertyHandler)> PropertyHandlers {
+        get {
+          var dict = (IDictionary)Statics.m_PropertyHandlers.GetValue(_instance);
+          foreach (DictionaryEntry entry in dict) {
+            yield return ((int)entry.Key, PropertyHandler.Wrap(entry.Value));
+          }
+        }
+      }
+    }
+
+    public struct PropertyHandler : IEquatable<PropertyHandler> {
+      [UnityEditor.InitializeOnLoad]
+      private static class Statics {
+        public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.PropertyHandler", true);
+        public static readonly InstanceAccessor<List<UnityEditor.DecoratorDrawer>> m_DecoratorDrawers = InternalType.CreateFieldAccessor<List<UnityEditor.DecoratorDrawer>>(nameof(m_DecoratorDrawers));
+        public static readonly InstanceAccessor<List<UnityEditor.PropertyDrawer>> m_PropertyDrawers = InternalType.CreateFieldAccessor<List<UnityEditor.PropertyDrawer>>(nameof(m_PropertyDrawers));
+      }
+
+
+      public static Type InternalType => Statics.InternalType;
+
+      public object _instance;
+
+      internal static PropertyHandler Wrap(object instance) {
+        return new() {
+          _instance = instance
+        };
+      }
+
+      public static PropertyHandler New() {
+        return Wrap(Activator.CreateInstance(InternalType));
+      }
+
+      public List<UnityEditor.PropertyDrawer> m_PropertyDrawers {
+        get => Statics.m_PropertyDrawers.GetValue(_instance);
+        set => Statics.m_PropertyDrawers.SetValue(_instance, value);
+      }
+
+      public bool Equals(PropertyHandler other) {
+        return _instance == other._instance;
+      }
+
+      public override int GetHashCode() {
+        return _instance?.GetHashCode() ?? 0;
+      }
+
+      public override bool Equals(object obj) {
+        return obj is PropertyHandler h ? Equals(h) : false;
+      }
+
+      public List<UnityEditor.DecoratorDrawer> decoratorDrawers {
+        get => Statics.m_DecoratorDrawers.GetValue(_instance);
+        set => Statics.m_DecoratorDrawers.SetValue(_instance, value);
+      }
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class EditorApplication {
+      public static readonly Action Internal_CallAssetLabelsHaveChanged = typeof(UnityEditor.EditorApplication).CreateMethodDelegate<Action>(nameof(Internal_CallAssetLabelsHaveChanged));
+    }
+
+    public struct ObjectSelector {
+      [UnityEditor.InitializeOnLoad]
+      private static class Statics {
+        public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ObjectSelector", true);
+        public static readonly StaticAccessor<bool> _tooltip = InternalType.CreateStaticPropertyAccessor<bool>(nameof(isVisible));
+        public static readonly StaticAccessor<EditorWindow> _get = InternalType.CreateStaticPropertyAccessor<EditorWindow>(nameof(get), InternalType);
+        public static readonly InstanceAccessor<string> _searchFilter = InternalType.CreatePropertyAccessor<string>(nameof(searchFilter));
+      }
+
+      private EditorWindow _instance;
+
+      public static bool isVisible => Statics._tooltip.GetValue();
+
+      public static ObjectSelector get => new() {
+        _instance = Statics._get.GetValue()
+      };
+
+      public string searchFilter {
+        get => Statics._searchFilter.GetValue(_instance);
+        set => Statics._searchFilter.SetValue(_instance, value);
+      }
+
+      private static readonly InstanceAccessor<int> _objectSelectorID = Statics.InternalType.CreateFieldAccessor<int>(nameof(objectSelectorID));
+      public int objectSelectorID => _objectSelectorID.GetValue(_instance);
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public class InspectorWindow {
+      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.InspectorWindow", true);
+      public static readonly InstanceAccessor<bool> _isLockedAccessor = InternalType.CreatePropertyAccessor<bool>(nameof(isLocked));
+
+      private readonly EditorWindow _instance;
+
+      public InspectorWindow(EditorWindow instance) {
+        if (instance == null) {
+          throw new ArgumentNullException(nameof(instance));
+        }
+
+        _instance = instance;
+      }
+
+      public bool isLocked {
+        get => _isLockedAccessor.GetValue(_instance);
+        set => _isLockedAccessor.SetValue(_instance, value);
+      }
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class SerializedProperty {
+      //public static readonly InstanceAccessor<int> hashCodeForPropertyPath                  = typeof(UnityEditor.SerializedProperty).CreatePropertyAccessor<int>(nameof(hashCodeForPropertyPath));
+      public static readonly InstanceAccessor<int> hashCodeForPropertyPathWithoutArrayIndex = typeof(UnityEditor.SerializedProperty).CreatePropertyAccessor<int>(nameof(hashCodeForPropertyPathWithoutArrayIndex));
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    public static class SplitterGUILayout {
+      public static readonly Action EndHorizontalSplit = CreateMethodDelegate<Action>(typeof(UnityEditor.Editor).Assembly,
+        "UnityEditor.SplitterGUILayout", "EndHorizontalSplit", BindingFlags.Public | BindingFlags.Static
+      );
+
+      public static readonly Action EndVerticalSplit = CreateMethodDelegate<Action>(typeof(UnityEditor.Editor).Assembly,
+        "UnityEditor.SplitterGUILayout", "EndVerticalSplit", BindingFlags.Public | BindingFlags.Static
+      );
+
+      public static void BeginHorizontalSplit(SplitterState splitterState, GUIStyle style, params GUILayoutOption[] options) {
+        _beginHorizontalSplit.DynamicInvoke(splitterState.InternalState, style, options);
+      }
+
+      public static void BeginVerticalSplit(SplitterState splitterState, GUIStyle style, params GUILayoutOption[] options) {
+        _beginVerticalSplit.DynamicInvoke(splitterState.InternalState, style, options);
+      }
+
+      private static readonly Delegate _beginHorizontalSplit = CreateMethodDelegate(typeof(UnityEditor.Editor).Assembly,
+        "UnityEditor.SplitterGUILayout", "BeginHorizontalSplit", BindingFlags.Public | BindingFlags.Static,
+        typeof(Action<,,>).MakeGenericType(SplitterState.InternalType, typeof(GUIStyle), typeof(GUILayoutOption[]))
+      );
+
+      private static readonly Delegate _beginVerticalSplit = CreateMethodDelegate(typeof(UnityEditor.Editor).Assembly,
+        "UnityEditor.SplitterGUILayout", "BeginVerticalSplit", BindingFlags.Public | BindingFlags.Static,
+        typeof(Action<,,>).MakeGenericType(SplitterState.InternalType, typeof(GUIStyle), typeof(GUILayoutOption[]))
+      );
+    }
+
+    [UnityEditor.InitializeOnLoad]
+    [Serializable]
+    public class SplitterState : ISerializationCallbackReceiver {
+
+      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.SplitterState", true);
+      private static readonly FieldInfo _relativeSizes = InternalType.GetFieldOrThrow("relativeSizes");
+      private static readonly FieldInfo _realSizes = InternalType.GetFieldOrThrow("realSizes");
+      private static readonly FieldInfo _splitSize = InternalType.GetFieldOrThrow("splitSize");
+
+      public string Json = "{}";
+
+      [NonSerialized]
+      public object InternalState = FromRelativeInner(new[] { 1.0f });
+
+      void ISerializationCallbackReceiver.OnAfterDeserialize() {
+        InternalState = JsonUtility.FromJson(Json, InternalType);
+      }
+
+      void ISerializationCallbackReceiver.OnBeforeSerialize() {
+        Json = JsonUtility.ToJson(InternalState);
+      }
+
+      public static SplitterState FromRelative(float[] relativeSizes, int[] minSizes = null, int[] maxSizes = null, int splitSize = 0) {
+        var result = new SplitterState();
+        result.InternalState = FromRelativeInner(relativeSizes, minSizes, maxSizes, splitSize);
+        return result;
+      }
+
+
+      private static object FromRelativeInner(float[] relativeSizes, int[] minSizes = null, int[] maxSizes = null, int splitSize = 0) {
+        return Activator.CreateInstance(InternalType, BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.CreateInstance,
+          null,
+          new object[] { relativeSizes, minSizes, maxSizes, splitSize },
+          null, null);
+      }
+
+      public float[] realSizes => ConvertArray((Array)_realSizes.GetValue(InternalState));
+      public float[] relativeSizes => ConvertArray((Array)_relativeSizes.GetValue(InternalState));
+      public float splitSize => Convert.ToSingle(_splitSize.GetValue(InternalState));
+
+      private static float[] ConvertArray(Array value) {
+        float[] result = new float[value.Length];
+        for (int i = 0; i < value.Length; ++i) {
+          result[i] = Convert.ToSingle(value.GetValue(i));
+        }
+        return result;
+      }
+    }
+
+    [InitializeOnLoad]
+    public class UnityType {
+      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.UnityType", true);
+
+      static readonly Delegate FindTypeByNameDelegate = InternalType?.CreateMethodDelegate(nameof(FindTypeByName), BindingFlags.Public | BindingFlags.Static,
+        typeof(Func<,>).MakeGenericType(typeof(string), InternalType)
+      );
+
+      static readonly InstanceAccessor<int> PersistentTypeIDAccessor = InternalType.CreatePropertyAccessor<int>(nameof(persistentTypeID));
+
+      readonly object _instance;
+
+      public UnityType(object instance) {
+        _instance = instance ?? throw new ArgumentNullException(nameof(instance));
+      }
+
+      public static UnityType FindTypeByName(string name) {
+        var instance = FindTypeByNameDelegate.DynamicInvoke(name);
+        return instance == null ? null : new UnityType(instance);
+      }
+
+      public int persistentTypeID => PersistentTypeIDAccessor.GetValue(_instance);
+    }
+    
+    public sealed class InternalStyles {
+      public static InternalStyles Instance = new InternalStyles();
+
+      internal LazyGUIStyle InspectorTitlebar => LazyGUIStyle.Create(_ => GetStyle("IN Title"));
+      internal LazyGUIStyle FoldoutTitlebar => LazyGUIStyle.Create(_ => GetStyle("Titlebar Foldout", "Foldout"));
+      internal LazyGUIStyle BoxWithBorders => LazyGUIStyle.Create(_ => GetStyle("OL Box"));
+      internal LazyGUIStyle HierarchyTreeViewLine => LazyGUIStyle.Create(_ => GetStyle("TV Line"));
+      internal LazyGUIStyle HierarchyTreeViewSceneBackground => LazyGUIStyle.Create(_ => GetStyle("SceneTopBarBg", "ProjectBrowserTopBarBg"));
+      internal LazyGUIStyle OptionsButtonStyle => LazyGUIStyle.Create(_ => GetStyle("PaneOptions"));
+      internal LazyGUIStyle AddComponentButton => LazyGUIStyle.Create(_ => GetStyle("AC Button"));
+      internal LazyGUIStyle AnimationEventTooltip => LazyGUIStyle.Create(_ => GetStyle("AnimationEventTooltip"));
+      internal LazyGUIStyle AnimationEventTooltipArrow => LazyGUIStyle.Create(_ => GetStyle("AnimationEventTooltipArrow"));
+
+      private static GUIStyle GetStyle(params string[] names) {
+        var skin = GUI.skin;
+
+        foreach (var name in names) {
+          var result = skin.FindStyle(name);
+          if (result != null) {
+            return result;
+          }
+        }
+
+        throw new ArgumentOutOfRangeException($"Style not found: {string.Join(", ", names)}", nameof(names));
+      }
+    }
+
+    public static InternalStyles Styles => InternalStyles.Instance;
+  }
+}
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+// ReSharper enable InconsistentNaming
 
 #endregion
 
@@ -12734,6 +13239,8 @@ namespace Fusion.Editor {
 
   [Serializable]
   public class FusionEditorHubPage {
+    string _cachedString;
+
     internal const string AssetLabel = "FusionHubContent";
     const string ActionStepTemplate = "<size=20>Step {0}</size>   ";
 
@@ -13030,44 +13537,38 @@ namespace Fusion.Editor {
         case FusionEditorHubWidgetTypeEnum.Changelog:
           if (widget.State.IsDrawn == false) { break; }
 
-          if (widget.State.HasCachedString == false) {
-            widget.State.CacheString(ParseReleaseNotes(widget.Asset.asset as TextAsset));
+          if (string.IsNullOrEmpty(widget.State.CachedString)) {
+            widget.State.CachedString = ParseReleaseNotes(widget.Asset.asset as TextAsset);
           }
 
-          foreach (var line in widget.State.CachedStrings) {
-            GUILayout.Label(line, window.Styles.ReleaseNotes);
-          }
+          GUILayout.Label(widget.State.CachedString, window.Styles.ReleaseNotes);
           break;
 
         case FusionEditorHubWidgetTypeEnum.Textfile:
           if (widget.State.IsDrawn == false) { break; }
 
-          if (widget.State.HasCachedString == false) {
+          if (string.IsNullOrEmpty(widget.State.CachedString)) {
             try {
-              widget.State.CacheString((widget.Asset.asset as TextAsset).text);
+              widget.State.CachedString = (widget.Asset.asset as TextAsset).text;
             } catch {
-              widget.State.CacheString("File unreadable");
+              widget.State.CachedString = "File unreadable";
             }
           }
 
-          foreach (var line in widget.State.CachedStrings) {
-            GUILayout.Label(line, window.Styles.TextFile);
-          }
+          GUILayout.Label(widget.State.CachedString);
 
           break;
 
         case FusionEditorHubWidgetTypeEnum.BuildInfoFile:
           if (widget.State.IsDrawn == false) { break; }
 
-          if (widget.State.HasCachedString == false) {
-            widget.State.CacheString(ParseBuildInfo(widget.Asset.asset as TextAsset));
+          if (string.IsNullOrEmpty(widget.State.CachedString)) {
+            widget.State.CachedString = ParseBuildInfo(widget.Asset.asset as TextAsset);
           }
 
           GUILayout.BeginVertical();
           GUILayout.Space(5);
-          foreach (var line in widget.State.CachedStrings) {
-            GUILayout.Label(line, window.Styles.TextFile);
-          }
+          GUILayout.Label(widget.State.CachedString, window.Styles.TextLabel);
           GUILayout.EndVertical();
 
           break;
@@ -13075,13 +13576,11 @@ namespace Fusion.Editor {
         case FusionEditorHubWidgetTypeEnum.AssemblyVersion:
           if (widget.State.IsDrawn == false) { break; }
 
-          if (widget.State.HasCachedString == false) {
-            widget.State.CacheString(ParseAssemblyVersion(widget.Type.Class));
+          if (string.IsNullOrEmpty(widget.State.CachedString)) {
+            widget.State.CachedString = ParseAssemblyVersion(widget.Type.Class);
           }
 
-          foreach (var line in widget.State.CachedStrings) {
-            GUILayout.Label(line, window.Styles.TextFile);
-          }
+          GUILayout.Label(widget.State.CachedString, window.Styles.TextLabel);
 
           break;
         case FusionEditorHubWidgetTypeEnum.Addon:
@@ -13094,12 +13593,19 @@ namespace Fusion.Editor {
     string ParseAssemblyVersion(string typeName) {
       const string ColorTemplate = "<color=#FFDDBB>{0}</color>: {1}";
 
-      var type = ReflectionUtils.FindTypeByName(typeName);
+      var type = AppDomain.CurrentDomain.GetAssemblies()
+        .SelectMany(x => x.GetTypes())
+        .Where(t => t != null && t.Name.Equals(typeName)).First();
       
       try {
-        var path = FusionPlatform.GetLoadedPath(type!.Assembly);
+        if (type == null) {
+
+        }
+
+        var codeBase = System.Reflection.Assembly.GetAssembly(type).CodeBase;
+        var path = Uri.UnescapeDataString(new UriBuilder(codeBase).Path);
         var fileVersionInfo = FileVersionInfo.GetVersionInfo(path);
-        return string.Format(ColorTemplate, Path.GetFileName(path), fileVersionInfo.ProductVersion);
+        return string.Format(ColorTemplate, Path.GetFileName(codeBase), fileVersionInfo.ProductVersion);
       } catch {
         return "Type not found";
       }
@@ -13130,14 +13636,14 @@ namespace Fusion.Editor {
       try {
         var text = textAssset.text;
         // #
-        text = Regex.Replace(text, @"^# ([^\r\n]*)", string.Format(TitleVersionReformat, "$1"));
-        text = Regex.Replace(text, @"(?<=\n)# ([^\r\n]*)", string.Format(Header1Reformat, "$1"));
+        text = Regex.Replace(text, @"^# (.*)", string.Format(TitleVersionReformat, "$1"));
+        text = Regex.Replace(text, @"(?<=\n)# (.*)", string.Format(Header1Reformat, "$1"));
         // ##
-        text = Regex.Replace(text, @"(?<=\n)## ([^\r\n]*)", string.Format(Header2Reformat, "$1"));
+        text = Regex.Replace(text, @"(?<=\n)## (.*)", string.Format(Header2Reformat, "$1"));
         // ###
-        text = Regex.Replace(text, @"(?<=\n)### ([^\r\n]*)", string.Format(Header3Reformat, "$1"));
+        text = Regex.Replace(text, @"(?<=\n)### (.*)", string.Format(Header3Reformat, "$1"));
         // **Changes**
-        text = Regex.Replace(text, @"(?<=\n)\*\*([^\r\n]*)\*\*", string.Format(SectionReformat, "$1"));
+        text = Regex.Replace(text, @"(?<=\n)\*\*(.*)\*\*", string.Format(SectionReformat, "$1"));
         // `Class`
         text = Regex.Replace(text, @"\`([^\`]*)\`", string.Format(ClassReformat, "$1"));
         return text;
@@ -13449,29 +13955,24 @@ namespace Fusion.Editor {
       // Unity enabled it in their default scenes, but not in their default HDRP setup. Here we detect HDRP and enable Fog.
       // Runtime guard: the HDRP package (and this define) can be present while URP is the active pipeline.
       if (suffix == "HDRP") {
-        var volume = GameObject.FindAnyObjectByType<UnityEngine.Rendering.Volume>();
-        if (volume == null)
-        {
-          var go = new GameObject("Global Volume");
-          volume = go.AddComponent<UnityEngine.Rendering.Volume>();
-          SceneManager.MoveGameObjectToScene(go, scene);
+        var go = new GameObject("Global Volume");
+        SceneManager.MoveGameObjectToScene(go, scene);
+        var volume = go.AddComponent<UnityEngine.Rendering.Volume>();
+        volume.isGlobal = true;
+        volume.weight = 1.0f;
 
-          volume.isGlobal = true;
-          volume.weight = 1.0f;
+        string sceneDirectory = System.IO.Path.GetDirectoryName(scene.path);
+        string profilePath = $"{sceneDirectory}/{scene.name}_VolumeProfile.asset";
+        var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+ 
+        var fog = profile.Add<UnityEngine.Rendering.HighDefinition.Fog>();
+        fog.enabled.value = true;
 
-          string sceneDirectory = System.IO.Path.GetDirectoryName(scene.path);
-          string profilePath = $"{sceneDirectory}/{scene.name}_VolumeProfile.asset";
-          var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
-
-          var fog = profile.Add<UnityEngine.Rendering.HighDefinition.Fog>();
-          fog.enabled.value = true;
-
-          UnityEditor.AssetDatabase.CreateAsset(profile, profilePath);
-          UnityEditor.AssetDatabase.AddObjectToAsset(fog, profile);
-          UnityEditor.AssetDatabase.SaveAssets();
-
-          volume.sharedProfile = profile;
-        }
+        UnityEditor.AssetDatabase.CreateAsset(profile, profilePath);
+        UnityEditor.AssetDatabase.AddObjectToAsset(fog, profile);
+        UnityEditor.AssetDatabase.SaveAssets();
+        
+        volume.sharedProfile = profile;
       }
 #endif
     }
@@ -13547,29 +14048,13 @@ namespace Fusion.Editor {
     internal class HubWidgetState {
       private SaveData _saveData;
       private string _playerPrefsKey;
-      string[] _cachedStrings = new string[0];
-
-      const int CachedStringSplitSize = 1000;
 
       public bool IsHidden { get; set; }
       public bool IsAutoCompleted { get; set; }
       public int StepIndex { get; set; }
       public bool IsComplete => IsAutoCompleted || _saveData.IsMarkedCompleted || _saveData.IsMarkedSkipped;
       public bool IsDrawn => IsComplete == false && IsHidden == false;
-
-      public string[] CachedStrings => _cachedStrings;
-      public bool HasCachedString => 
-        _cachedStrings != null &&
-        (_cachedStrings.Length > 0 && _cachedStrings[0].Length > 0 ||
-         _cachedStrings.Length > 1);
-
-      public void CacheString(string value) { 
-          if (string.IsNullOrEmpty(value) || value.Length < CachedStringSplitSize) {
-            _cachedStrings = new[] { value };
-          } else {
-            _cachedStrings = value.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-          }
-      }
+      public string CachedString { get; set; }
 
       public HubWidgetState(string playerPrefsKey = "") {
         _playerPrefsKey = playerPrefsKey;
@@ -14025,9 +14510,10 @@ namespace Fusion.Editor {
         return;
       }
 
-      if (_currentPackageRequest.Status == StatusCode.Failure) {
+      if (_currentPackageRequest.Status == StatusCode.Success) {
+        Debug.Log($"Package request was successful.");
+      } else if (_currentPackageRequest.Status == StatusCode.Failure) {
         Debug.LogError($"Package request failed: {_currentPackageRequest.Error.message}");
-        EditorUtility.DisplayDialog("Installing Addon Failed", $"Error: {_currentPackageRequest.Error.message}", "OK");
       }
 
       ClearPackageProgressAndUnsubscribeMonitoring();
@@ -14111,26 +14597,6 @@ namespace Fusion.Editor {
 
   internal partial class FusionEditorHubWindow {
     Fusion.Editor.LogSettingsDrawer _logSettingsDrawer;
-    string _footer;
-
-    private string Footer {
-      get {
-        if (string.IsNullOrEmpty(_footer)) {
-          var copyrightYear = 2024;
-          SetCopyrightYearUser(ref copyrightYear);
-          var currentYear = DateTime.Now.Year;
-          if (currentYear > copyrightYear) {
-            _footer = $"\u00A9 {copyrightYear.ToString()}-{DateTime.Now.Year.ToString()}, Exit Games GmbH. All rights reserved.";
-          }
-          else {
-            _footer = $"\u00A9 {copyrightYear.ToString()}, Exit Games GmbH. All rights reserved.";
-          }
-        }
-        return _footer;
-      }
-    }
-
-    partial void SetCopyrightYearUser(ref int year);
 
     public void DrawButtonAction(Texture2D icon, string header, string description = null, bool enabled = true, Action callback = null, int? width = null, Texture2D statusIcon = null) {
       var height = IconSize + GUI.skin.button.padding.top + GUI.skin.button.padding.bottom;
@@ -14215,7 +14681,7 @@ namespace Fusion.Editor {
 
     void DrawFooter() {
       GUILayout.BeginHorizontal(HubSkin.window);
-      GUILayout.Label(Footer);
+      GUILayout.Label("\u00A9 2024, Exit Games GmbH. All rights reserved.");
       GUILayout.EndHorizontal();
     }
 
@@ -14279,7 +14745,6 @@ namespace Fusion.Editor {
       public GUIStyle TextLabel;
       public GUIStyle HeaderLabel;
       public GUIStyle ReleaseNotes;
-      public GUIStyle TextFile;
       public GUIStyle HeaderText;
       public GUIStyle ButtonActive;
 
@@ -14313,14 +14778,6 @@ namespace Fusion.Editor {
 
         ReleaseNotes = new GUIStyle(TextLabel) {
           richText = true,
-          // Remove padding because of the way long text is cached and drawn
-          padding = new RectOffset(TextLabel.padding.left, TextLabel.padding.right, 0, 0)
-        };
-
-        TextFile = new GUIStyle(TextLabel) {
-          richText = true,
-          // Remove padding because of the way long text is cached and drawn
-          padding = new RectOffset(TextLabel.padding.left, TextLabel.padding.right, 0, 0)
         };
       }
     }
@@ -14374,9 +14831,16 @@ namespace Fusion.Editor {
           return result;
         }
 
-        var type = ReflectionUtils.FindTypeByFullName(name);
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+          Type type = assembly.GetType(name);
+          if (type != null) {
         _typeCache.Add(name, type);
         return type;
+      }
+        }
+
+        _typeCache.Add(name, null);
+        return null;
       }
 
       public static Action OpenURL(string url, params object[] args) {
@@ -15808,852 +16272,6 @@ namespace Fusion.Editor {
 #endregion
 
 
-#region Assets/Photon/Fusion/Editor/FusionUnityInternal.Common.cs
-
-// merged UnityInternal
-
-#region UnityInternal.AssetDatabase.cs
-
-namespace Fusion.Editor {
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class AssetDatabase {
-      public delegate bool TryGetAssetFolderInfoDelegate(string path, out bool rootFolder, out bool immutable);
-      public static readonly TryGetAssetFolderInfoDelegate TryGetAssetFolderInfo = typeof(UnityEditor.AssetDatabase).CreateMethodDelegate<TryGetAssetFolderInfoDelegate>(
-#if UNITY_6000_0_OR_NEWER
-        nameof(TryGetAssetFolderInfo)
-#else
-        "GetAssetFolderInfo"
-#endif
-);
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.AssetImporter.cs
-
-namespace Fusion.Editor {
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class AssetImporter {
-      public delegate long MakeLocalFileIDWithHashDelegate(int persistentTypeId, string name, long offset);
-      public static readonly MakeLocalFileIDWithHashDelegate MakeLocalFileIDWithHash = typeof(UnityEditor.AssetImporter).CreateMethodDelegate<MakeLocalFileIDWithHashDelegate>(nameof(MakeLocalFileIDWithHash));
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.cs
-
-namespace Fusion.Editor {
-  static partial class UnityInternal {
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.DecoratorDrawer.cs
-
-namespace Fusion.Editor {
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class DecoratorDrawer {
-      private static InstanceAccessor<PropertyAttribute> m_Attribute = typeof(UnityEditor.DecoratorDrawer).CreateFieldAccessor<PropertyAttribute>(nameof(m_Attribute));
-
-      public static void SetAttribute(UnityEditor.DecoratorDrawer drawer, PropertyAttribute attribute) {
-        m_Attribute.SetValue(drawer, attribute);
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.Editor.cs
-
-namespace Fusion.Editor {
-  using System.Reflection;
-  using UnityEditor;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class Editor {
-      public delegate bool DoDrawDefaultInspectorDelegate(SerializedObject obj);
-      public delegate void BoolSetterDelegate(UnityEditor.Editor editor, bool value);
-
-      public static readonly DoDrawDefaultInspectorDelegate DoDrawDefaultInspector = typeof(UnityEditor.Editor).CreateMethodDelegate<DoDrawDefaultInspectorDelegate>(nameof(DoDrawDefaultInspector));
-      public static readonly BoolSetterDelegate InternalSetHidden = typeof(UnityEditor.Editor).CreateMethodDelegate<BoolSetterDelegate>(nameof(InternalSetHidden), BindingFlags.NonPublic | BindingFlags.Instance);
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.EditorApplication.cs
-
-namespace Fusion.Editor {
-  using System;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class EditorApplication {
-      public static readonly Action Internal_CallAssetLabelsHaveChanged = typeof(UnityEditor.EditorApplication).CreateMethodDelegate<Action>(nameof(Internal_CallAssetLabelsHaveChanged));
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.EditorGUI.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class EditorGUI {
-      public delegate string DelayedTextFieldInternalDelegate(Rect position, int id, GUIContent label, string value, string allowedLetters, GUIStyle style);
-      public delegate Rect MultiFieldPrefixLabelDelegate(Rect totalPosition, int id, GUIContent label, int columns);
-      public delegate string TextFieldInternalDelegate(int id, Rect position, string text, GUIStyle style);
-      public delegate string ToolbarSearchFieldDelegate(int id, Rect position, string text, bool showWithPopupArrow);
-      public delegate bool DefaultPropertyFieldDelegate(Rect position, UnityEditor.SerializedProperty property, GUIContent label);
-
-
-      public static readonly MultiFieldPrefixLabelDelegate MultiFieldPrefixLabel = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<MultiFieldPrefixLabelDelegate>(nameof(MultiFieldPrefixLabel));
-      public static readonly TextFieldInternalDelegate TextFieldInternal = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<TextFieldInternalDelegate>(nameof(TextFieldInternal));
-      public static readonly ToolbarSearchFieldDelegate ToolbarSearchField = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<ToolbarSearchFieldDelegate>(nameof(ToolbarSearchField));
-      public static readonly DelayedTextFieldInternalDelegate DelayedTextFieldInternal = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<DelayedTextFieldInternalDelegate>(nameof(DelayedTextFieldInternal));
-      public static readonly DefaultPropertyFieldDelegate DefaultPropertyField = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<DefaultPropertyFieldDelegate>(nameof(DefaultPropertyField));
-
-      private static readonly FieldInfo s_TextFieldHash = typeof(UnityEditor.EditorGUI).GetFieldOrThrow(nameof(s_TextFieldHash));
-      private static readonly FieldInfo s_DelayedTextFieldHash = typeof(UnityEditor.EditorGUI).GetFieldOrThrow(nameof(s_DelayedTextFieldHash));
-      private static readonly StaticAccessor<float> s_indent = typeof(UnityEditor.EditorGUI).CreateStaticPropertyAccessor<float>(nameof(indent));
-      public static readonly Action EndEditingActiveTextField = typeof(UnityEditor.EditorGUI).CreateMethodDelegate<Action>(nameof(EndEditingActiveTextField));
-
-      public static int TextFieldHash => (int)s_TextFieldHash.GetValue(null);
-      public static int DelayedTextFieldHash => (int)s_DelayedTextFieldHash.GetValue(null);
-      internal static float indent => s_indent.GetValue();
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.EditorGUIUtility.cs
-
-namespace Fusion.Editor {
-  using UnityEditor;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class EditorGUIUtility {
-      private static readonly StaticAccessor<int> s_LastControlID = typeof(UnityEditor.EditorGUIUtility).CreateStaticFieldAccessor<int>(nameof(s_LastControlID));
-
-      private static readonly StaticAccessor<float> _contentWidth = typeof(UnityEditor.EditorGUIUtility).CreateStaticPropertyAccessor<float>(nameof(contextWidth));
-      public static int LastControlID => s_LastControlID.GetValue();
-      public static float contextWidth => _contentWidth.GetValue();
-
-      public delegate UnityEngine.Object GetScriptDelegate(string scriptClass);
-      public delegate Texture2D GetIconForObjectDelegate(UnityEngine.Object obj);
-      public delegate GUIContent TempContentDelegate(string text);
-      public delegate Texture2D GetHelpIconDelegate(MessageType type);
-
-      public static readonly GetScriptDelegate GetScript = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<GetScriptDelegate>(nameof(GetScript));
-      public static readonly GetIconForObjectDelegate GetIconForObject = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<GetIconForObjectDelegate>(nameof(GetIconForObject));
-      public static readonly TempContentDelegate TempContent = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<TempContentDelegate>(nameof(TempContent));
-      public static readonly GetHelpIconDelegate GetHelpIcon = typeof(UnityEditor.EditorGUIUtility).CreateMethodDelegate<GetHelpIconDelegate>(nameof(GetHelpIcon));
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.EditorUtility.cs
-
-namespace Fusion.Editor {
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class EditorUtility {
-      public delegate void DisplayCustomMenuDelegate(Rect position, string[] options, int[] selected, UnityEditor.EditorUtility.SelectMenuItemFunction callback, object userData);
-
-      public static DisplayCustomMenuDelegate DisplayCustomMenu = typeof(UnityEditor.EditorUtility).CreateMethodDelegate<DisplayCustomMenuDelegate>(nameof(DisplayCustomMenu), BindingFlags.NonPublic | BindingFlags.Static);
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.Event.cs
-
-namespace Fusion.Editor {
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class Event {
-      static readonly StaticAccessor<UnityEngine.Event> s_Current_ = typeof(UnityEngine.Event).CreateStaticFieldAccessor<UnityEngine.Event>(nameof(s_Current));
-      public static UnityEngine.Event s_Current => s_Current_.GetValue();
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.GUIClip.cs
-
-namespace Fusion.Editor {
-  using System;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class GUIClip {
-      public static Type InternalType = typeof(UnityEngine.GUIUtility).Assembly.GetType("UnityEngine.GUIClip", true);
-
-      private static readonly StaticAccessor<Rect> _visibleRect = InternalType.CreateStaticPropertyAccessor<Rect>(nameof(visibleRect));
-      public static Rect visibleRect => _visibleRect.GetValue();
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.HandleUtility.cs
-
-namespace Fusion.Editor {
-  using System;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class HandleUtility {
-      public static readonly Action ApplyWireMaterial = typeof(UnityEditor.HandleUtility).CreateMethodDelegate<Action>(nameof(ApplyWireMaterial));
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.HierarchyIterator.cs
-
-namespace Fusion.Editor {
-  using System.Reflection;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class HierarchyIterator {
-#if UNITY_6000_3_OR_NEWER
-      public delegate void CopySearchFilterFromDelegate(UnityEditor.HierarchyIterator to, UnityEditor.HierarchyIterator from);
-      public static CopySearchFilterFromDelegate CopySearchFilterFrom = typeof(UnityEditor.HierarchyIterator).CreateMethodDelegate<CopySearchFilterFromDelegate>(nameof(CopySearchFilterFrom),
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-#else
-      public delegate void CopySearchFilterFromDelegate(UnityEditor.HierarchyProperty to, UnityEditor.HierarchyProperty from);
-      public static CopySearchFilterFromDelegate CopySearchFilterFrom = typeof(UnityEditor.HierarchyProperty).CreateMethodDelegate<CopySearchFilterFromDelegate>(nameof(CopySearchFilterFrom),
-        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-#endif
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.InspectorWindow.cs
-
-namespace Fusion.Editor {
-  using System;
-  using UnityEditor;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public class InspectorWindow {
-      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.InspectorWindow", true);
-      public static readonly InstanceAccessor<bool> _isLockedAccessor = InternalType.CreatePropertyAccessor<bool>(nameof(isLocked));
-
-      private readonly EditorWindow _instance;
-
-      public InspectorWindow(EditorWindow instance) {
-        if (instance == null) {
-          throw new ArgumentNullException(nameof(instance));
-        }
-
-        _instance = instance;
-      }
-
-      public bool isLocked {
-        get => _isLockedAccessor.GetValue(_instance);
-        set => _isLockedAccessor.SetValue(_instance, value);
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.InternalStyles.cs
-
-namespace Fusion.Editor {
-  using System;
-  using UnityEngine;
-
-  partial class UnityInternal {
-    public sealed class InternalStyles {
-      public static InternalStyles Instance = new InternalStyles();
-
-      internal LazyGUIStyle InspectorTitlebar => LazyGUIStyle.Create(_ => GetStyle("IN Title"));
-      internal LazyGUIStyle FoldoutTitlebar => LazyGUIStyle.Create(_ => GetStyle("Titlebar Foldout", "Foldout"));
-      internal LazyGUIStyle BoxWithBorders => LazyGUIStyle.Create(_ => GetStyle("OL Box"));
-      internal LazyGUIStyle HierarchyTreeViewLine => LazyGUIStyle.Create(_ => GetStyle("TV Line"));
-      internal LazyGUIStyle HierarchyTreeViewSceneBackground => LazyGUIStyle.Create(_ => GetStyle("SceneTopBarBg", "ProjectBrowserTopBarBg"));
-      internal LazyGUIStyle OptionsButtonStyle => LazyGUIStyle.Create(_ => GetStyle("PaneOptions"));
-      internal LazyGUIStyle AddComponentButton => LazyGUIStyle.Create(_ => GetStyle("AC Button"));
-      internal LazyGUIStyle AnimationEventTooltip => LazyGUIStyle.Create(_ => GetStyle("AnimationEventTooltip"));
-      internal LazyGUIStyle AnimationEventTooltipArrow => LazyGUIStyle.Create(_ => GetStyle("AnimationEventTooltipArrow"));
-
-      private static GUIStyle GetStyle(params string[] names) {
-        var skin = GUI.skin;
-
-        foreach (var name in names) {
-          var result = skin.FindStyle(name);
-          if (result != null) {
-            return result;
-          }
-        }
-
-        throw new ArgumentOutOfRangeException($"Style not found: {string.Join(", ", names)}", nameof(names));
-      }
-    }
-
-    public static InternalStyles Styles => InternalStyles.Instance;
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.LayerMatrixGUI.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class LayerMatrixGUI {
-      private const string TypeName =
-#if UNITY_2023_1_OR_NEWER
-        "UnityEditor.LayerCollisionMatrixGUI2D";
-#else
-        "UnityEditor.LayerMatrixGUI";
-#endif
-
-      private static readonly Type InternalType =
-#if UNITY_2023_1_OR_NEWER
-        FindAssembly("UnityEditor.Physics2DModule")?.GetType(TypeName, true);
-#else
-        typeof(UnityEditor.Editor).Assembly.GetType(TypeName, true);
-#endif
-
-      private static readonly Type InternalGetValueFuncType = InternalType?.GetNestedTypeOrThrow(nameof(GetValueFunc), BindingFlags.Public);
-      private static readonly Type InternalSetValueFuncType = InternalType?.GetNestedTypeOrThrow(nameof(SetValueFunc), BindingFlags.Public);
-
-#if UNITY_2023_1_OR_NEWER
-      private static readonly Delegate _Draw = InternalType?.CreateMethodDelegate(nameof(Draw), BindingFlags.Public | BindingFlags.Static,
-        typeof(Action<,,>).MakeGenericType(
-          typeof(GUIContent), InternalGetValueFuncType, InternalSetValueFuncType)
-      );
-#else
-      private delegate void Ref2Action<T1, T2, T3, T4>(T1 t1, ref T2 t2, T3 t3, T4 t4);
-
-      private static readonly Delegate _DoGUI = InternalType?.CreateMethodDelegate("DoGUI", BindingFlags.Public | BindingFlags.Static,
-        typeof(Ref2Action<,,,>).MakeGenericType(
-          typeof(GUIContent), typeof(bool), InternalGetValueFuncType, InternalSetValueFuncType)
-      );
-#endif
-
-      public delegate bool GetValueFunc(int layerA, int layerB);
-      public delegate void SetValueFunc(int layerA, int layerB, bool val);
-
-      public static void Draw(GUIContent label, GetValueFunc getValue, SetValueFunc setValue) {
-        if (InternalType == null) {
-          throw new InvalidOperationException($"{TypeName} not found");
-        }
-
-        var getter = Delegate.CreateDelegate(InternalGetValueFuncType, getValue.Target, getValue.Method);
-        var setter = Delegate.CreateDelegate(InternalSetValueFuncType, setValue.Target, setValue.Method);
-
-#if UNITY_2023_1_OR_NEWER
-        _Draw.DynamicInvoke(label, getter, setter);
-#else
-        bool show = true;
-        var args = new object[] { label, show, getter, setter };
-        _DoGUI.DynamicInvoke(args);
-#endif
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.ObjectSelector.cs
-
-namespace Fusion.Editor {
-  using System;
-  using UnityEditor;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    public struct ObjectSelector {
-      [UnityEditor.InitializeOnLoad]
-      private static class Statics {
-        public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ObjectSelector", true);
-        public static readonly StaticAccessor<bool> _tooltip = InternalType.CreateStaticPropertyAccessor<bool>(nameof(isVisible));
-        public static readonly StaticAccessor<EditorWindow> _get = InternalType.CreateStaticPropertyAccessor<EditorWindow>(nameof(get), InternalType);
-        public static readonly InstanceAccessor<string> _searchFilter = InternalType.CreatePropertyAccessor<string>(nameof(searchFilter));
-      }
-
-      private EditorWindow _instance;
-
-      public static bool isVisible => Statics._tooltip.GetValue();
-
-      public static ObjectSelector get => new() {
-        _instance = Statics._get.GetValue()
-      };
-
-      public string searchFilter {
-        get => Statics._searchFilter.GetValue(_instance);
-        set => Statics._searchFilter.SetValue(_instance, value);
-      }
-
-      private static readonly InstanceAccessor<int> _objectSelectorID = Statics.InternalType.CreateFieldAccessor<int>(nameof(objectSelectorID));
-      public int objectSelectorID => _objectSelectorID.GetValue(_instance);
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.PropertyDrawer.cs
-
-namespace Fusion.Editor {
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class PropertyDrawer {
-      private static InstanceAccessor<PropertyAttribute> m_Attribute = typeof(UnityEditor.PropertyDrawer).CreateFieldAccessor<PropertyAttribute>(nameof(m_Attribute));
-      private static InstanceAccessor<FieldInfo> m_FieldInfo = typeof(UnityEditor.PropertyDrawer).CreateFieldAccessor<FieldInfo>(nameof(m_FieldInfo));
-
-      public static void SetAttribute(UnityEditor.PropertyDrawer drawer, PropertyAttribute attribute) {
-        m_Attribute.SetValue(drawer, attribute);
-      }
-
-      public static void SetFieldInfo(UnityEditor.PropertyDrawer drawer, FieldInfo fieldInfo) {
-        m_FieldInfo.SetValue(drawer, fieldInfo);
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.PropertyHandler.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Collections.Generic;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    public struct PropertyHandler : IEquatable<PropertyHandler> {
-      [UnityEditor.InitializeOnLoad]
-      private static class Statics {
-        public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.PropertyHandler", true);
-        public static readonly InstanceAccessor<List<UnityEditor.DecoratorDrawer>> m_DecoratorDrawers = InternalType.CreateFieldAccessor<List<UnityEditor.DecoratorDrawer>>(nameof(m_DecoratorDrawers));
-        public static readonly InstanceAccessor<List<UnityEditor.PropertyDrawer>> m_PropertyDrawers = InternalType.CreateFieldAccessor<List<UnityEditor.PropertyDrawer>>(nameof(m_PropertyDrawers));
-      }
-
-
-      public static Type InternalType => Statics.InternalType;
-
-      public object _instance;
-
-      internal static PropertyHandler Wrap(object instance) {
-        return new() {
-          _instance = instance
-        };
-      }
-
-      public static PropertyHandler New() {
-        return Wrap(Activator.CreateInstance(InternalType));
-      }
-
-      public List<UnityEditor.PropertyDrawer> m_PropertyDrawers {
-        get => Statics.m_PropertyDrawers.GetValue(_instance);
-        set => Statics.m_PropertyDrawers.SetValue(_instance, value);
-      }
-
-      public bool Equals(PropertyHandler other) {
-        return _instance == other._instance;
-      }
-
-      public override int GetHashCode() {
-        return _instance?.GetHashCode() ?? 0;
-      }
-
-      public override bool Equals(object obj) {
-        return obj is PropertyHandler h ? Equals(h) : false;
-      }
-
-      public List<UnityEditor.DecoratorDrawer> decoratorDrawers {
-        get => Statics.m_DecoratorDrawers.GetValue(_instance);
-        set => Statics.m_DecoratorDrawers.SetValue(_instance, value);
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.PropertyHandlerCache.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Collections;
-  using System.Collections.Generic;
-  using System.Reflection;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    public struct PropertyHandlerCache {
-      [UnityEditor.InitializeOnLoad]
-      private static class Statics {
-        public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.PropertyHandlerCache", true);
-        public static readonly GetPropertyHashDelegate GetPropertyHash = InternalType.CreateMethodDelegate<GetPropertyHashDelegate>(nameof(GetPropertyHash));
-
-        public static readonly GetHandlerDelegate GetHandler = InternalType.CreateMethodDelegate<GetHandlerDelegate>(nameof(GetHandler), BindingFlags.NonPublic | BindingFlags.Instance,
-          MakeFuncType(InternalType, typeof(UnityEditor.SerializedProperty), PropertyHandler.InternalType));
-
-        public static readonly SetHandlerDelegate SetHandler = InternalType.CreateMethodDelegate<SetHandlerDelegate>(nameof(SetHandler), BindingFlags.NonPublic | BindingFlags.Instance,
-          MakeActionType(InternalType, typeof(UnityEditor.SerializedProperty), PropertyHandler.InternalType));
-
-        public static readonly FieldInfo m_PropertyHandlers = InternalType.GetFieldOrThrow(nameof(m_PropertyHandlers));
-      }
-
-      public static Type InternalType => Statics.InternalType;
-
-      public delegate int GetPropertyHashDelegate(UnityEditor.SerializedProperty property);
-
-      public delegate object GetHandlerDelegate(object instance, UnityEditor.SerializedProperty property);
-
-      public delegate void SetHandlerDelegate(object instance, UnityEditor.SerializedProperty property, object handlerInstance);
-
-      public object _instance;
-
-      public PropertyHandler GetHandler(UnityEditor.SerializedProperty property) {
-        return new PropertyHandler {
-          _instance = Statics.GetHandler(_instance, property)
-        };
-      }
-
-      public void SetHandler(UnityEditor.SerializedProperty property, PropertyHandler newHandler) {
-        Statics.SetHandler(_instance, property, newHandler._instance);
-      }
-
-      public IEnumerable<(int, PropertyHandler)> PropertyHandlers {
-        get {
-          var dict = (IDictionary)Statics.m_PropertyHandlers.GetValue(_instance);
-          foreach (DictionaryEntry entry in dict) {
-            yield return ((int)entry.Key, PropertyHandler.Wrap(entry.Value));
-          }
-        }
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.ScriptAttributeUtility.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Collections.Generic;
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class ScriptAttributeUtility {
-
-      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ScriptAttributeUtility", true);
-
-      public delegate FieldInfo GetFieldInfoFromPropertyDelegate(UnityEditor.SerializedProperty property, out Type type);
-      public static readonly GetFieldInfoFromPropertyDelegate GetFieldInfoFromProperty =
-        InternalType.CreateMethodDelegate<GetFieldInfoFromPropertyDelegate>(
-          "GetFieldInfoFromProperty",
-          BindingFlags.Static | BindingFlags.NonPublic);
-
-      public delegate Type GetDrawerTypeForTypeDelegate(Type type, bool isManagedReference);
-      public static readonly GetDrawerTypeForTypeDelegate GetDrawerTypeForType =
-        InternalType.CreateMethodDelegate<GetDrawerTypeForTypeDelegate>(
-          "GetDrawerTypeForType",
-          BindingFlags.Static | BindingFlags.NonPublic,
-          null,
-          DelegateSwizzle<Type, bool>.Make((t, b) => t), // post 2023.3
-          DelegateSwizzle<Type, bool>.Make((t, b) => t, (t, b) => (Type[])null, (t, b) => b) // pre 2023.3.23
-        );
-
-      public delegate Type GetDrawerTypeForPropertyAndTypeDelegate(UnityEditor.SerializedProperty property, Type type);
-      public static readonly GetDrawerTypeForPropertyAndTypeDelegate GetDrawerTypeForPropertyAndType =
-        InternalType.CreateMethodDelegate<GetDrawerTypeForPropertyAndTypeDelegate>(
-          "GetDrawerTypeForPropertyAndType",
-          BindingFlags.Static | BindingFlags.NonPublic);
-
-      private static readonly GetHandlerDelegate _GetHandler = InternalType.CreateMethodDelegate<GetHandlerDelegate>("GetHandler", BindingFlags.NonPublic | BindingFlags.Static,
-        MakeFuncType(typeof(UnityEditor.SerializedProperty), PropertyHandler.InternalType)
-      );
-
-      public delegate List<PropertyAttribute> GetFieldAttributesDelegate(FieldInfo field);
-      public static readonly GetFieldAttributesDelegate GetFieldAttributes = InternalType.CreateMethodDelegate<GetFieldAttributesDelegate>(nameof(GetFieldAttributes));
-
-      private static readonly StaticAccessor<object> _propertyHandlerCache = InternalType.CreateStaticPropertyAccessor(nameof(propertyHandlerCache), PropertyHandlerCache.InternalType);
-
-      private static readonly StaticAccessor<object> s_SharedNullHandler = InternalType.CreateStaticFieldAccessor("s_SharedNullHandler", PropertyHandler.InternalType);
-      private static readonly StaticAccessor<object> s_NextHandler = InternalType.CreateStaticFieldAccessor("s_NextHandler", PropertyHandler.InternalType);
-
-      public static PropertyHandlerCache propertyHandlerCache => new() {
-        _instance = _propertyHandlerCache.GetValue()
-      };
-
-      public static PropertyHandler sharedNullHandler => PropertyHandler.Wrap(s_SharedNullHandler.GetValue());
-      public static PropertyHandler nextHandler => PropertyHandler.Wrap(s_NextHandler.GetValue());
-
-      public static PropertyHandler GetHandler(UnityEditor.SerializedProperty property) {
-        return PropertyHandler.Wrap(_GetHandler(property));
-      }
-
-      private delegate object GetHandlerDelegate(UnityEditor.SerializedProperty property);
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.SerializedProperty.cs
-
-namespace Fusion.Editor {
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class SerializedProperty {
-      //public static readonly InstanceAccessor<int> hashCodeForPropertyPath                  = typeof(UnityEditor.SerializedProperty).CreatePropertyAccessor<int>(nameof(hashCodeForPropertyPath));
-      public static readonly InstanceAccessor<int> hashCodeForPropertyPathWithoutArrayIndex = typeof(UnityEditor.SerializedProperty).CreatePropertyAccessor<int>(nameof(hashCodeForPropertyPathWithoutArrayIndex));
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.SplitterGUILayout.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    public static class SplitterGUILayout {
-      public static readonly Action EndHorizontalSplit = CreateMethodDelegate<Action>(typeof(UnityEditor.Editor).Assembly,
-        "UnityEditor.SplitterGUILayout", "EndHorizontalSplit", BindingFlags.Public | BindingFlags.Static
-      );
-
-      public static readonly Action EndVerticalSplit = CreateMethodDelegate<Action>(typeof(UnityEditor.Editor).Assembly,
-        "UnityEditor.SplitterGUILayout", "EndVerticalSplit", BindingFlags.Public | BindingFlags.Static
-      );
-
-      public static void BeginHorizontalSplit(SplitterState splitterState, GUIStyle style, params GUILayoutOption[] options) {
-        _beginHorizontalSplit.DynamicInvoke(splitterState.InternalState, style, options);
-      }
-
-      public static void BeginVerticalSplit(SplitterState splitterState, GUIStyle style, params GUILayoutOption[] options) {
-        _beginVerticalSplit.DynamicInvoke(splitterState.InternalState, style, options);
-      }
-
-      private static readonly Delegate _beginHorizontalSplit = CreateMethodDelegate(typeof(UnityEditor.Editor).Assembly,
-        "UnityEditor.SplitterGUILayout", "BeginHorizontalSplit", BindingFlags.Public | BindingFlags.Static,
-        typeof(Action<,,>).MakeGenericType(SplitterState.InternalType, typeof(GUIStyle), typeof(GUILayoutOption[]))
-      );
-
-      private static readonly Delegate _beginVerticalSplit = CreateMethodDelegate(typeof(UnityEditor.Editor).Assembly,
-        "UnityEditor.SplitterGUILayout", "BeginVerticalSplit", BindingFlags.Public | BindingFlags.Static,
-        typeof(Action<,,>).MakeGenericType(SplitterState.InternalType, typeof(GUIStyle), typeof(GUILayoutOption[]))
-      );
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.SplitterState.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Reflection;
-  using UnityEngine;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [UnityEditor.InitializeOnLoad]
-    [Serializable]
-    public class SplitterState : ISerializationCallbackReceiver {
-
-      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.SplitterState", true);
-      private static readonly FieldInfo _relativeSizes = InternalType.GetFieldOrThrow("relativeSizes");
-      private static readonly FieldInfo _realSizes = InternalType.GetFieldOrThrow("realSizes");
-      private static readonly FieldInfo _splitSize = InternalType.GetFieldOrThrow("splitSize");
-
-      public string Json = "{}";
-
-      [NonSerialized]
-      public object InternalState = FromRelativeInner(new[] { 1.0f });
-
-      void ISerializationCallbackReceiver.OnAfterDeserialize() {
-        InternalState = JsonUtility.FromJson(Json, InternalType);
-      }
-
-      void ISerializationCallbackReceiver.OnBeforeSerialize() {
-        Json = JsonUtility.ToJson(InternalState);
-      }
-
-      public static SplitterState FromRelative(float[] relativeSizes, int[] minSizes = null, int[] maxSizes = null, int splitSize = 0) {
-        var result = new SplitterState();
-        result.InternalState = FromRelativeInner(relativeSizes, minSizes, maxSizes, splitSize);
-        return result;
-      }
-
-
-      private static object FromRelativeInner(float[] relativeSizes, int[] minSizes = null, int[] maxSizes = null, int splitSize = 0) {
-        return Activator.CreateInstance(InternalType, BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.CreateInstance,
-          null,
-          new object[] { relativeSizes, minSizes, maxSizes, splitSize },
-          null, null);
-      }
-
-      public float[] realSizes => ConvertArray((Array)_realSizes.GetValue(InternalState));
-      public float[] relativeSizes => ConvertArray((Array)_relativeSizes.GetValue(InternalState));
-      public float splitSize => Convert.ToSingle(_splitSize.GetValue(InternalState));
-
-      private static float[] ConvertArray(Array value) {
-        float[] result = new float[value.Length];
-        for (int i = 0; i < value.Length; ++i) {
-          result[i] = Convert.ToSingle(value.GetValue(i));
-        }
-        return result;
-      }
-    }
-  }
-}
-
-#endregion
-
-
-#region UnityInternal.UnityType.cs
-
-namespace Fusion.Editor {
-  using System;
-  using System.Reflection;
-  using UnityEditor;
-  using static ReflectionUtils;
-
-  partial class UnityInternal {
-    [InitializeOnLoad]
-    public class UnityType {
-      public static readonly Type InternalType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.UnityType", true);
-
-      static readonly Delegate FindTypeByNameDelegate = InternalType?.CreateMethodDelegate(nameof(FindTypeByName), BindingFlags.Public | BindingFlags.Static,
-        typeof(Func<,>).MakeGenericType(typeof(string), InternalType)
-      );
-
-      static readonly InstanceAccessor<int> PersistentTypeIDAccessor = InternalType.CreatePropertyAccessor<int>(nameof(persistentTypeID));
-
-      readonly object _instance;
-
-      public UnityType(object instance) {
-        _instance = instance ?? throw new ArgumentNullException(nameof(instance));
-      }
-
-      public static UnityType FindTypeByName(string name) {
-        var instance = FindTypeByNameDelegate.DynamicInvoke(name);
-        return instance == null ? null : new UnityType(instance);
-      }
-
-      public int persistentTypeID => PersistentTypeIDAccessor.GetValue(_instance);
-    }
-  }
-}
-
-#endregion
-
-
-
-#endregion
-
-
 #region Assets/Photon/Fusion/Editor/FusionUnitySurrogateBaseWrapper.cs
 
 ﻿namespace Fusion.Editor {
@@ -16945,14 +16563,14 @@ namespace Fusion.Editor {
       if (animator.Animator == null) {
         animator.Animator = animator.GetComponent<Animator>();
         if (animator.Animator == null) {
-          FusionEditorLog.Error($"Cannot bake [{animator.name}] with a {nameof(NetworkMecanimAnimator)} without an {nameof(Animator)} assigned!", animator.gameObject);
+          FusionEditorLog.Error($"Cannot bake {animator.name}'s {nameof(NetworkMecanimAnimator)} without an {nameof(Animator)} assigned!", animator.gameObject);
           return false;
         } else {
           dirty = true;
         }
       }
       if (AnimatorControllerTools.GetController(animator.Animator) == null) {
-        FusionEditorLog.Error($"Cannot bake [{animator.name}] with a {nameof(NetworkMecanimAnimator)} without an {nameof(UnityEditor.Animations.AnimatorController)} assigned to its {nameof(Animator)}!", animator.gameObject);
+        FusionEditorLog.Error($"Cannot bake {animator.name}'s {nameof(NetworkMecanimAnimator)} without an {nameof(UnityEditor.Animations.AnimatorController)} assigned to its {nameof(Animator)}!", animator.gameObject);
         return dirty;
       }
       
@@ -17056,8 +16674,6 @@ namespace Fusion.Editor {
       hash = HashCodeUtilities.GetHashCodeDeterministic(globalId.assetGUID, hash);
       hash = HashCodeUtilities.GetHashCodeDeterministic(globalId.targetObjectId, hash);
       hash = HashCodeUtilities.GetHashCodeDeterministic(globalId.targetPrefabId, hash);
-      
-      Assert.Check(hash != 0);
       
       return (uint)hash;
     }

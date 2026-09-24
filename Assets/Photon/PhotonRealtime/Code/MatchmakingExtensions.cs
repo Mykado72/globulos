@@ -170,7 +170,7 @@ namespace Photon.Realtime
 
             if (arguments.ReconnectInformation.HasTimedOut)
             {
-                Log.Warn($"ReconnectInformation timed out: {arguments.ReconnectInformation.Timeout} (now = {DateTime.UtcNow} UTC)");
+                Log.Warn($"ReconnectInformation timed out: {arguments.ReconnectInformation.Timeout} (now = {DateTime.Now})");
             }
 
             Log.Info($"Reconnecting to room {arguments.ReconnectInformation.Room}");
@@ -621,7 +621,7 @@ namespace Photon.Realtime
 #if NETCOREAPP3_1_OR_GREATER
       [JsonIgnore]
 #endif
-        public bool HasTimedOut => Timeout < DateTime.UtcNow;
+        public bool HasTimedOut => Timeout < DateTime.Now;
 
         /// <summary>
         /// Set is called from the matchmaking when the connection has been successful.
@@ -645,7 +645,7 @@ namespace Photon.Realtime
 
             Room = client.CurrentRoom.Name;
             Region = client.CurrentRegion;
-            Timeout = DateTime.UtcNow + timeSpan;
+            Timeout = DateTime.Now + timeSpan;
             UserId = client.UserId;
             AppVersion = client.AppSettings.AppVersion;
         }

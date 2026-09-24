@@ -4,17 +4,11 @@
 
 // merged AssemblyAttributes
 
-#region DetectEnableProfiler.cs
-
-[assembly: Fusion.MarkProfilerAsEnabledIfEnableProfilerDefinedAttribute]
-
-#endregion
-
-
 #region DetectUnityDefines.cs
 
 [assembly: Fusion.MarkPlatformAsIL2CPPIfEnableIL2CPPDefined]
 [assembly: Fusion.MarkPlatformAsWebIfUnityWebGlDefined]
+[assembly: Fusion.MarkProfilerAsEnabledIfEnableProfilerDefinedAttribute]
 
 #endregion
 

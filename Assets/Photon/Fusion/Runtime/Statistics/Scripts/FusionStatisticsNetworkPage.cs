@@ -14,13 +14,6 @@
     [SerializeField] private LineChart _outPackets;
     [SerializeField] private LineChart _inputInBandwidth;
     [SerializeField] private LineChart _inputOutBandwidth;
-    [SerializeField] private LineChart _outPacketsGame;
-    [SerializeField] private LineChart _outPacketsReliable;
-    [SerializeField] private LineChart _outPacketsStreaming;
-    [SerializeField] private LineChart _gameQueueDepth;
-    [SerializeField] private LineChart _reliableQueueDepth;
-    [SerializeField] private LineChart _fragmentGroupsLost;
-    [SerializeField] private LineChart _fragmentGroupSize;
 
     private float _lastRTT; // used instead of 0.
 
@@ -37,13 +30,6 @@
       _outPackets.Setup("Out Packets", unitTable);
       _inputInBandwidth.Setup("Input In Bandwidth", byteTable, byteLabel);
       _inputOutBandwidth.Setup("Input Out Bandwidth", byteTable, byteLabel);
-      _outPacketsGame?.Setup("Out Packets (Game)", unitTable);
-      _outPacketsReliable?.Setup("Out Packets (Reliable)", unitTable);
-      _outPacketsStreaming?.Setup("Out Packets (Streaming)", unitTable);
-      _gameQueueDepth?.Setup("Game Queue Depth", unitTable);
-      _reliableQueueDepth?.Setup("Reliable Queue Depth", unitTable);
-      _fragmentGroupsLost?.Setup("Fragment Groups Lost", unitTable);
-      _fragmentGroupSize?.Setup("Fragment Group Size", unitTable);
     }
 
     /// <inheritdoc />
@@ -55,14 +41,6 @@
       _outPackets.RefreshDisplay();
       _inputInBandwidth.RefreshDisplay();
       _inputOutBandwidth.RefreshDisplay();
-
-      _outPacketsGame?.RefreshDisplay();
-      _outPacketsReliable?.RefreshDisplay();
-      _outPacketsStreaming?.RefreshDisplay();
-      _gameQueueDepth?.RefreshDisplay();
-      _reliableQueueDepth?.RefreshDisplay();
-      _fragmentGroupsLost?.RefreshDisplay();
-      _fragmentGroupSize?.RefreshDisplay();
     }
 
     /// <inheritdoc />
@@ -89,16 +67,6 @@
       _outPackets.AddValue(outP);
       _inputInBandwidth.AddValue(inInput);
       _inputOutBandwidth.AddValue(outInput);
-
-      // State-fragment / per-channel diagnostics (null-guarded - only render once wired into the prefab).
-      var stats = StatisticsManager.SimulationSnapshot.Stats;
-      _outPacketsGame?.AddValue(stats.GetValueOrDefault(FusionStatType.OutPacketsGame, 0));
-      _outPacketsReliable?.AddValue(stats.GetValueOrDefault(FusionStatType.OutPacketsReliable, 0));
-      _outPacketsStreaming?.AddValue(stats.GetValueOrDefault(FusionStatType.OutPacketsStreaming, 0));
-      _gameQueueDepth?.AddValue(stats.GetValueOrDefault(FusionStatType.GameQueueDepth, 0));
-      _reliableQueueDepth?.AddValue(stats.GetValueOrDefault(FusionStatType.ReliableQueueDepth, 0));
-      _fragmentGroupsLost?.AddValue(stats.GetValueOrDefault(FusionStatType.StateFragmentGroupsLost, 0));
-      _fragmentGroupSize?.AddValue(stats.GetValueOrDefault(FusionStatType.StateFragmentGroupSize, 0));
     }
   }
 }

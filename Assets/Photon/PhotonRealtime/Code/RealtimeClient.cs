@@ -775,12 +775,6 @@ namespace Photon.Realtime
             switch (serverType)
             {
                 case ServerConnection.NameServer:
-                    // use WSS as transport on NameServer for AuthOnceWss
-                    if (this.AppSettings.AuthMode == AuthModeOption.AuthOnceWss)
-                    {
-                        this.RealtimePeer.TransportProtocol = ConnectionProtocol.WebSocketSecure;
-                    }
-
                     serverAddress = this.GetNameServerAddress();
                     stateOnSuccess = ClientState.ConnectingToNameServer;
 
@@ -789,6 +783,8 @@ namespace Photon.Realtime
                     {
                         this.AuthValues.Token = null;
                     }
+                    // may have to use WSS as transport
+                    this.RealtimePeer.TransportProtocol = ConnectionProtocol.WebSocketSecure;
                     break;
 
                 case ServerConnection.MasterServer:
