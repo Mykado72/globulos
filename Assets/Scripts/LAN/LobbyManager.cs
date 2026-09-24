@@ -38,6 +38,10 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     public string playerNickname => _playerNickname;
     private bool _isLoadingScene = false;
     private Task<StartGameResult> _lobbyJoinTask; // stocker la task
+    private bool _sceneLoadConfirmed = false;
+    private int _sceneLoadRetryCount = 0;
+    private const int MaxSceneLoadRetries = 3;
+    private const float SceneLoadTimeoutSeconds = 8f;
     private void CheckPlayersAndStartGame()
     {
         if (_currentRunner == null || !_currentRunner.IsRunning) return;
@@ -79,26 +83,57 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         if (_currentRunner == null || !_currentRunner.IsRunning) return;
 
-        // S'assurer qu'on est toujours MasterClient après le délai
         if (_currentRunner.IsSharedModeMasterClient)
         {
-            int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
-            if (sceneIndex < 0)
-            {
-                sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/GameSceneLAN.unity");
-            }
-
-            if (sceneIndex >= 0)
-            {
-                Debug.Log($"[LobbyManager] 🚀 MasterClient charge la scène index : {sceneIndex}");
-                _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
-            }
-            else
-            {
-                Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
-                _isLoadingScene = false;
-            }
+            _sceneLoadConfirmed = false;
+            _sceneLoadRetryCount = 0;
+            await AttemptLoadSceneWithRetry();
         }
+    }
+
+    private async Task AttemptLoadSceneWithRetry()
+    {
+        int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
+        if (sceneIndex < 0)
+        {
+            sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/GameSceneLAN.unity");
+        }
+
+        if (sceneIndex < 0)
+        {
+            Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
+            UpdateStatus("❌ Erreur de configuration : scène introuvable.");
+            _isLoadingScene = false;
+            return;
+        }
+
+        // 🔴 On ne lance LoadScene qu'UNE fois, ici, avant la boucle.
+        _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
+        Debug.Log($"[LobbyManager] 🚀 Chargement scène index {sceneIndex}...");
+        UpdateStatus("Chargement de la partie...");
+
+        float elapsed = 0f;
+        const float pollInterval = 0.25f;
+        const float generousTimeout = 30f; // 🔴 Bien plus généreux, adapté à une mémoire contrainte
+
+        while (elapsed < generousTimeout && !_sceneLoadConfirmed)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(pollInterval));
+            elapsed += pollInterval;
+
+            if (_currentRunner == null || !_currentRunner.IsRunning) return;
+        }
+
+        if (_sceneLoadConfirmed)
+        {
+            Debug.Log("[LobbyManager] ✅ Scène chargée avec succès.");
+            return;
+        }
+        // 🔴 Après un VRAI échec (rien n'a jamais confirmé), on informe sans relancer
+        // LoadScene par-dessus un chargement peut-être encore actif.
+        Debug.LogError("[LobbyManager] ❌ Le chargement de la scène n'a pas été confirmé après " + generousTimeout + "s.");
+        UpdateStatus("❌ Le chargement prend trop de temps. Rechargez la page si besoin.");
+        _isLoadingScene = false;
     }
     private async void Start()
     {
@@ -357,7 +392,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-    public void OnSceneLoadDone(NetworkRunner runner) { }
+    public void OnSceneLoadDone(NetworkRunner runner) { _sceneLoadConfirmed = true; }
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
