@@ -174,6 +174,12 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         SetAllButtonsInteractable(false);
 
+        // 🔴 FIX : on quitte le lobby ici. Tant qu'on n'y est pas revenu (échec de connexion),
+        // OnSessionListUpdated ne doit plus toucher l'UI de room/boutons, sinon un événement
+        // résiduel de l'ancien runner de lobby (ou une future re-souscription) écrase l'état
+        // "en jeu" avec l'état "en lobby" (ce qui provoquait le yoyo des boutons).
+        _isInLobby = false;
+
         if (playerNicknameInput != null && !string.IsNullOrWhiteSpace(playerNicknameInput.text))
         {
             _playerNickname = playerNicknameInput.text.Trim();
@@ -193,18 +199,31 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         // 🔴 CRUCIAL : Quitter le Lobby proprement avant de lancer la session de jeu
         if (_currentRunner != null && _currentRunner.IsRunning)
         {
+            // 🔴 FIX : se désinscrire AVANT le Shutdown pour être sûr de ne plus recevoir
+            // aucun callback (OnSessionListUpdated, etc.) de cette instance.
+            _currentRunner.RemoveCallbacks(this);
             await _currentRunner.Shutdown();
-            _currentRunner = Instantiate(runnerPrefab);
-            _currentRunner.ProvideInput = true;
-            _currentRunner.AddCallbacks(this);
+
+            // 🔴 FIX : détruire explicitement l'ancien runner pour ne pas le laisser
+            // traîner dans la scène (fuite d'objet).
+            if (_currentRunner != null)
+            {
+                Destroy(_currentRunner.gameObject);
+            }
+            _currentRunner = null;
         }
 
+        // 🔴 FIX : StartGameSession se charge maintenant de LA SEULE instanciation du
+        // runner de jeu. On n'instancie plus un runner ici pour éviter la double
+        // instanciation (l'ancien code créait un runner ici PUIS un second dans
+        // StartGameSession, abandonnant le premier sans jamais le détruire ni le
+        // désinscrire : c'était une fuite ET une source d'événements fantômes).
         await StartGameSession(roomName);
     }
 
     private async Task StartGameSession(string roomName)
     {
-        // 1. Instanciation du nouveau Runner vierge
+        // 1. Instanciation du nouveau Runner vierge (seule instanciation du runner de jeu)
         _currentRunner = Instantiate(runnerPrefab);
         _currentRunner.ProvideInput = true;
         _currentRunner.AddCallbacks(this);
@@ -238,11 +257,17 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         else
         {
             UpdateStatus($"❌ Échec : {result.ShutdownReason}");
+
+            // 🔴 FIX : si on échoue et qu'on revient au lobby, il faut redonner la main
+            // à la logique de lobby (boutons + OnSessionListUpdated) explicitement.
+            _isInLobby = true;
+            SetAllButtonsInteractable(true);
+
             await JoinLobbySessionList();
         }
     }
 
- 
+
 
     private void UpdateStatus(string message)
     {
@@ -288,6 +313,12 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
     {
+        // 🔴 FIX : garde-fou. Si on n'est plus (ou pas encore revenu) dans le lobby,
+        // on ignore complètement cet évènement, même s'il provient d'un runner
+        // résiduel ou d'une souscription tardive. C'est ce qui empêchait l'UI de
+        // "revenir" en état lobby pendant que la partie était déjà en cours.
+        if (!_isInLobby) return;
+
         _cogepRoomExists = false;
 
         string targetRoom = GetTargetRoomName();
@@ -301,10 +332,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        if (_isInLobby)
-        {
-            UpdateButtonsState();
-        }
+        UpdateButtonsState();
     }
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
