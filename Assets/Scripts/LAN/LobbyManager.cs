@@ -37,7 +37,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public string playerNickname => _playerNickname;
     private bool _isLoadingScene = false;
-
+    private Task<StartGameResult> _lobbyJoinTask; // stocker la task
     private void CheckPlayersAndStartGame()
     {
         if (_currentRunner == null || !_currentRunner.IsRunning) return;
@@ -139,9 +139,11 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         _currentRunner.ProvideInput = true;
         _currentRunner.AddCallbacks(this);
 
-        var result = await _currentRunner.JoinSessionLobby(SessionLobby.Shared);
+        _lobbyJoinTask = _currentRunner.JoinSessionLobby(SessionLobby.Shared);
+        var result = await _lobbyJoinTask;
+
         if (result.Ok)
-        {
+        {       
             UpdateStatus("Connecté au Lobby. Recherche de sessions...");
         }
         else
@@ -174,10 +176,9 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         SetAllButtonsInteractable(false);
 
-        // 🔴 FIX : on quitte le lobby ici. Tant qu'on n'y est pas revenu (échec de connexion),
-        // OnSessionListUpdated ne doit plus toucher l'UI de room/boutons, sinon un événement
-        // résiduel de l'ancien runner de lobby (ou une future re-souscription) écrase l'état
-        // "en jeu" avec l'état "en lobby" (ce qui provoquait le yoyo des boutons).
+        // 🔴 Attendre que le join du lobby soit bien terminé avant de toucher au runner
+        if (_lobbyJoinTask != null && !_lobbyJoinTask.IsCompleted)
+            await _lobbyJoinTask;
         _isInLobby = false;
 
         if (playerNicknameInput != null && !string.IsNullOrWhiteSpace(playerNicknameInput.text))
