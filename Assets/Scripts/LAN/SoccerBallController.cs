@@ -162,7 +162,7 @@ public class SoccerBallController : NetworkBehaviour
         if (rb != null)
         {
             rb.isKinematic = false;
-            rb.velocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
         }
 
