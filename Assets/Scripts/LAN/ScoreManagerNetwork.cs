@@ -17,6 +17,19 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
     private int Team1ScoreNet;
     private int Team2ScoreNet;
 
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
     private void Start()
     {
         Initialize();  // ✅ Appelé automatiquement au démarrage

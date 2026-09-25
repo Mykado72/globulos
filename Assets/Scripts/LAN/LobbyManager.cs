@@ -152,7 +152,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (playerNicknameInput != null) playerNicknameInput.text = _playerNickname;
         if (roomNameInput != null) roomNameInput.text = defaultRoomName;
 
-        UpdateStatus("Connexion au lobby Fusion...");
+        UpdateStatus("Connexion au réseau Fusion...");
         await JoinLobbySessionList();
     }
 
