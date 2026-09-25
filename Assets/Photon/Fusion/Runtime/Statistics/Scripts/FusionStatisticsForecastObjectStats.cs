@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
   using UnityEngine.UI;
   using static Fusion.NetworkTransformTrace;
@@ -144,4 +145,5 @@
       _collisionEnterHeuristic.RefreshDisplay();
     }
   }
+#endif
 }

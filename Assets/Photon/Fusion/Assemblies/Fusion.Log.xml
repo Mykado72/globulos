@@ -619,19 +619,11 @@
         <member name="F:Fusion.DebugLogStream.InfoStream">
             <summary>Stream for logging informational messages.</summary>
         </member>
-        <member name="F:Fusion.DebugLogStream.WarnStream">
-            <summary>Stream for logging warning messages.</summary>
-        </member>
-        <member name="F:Fusion.DebugLogStream.ErrorStream">
-            <summary>Stream for logging error messages.</summary>
-        </member>
-        <member name="M:Fusion.DebugLogStream.#ctor(Fusion.LogStream,Fusion.LogStream,Fusion.LogStream)">
+        <member name="M:Fusion.DebugLogStream.#ctor(Fusion.LogStream)">
             <summary>
             Initializes a new instance of the DebugLogStream class.
             </summary>
             <param name="innerStream">The stream for informational messages.</param>
-            <param name="warnStream">The stream for warning messages.</param>
-            <param name="errorStream">The stream for error messages.</param>
         </member>
         <member name="M:Fusion.DebugLogStream.Log(Fusion.ILogSource,System.String)">
             <summary>Logs a message with a source to the InfoStream.</summary>
@@ -776,6 +768,9 @@
         </member>
         <member name="F:Fusion.InternalLogStreams.LogTraceLagCompensation">
             <summary>LogTraceLagCompensation stream</summary>
+        </member>
+        <member name="F:Fusion.InternalLogStreams.LogTraceCloudServices">
+            <summary>LogTraceCloudServices stream</summary>
         </member>
         <member name="T:Fusion.Log">
             <summary>
@@ -1646,6 +1641,9 @@
         </member>
         <member name="F:Fusion.TraceChannels.LagCompensation">
             <summary>LagCompensation</summary>
+        </member>
+        <member name="F:Fusion.TraceChannels.CloudServices">
+            <summary>CloudServices</summary>
         </member>
         <member name="T:Fusion.LogUtils">
             <summary>

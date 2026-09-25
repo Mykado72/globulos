@@ -44,6 +44,11 @@
             "name": "Unity",
             "expression": "",
             "define": "FUSION_FORCE_WEAVING"
+        },
+        {
+            "name": "com.unity.ugui",
+            "expression": "1.0",
+            "define": "FUSION_ENABLE_UGUI"
         }
     ],
     "noEngineReferences": false

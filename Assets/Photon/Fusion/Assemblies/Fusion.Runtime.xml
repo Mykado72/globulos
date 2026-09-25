@@ -1086,7 +1086,7 @@
              Only provides valid values if the peer is connected to the session; otherwise, returns (0, 0).
             
              This is a tradition ping measurement, which does not include the processing latency of the server.
-             
+            
              This data is independent of which Fusion Game Mode the peer is running, as it considers only the connection between
              the local peer and the Photon Cloud.
             
@@ -1175,24 +1175,24 @@
             <returns>True if the operation could be completed. <see cref="M:Photon.Realtime.RealtimeClient.OpJoinLobby(Photon.Realtime.TypedLobby)"/></returns>
         </member>
         <member name="M:Fusion.CloudServices.EnterRoom(Fusion.StartGameArgs)">
-            <summary>
-            Make the local Peer Create/Join a Room based on Start Game Arguments
+             <summary>
+             Make the local Peer Create/Join a Room based on Start Game Arguments
             
-                          --------------------->Yes--->CreateOrJoin
-            SharedMode--->| Valid Room Name |
-                          --------------------->No---->[RandomRoomName]-->JoinRandomOrCreate
+                           --------------------->Yes--->CreateOrJoin
+             SharedMode--->| Valid Room Name |
+                           --------------------->No---->[RandomRoomName]-->JoinRandomOrCreate
             
-                          --------------------->Yes--->CreateOrJoin
-            ClientMode--->| Valid Room Name |
-                          --------------------->No---->[RandomRoomName]-->JoinRandom
+                           --------------------->Yes--->CreateOrJoin
+             ClientMode--->| Valid Room Name |
+                           --------------------->No---->[RandomRoomName]-->JoinRandom
             
-            ServerMode--  --------------------->Yes----------------------------|
-                       |->| Valid Room Name |                                  v
-            HostMode----  --------------------->No---->[RandomRoomName]-->CreateOrJoin
+             ServerMode--  --------------------->Yes----------------------------|
+                        |->| Valid Room Name |                                  v
+             HostMode----  --------------------->No---->[RandomRoomName]-->CreateOrJoin
             
-            </summary>
-            <param name="args">Start Game Args ref</param>
-            <returns>Task of the Join Room process</returns>
+             </summary>
+             <param name="args">Start Game Args ref</param>
+             <returns>Task of the Join Room process</returns>
         </member>
         <member name="M:Fusion.CloudServices.DisconnectFromCloud">
             <summary>
@@ -1216,16 +1216,16 @@
             <returns>True if the ActorId can be found</returns>
         </member>
         <member name="M:Fusion.CloudServices.OnInternalConnectionAttempt(System.Int32,System.Int32,System.Boolean@,Fusion.Sockets.NetAddress@)">
-            <summary>
-            Callback fire on every connection attempt with a remote Server.
+             <summary>
+             Callback fire on every connection attempt with a remote Server.
             
-            It is used while trying to hole-punch the remote server and enables the manager to swap the target endpoint in between attempts.
-            This is necessary to maintain a flow of attempts even if we exchange the local/public/relay endpoints
-            </summary>
-            <param name="attempt">Current attempt number</param>
-            <param name="totalConnectionAttempts">Max number of attempts</param>
-            <param name="shouldChange">Flag if target EndPoint should change</param>
-            <param name="newAddress">New target EndPoint</param>
+             It is used while trying to hole-punch the remote server and enables the manager to swap the target endpoint in between attempts.
+             This is necessary to maintain a flow of attempts even if we exchange the local/public/relay endpoints
+             </summary>
+             <param name="attempt">Current attempt number</param>
+             <param name="totalConnectionAttempts">Max number of attempts</param>
+             <param name="shouldChange">Flag if target EndPoint should change</param>
+             <param name="newAddress">New target EndPoint</param>
         </member>
         <member name="M:Fusion.CloudServices.Connect(Fusion.NATPunchStage,Fusion.Sockets.NetAddress)">
             <summary>
@@ -1532,12 +1532,12 @@
             </summary>
         </member>
         <member name="T:Fusion.JoinProcessStage">
-            <summary>
-            Stage of the Join Process.
+             <summary>
+             Stage of the Join Process.
             
-            When starting the peer, the first thing we need to make sure is to have Joined the Room
-            with a confirmation from the Plugin, this will signal the current stage of this
-            </summary>
+             When starting the peer, the first thing we need to make sure is to have Joined the Room
+             with a confirmation from the Plugin, this will signal the current stage of this
+             </summary>
         </member>
         <member name="F:Fusion.JoinProcessStage.Idle">
             <summary>
@@ -2114,7 +2114,7 @@
             Base class for Fusion network components, which are associated with a <see cref="T:Fusion.NetworkObject"/>.
             <para>Derived from <see cref="T:Fusion.SimulationBehaviour"/>, components derived from this class are associated with a <see cref="T:Fusion.NetworkRunner"/> and <see cref="T:Fusion.Simulation"/>.
             Components derived from this class are associated with a parent <see cref="T:Fusion.NetworkObject"/>.
-            and can use the <see cref="T:Fusion.NetworkedAttribute"/> on properties to automate state synchronization, 
+            and can use the <see cref="T:Fusion.NetworkedAttribute"/> on properties to automate state synchronization,
             and can use the <see cref="T:Fusion.RpcAttribute"/> on methods, to automate messaging.</para>
             </summary>
         </member>
@@ -2150,7 +2150,7 @@
         </member>
         <member name="P:Fusion.NetworkBehaviour.Id">
             <summary>
-            The unique identifier for this network behaviour. 
+            The unique identifier for this network behaviour.
             </summary>
         </member>
         <member name="P:Fusion.NetworkBehaviour.HasInputAuthority">
@@ -2172,8 +2172,8 @@
         </member>
         <member name="P:Fusion.NetworkBehaviour.DynamicWordCount">
             <summary>
-            Override this value for custom memory allocations. 
-            This is for advanced use cases only, and cannot be used if <see cref="T:Fusion.NetworkedAttribute"/> is used in the derived class.  
+            Override this value for custom memory allocations.
+            This is for advanced use cases only, and cannot be used if <see cref="T:Fusion.NetworkedAttribute"/> is used in the derived class.
             </summary>
         </member>
         <member name="P:Fusion.NetworkBehaviour.IsEditorWritable">
@@ -2196,7 +2196,7 @@
         </member>
         <member name="M:Fusion.NetworkBehaviour.ReplicateToAll(System.Boolean)">
             <summary>
-            Sets the default replicated state for this behaviour, this by default is true so calling ReplicateToAll(true) does nothing if ReplicateToAll(false) hasn't been called before  
+            Sets the default replicated state for this behaviour, this by default is true so calling ReplicateToAll(true) does nothing if ReplicateToAll(false) hasn't been called before
             </summary>
             <param name="replicate">The default state of this behaviour</param>
         </member>
@@ -2213,7 +2213,7 @@
         </member>
         <member name="M:Fusion.NetworkBehaviour.ResetState">
             <summary>
-            Resets the state of the object to the original state 
+            Resets the state of the object to the original state
             </summary>
         </member>
         <member name="M:Fusion.NetworkBehaviour.CopyBackingFieldsToState(System.Boolean)">
@@ -2498,15 +2498,15 @@
             <returns>True if the network behaviour should be replicated to the player, false otherwise. The default implementation always returns true.</returns>
         </member>
         <member name="M:Fusion.NetworkBehaviour.GetInput``1">
-            <summary>
+             <summary>
             
-            </summary>
-            <typeparam name="T"></typeparam>
+             </summary>
+             <typeparam name="T"></typeparam>
         </member>
         <member name="M:Fusion.NetworkBehaviour.GetInput``1(``0@)">
             <summary>
             Returns true if it a valid <see cref="T:Fusion.INetworkInput"/> can be found for the current simulation tick (Typically this is used in <see cref="M:Fusion.NetworkBehaviour.FixedUpdateNetwork"/>).
-            <para>The returned input struct originates from the <see cref="P:Fusion.NetworkObject.InputAuthority"/>, 
+            <para>The returned input struct originates from the <see cref="P:Fusion.NetworkObject.InputAuthority"/>,
             and if valid contains the inputs supplied by that <see cref="T:Fusion.PlayerRef"/> for the current simulation tick.</para>
             </summary>
         </member>
@@ -3397,7 +3397,7 @@
         <member name="M:Fusion.NetworkMecanimAnimator.SetTrigger(System.Int32,System.Boolean)">
             <summary>
             Queues a SetTrigger() call for the associated Animator on the State Authority. Call this instead of Animator.SetTrigger() for the State Authority to ensure that triggers are captured.
-            On State Authority, this call will defer the SetTrigger() pass-through to the Animator until FixedUpdateNetwork() is called, 
+            On State Authority, this call will defer the SetTrigger() pass-through to the Animator until FixedUpdateNetwork() is called,
             where all queued triggers will be executed (this is to ensure tick agreement between server and clients).
             </summary>
             <param name="triggerHash">Trigger hash to set</param>
@@ -3408,7 +3408,7 @@
         <member name="M:Fusion.NetworkMecanimAnimator.SetTrigger(System.String,System.Boolean)">
             <summary>
             Queues a SetTrigger() call for the associated Animator on the State Authority. Call this instead of Animator.SetTrigger() for the State Authority to ensure that triggers are captured.
-            On State Authority, this call will defer the SetTrigger() pass-through to the Animator until FixedUpdateNetwork() is called, 
+            On State Authority, this call will defer the SetTrigger() pass-through to the Animator until FixedUpdateNetwork() is called,
             where all queued triggers will be executed (this is to ensure tick agreement between server and clients).
             </summary>
             <param name="trigger">Trigger name to set</param>
@@ -3467,16 +3467,16 @@
             <inheritdoc cref="M:Fusion.NetworkTypesMeta.GetStructWordCount``1"/>
         </member>
         <member name="M:Fusion.NetworkTypesMeta.AddInput(System.Type)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="type"></param>
+             </summary>
+             <param name="type"></param>
         </member>
         <member name="M:Fusion.NetworkTypesMeta.AddBehaviour(System.Type)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="type"></param>
+             </summary>
+             <param name="type"></param>
         </member>
         <member name="M:Fusion.NetworkTypesMeta.GetInheritedWeavedAttribute(System.Type)">
             <summary>
@@ -3680,6 +3680,11 @@
             This property checks the current flags of the instance against various conditions to determine if it can receive simulation callbacks.
             </remarks>
         </member>
+        <member name="P:Fusion.SimulationBehaviour.IsResimulationSkipped">
+            <summary>
+            True while skipped by rollback/re-simulation due to missing snapshots.
+            </summary>
+        </member>
         <member name="P:Fusion.SimulationBehaviour.Runner">
             <summary>
             The <see cref="T:Fusion.NetworkRunner"/> this component is associated with.
@@ -3858,6 +3863,11 @@
         <member name="M:Fusion.NetworkTransform.Render">
             <inheritdoc />
         </member>
+        <member name="T:Fusion.NetworkTransform.ForecastDisabledKinematicAction">
+            <summary>
+            Which change to apply to the rigidbody kinematic flag when re-evaluating the forecast-disabled proxy override.
+            </summary>
+        </member>
         <member name="P:Fusion.NetworkTransform.PhysicsData">
             <summary>
             The networked physics data.
@@ -3983,6 +3993,12 @@
             Initialize the NetworkTransform physics body. This method is intended to be called internally.
             </summary>
         </member>
+        <member name="M:Fusion.NetworkTransform.Despawned(Fusion.NetworkRunner,System.Boolean)">
+            <summary>
+            Removes the forced proxy kinematic override, if active, so a pooled instance starts its next life from the
+            authored rigidbody value regardless of the role or forecast setting it is reused with.
+            </summary>
+        </member>
         <member name="M:Fusion.NetworkTransform.PhysicsOverrideCopyToBuffer(System.Boolean)">
             <summary>
             Push local physics data into the networked physics data.
@@ -4005,7 +4021,7 @@
             <summary>
             Detect the current error and determine if the physics body should be corrected along with deciding if a immediate move to remote position is required.
             </summary>
-            <returns> (bool, bool) Correction Needed?, Immediate move to remote required?</returns>
+            <returns> (bool, bool) Inside the deadzone? when outside we need to correct, Immediate move to remote required?</returns>
         </member>
         <member name="M:Fusion.NetworkTransform.ComputeTicksToExtrapolate">
             <summary>
@@ -4774,7 +4790,26 @@
         </member>
         <member name="F:Fusion.GravityForecast.Auto">
             <summary>
-            Applies gravity if the remote body has downward velocity 
+            Applies gravity if the remote body has downward velocity
+            </summary>
+        </member>
+        <member name="T:Fusion.DeadzoneVelocityMode">
+            <summary>
+            How a forecasted object treats its own velocity while it is within the detected-error deadzone - the band where it
+            is close enough to the target that no correction is applied.
+            </summary>
+        </member>
+        <member name="F:Fusion.DeadzoneVelocityMode.LocalPhysics">
+            <summary>
+            Leave the velocity untouched and let local physics own it inside the deadzone. Most responsive to local forces
+            and interactions, at the cost of not tracking the remote velocity while within the deadzone.
+            This is the default.
+            </summary>
+        </member>
+        <member name="F:Fusion.DeadzoneVelocityMode.MatchTarget">
+            <summary>
+            Match the forecast target's velocity inside the deadzone, keeping the object aligned with the extrapolated
+            remote state.
             </summary>
         </member>
         <member name="T:Fusion.PhysicsSettings">
@@ -4821,12 +4856,21 @@
         </member>
         <member name="F:Fusion.PhysicsSettings.MinLinearDetectedError">
             <summary>
-            Error must be over this value (metres) for correction to be applied. Errors below this threshold are not considered
+            Linear error below this value (metres) is inside the deadzone: the position is treated as on-target and is not
+            corrected. See <see cref="F:Fusion.PhysicsSettings.DeadzoneVelocityMode"/> for how velocity is handled within the deadzone.
             </summary>
         </member>
         <member name="F:Fusion.PhysicsSettings.MinAngularDetectedError">
             <summary>
-            Error must be over this value (degrees) for correction to be applied. Errors below this threshold are not considered
+            Angular error below this value (degrees) is inside the deadzone: the rotation is treated as on-target and is
+            not corrected. See <see cref="F:Fusion.PhysicsSettings.DeadzoneVelocityMode"/> for how velocity is handled within the deadzone.
+            </summary>
+        </member>
+        <member name="F:Fusion.PhysicsSettings.DeadzoneVelocityMode">
+            <summary>
+            How a forecasted object treats its own velocity inside the detected-error deadzone (see
+            <see cref="F:Fusion.PhysicsSettings.MinLinearDetectedError"/> and  <see cref="F:Fusion.PhysicsSettings.MinAngularDetectedError"/>). See
+            <see cref="F:Fusion.PhysicsSettings.DeadzoneVelocityMode"/> for the trade-off between the modes.
             </summary>
         </member>
         <member name="F:Fusion.PhysicsSettings.MaxLinearError">
@@ -10227,12 +10271,12 @@
             <param name="value">The boolean value to write.</param>
         </member>
         <member name="M:Fusion.ReadWriteUtilsForWeaver.GetByteArrayHashCode(System.Byte*,System.Int32)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="ptr"></param>
-            <param name="length"></param>
-            <returns></returns>
+             </summary>
+             <param name="ptr"></param>
+             <param name="length"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.ReadWriteUtilsForWeaver.WriteStringUtf8NoHash(System.Void*,System.String)">
             <summary>
@@ -10258,12 +10302,12 @@
             <returns>The byte count of the string in UTF8 format.</returns>
         </member>
         <member name="M:Fusion.ReadWriteUtilsForWeaver.GetStringHashCode(System.String,System.Int32)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="value"></param>
-            <param name="maxLength"></param>
-            <returns></returns>
+             </summary>
+             <param name="value"></param>
+             <param name="maxLength"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.ReadWriteUtilsForWeaver.WriteStringUtf32NoHash(System.Int32*,System.Int32,System.String)">
             <summary>
@@ -11765,9 +11809,9 @@
             <summary>Byte size of <see cref="F:Fusion.NetworkId.Raw"/>.</summary>
         </member>
         <member name="T:Fusion.NetworkObjectInterestModes">
-            <summary>
+             <summary>
             
-            </summary>
+             </summary>
         </member>
         <member name="F:Fusion.NetworkObjectInterestModes.AreaOfInterest">
             <summary>
@@ -11786,8 +11830,8 @@
         </member>
         <member name="T:Fusion.NetworkObject">
             <summary>
-            The primary Fusion component for networked GameObject entities. 
-            This stores the object's network identity and manages the object's state and input authority. 
+            The primary Fusion component for networked GameObject entities.
+            This stores the object's network identity and manages the object's state and input authority.
             </summary>
         </member>
         <member name="T:Fusion.NetworkObject.ReplicateToDelegate">
@@ -11808,7 +11852,7 @@
         </member>
         <member name="P:Fusion.NetworkObject.Id">
             <summary>
-            The unique identifier for this network entity. 
+            The unique identifier for this network entity.
             </summary>
         </member>
         <member name="F:Fusion.NetworkObject.IsResume">
@@ -11901,7 +11945,7 @@
         </member>
         <member name="P:Fusion.NetworkObject.IsInSimulation">
             <summary>
-            Is this object simulated? I.e. whether <see cref="M:Fusion.NetworkBehaviour.FixedUpdateNetwork"/>, etc. are called. 
+            Is this object simulated? I.e. whether <see cref="M:Fusion.NetworkBehaviour.FixedUpdateNetwork"/>, etc. are called.
             Also see: <see cref="M:Fusion.NetworkRunner.SetIsSimulated(Fusion.NetworkObject,System.Boolean)"/>
             </summary>
         </member>
@@ -11973,7 +12017,7 @@
         </member>
         <member name="P:Fusion.NetworkObject.ObjectInterest">
             <summary>
-            How Object Interest is determined for this object. 
+            How Object Interest is determined for this object.
             </summary>
         </member>
         <member name="M:Fusion.NetworkObject.Awake">
@@ -11998,7 +12042,7 @@
             on the new host.
             </remarks>
             <returns><c>true</c> If called from an effective context
-            e.g calling this from a Client in Client/Server will return <c>false</c>, calling this with the 
+            e.g calling this from a Client in Client/Server will return <c>false</c>, calling this with the
             <see cref="P:Fusion.Simulation.LocalPlayer">non-local player</see> in SharedMode will return <c>false</c>
             <para/>
             Note: This method asserts this in DEBUG builds when called in incorrect contexts
@@ -12022,7 +12066,7 @@
             on the new host.
             </remarks>
             <returns><c>true</c> If called from an effective context
-            e.g calling this from a Client in Client/Server will return <c>false</c>, calling this with the 
+            e.g calling this from a Client in Client/Server will return <c>false</c>, calling this with the
             <see cref="P:Fusion.Simulation.LocalPlayer">non-local player</see> in SharedMode will return <c>false</c>
             <para/>
             Note: This method asserts this in DEBUG builds when called in incorrect contexts
@@ -14741,9 +14785,9 @@
         </member>
         <member name="T:Fusion.NetworkRunner">
             <summary>
-            Represents a Server or Client Simulation. IMPORTANT: You can only use a NetworkRunner once. Once that NetworkRunner 
+            Represents a Server or Client Simulation. IMPORTANT: You can only use a NetworkRunner once. Once that NetworkRunner
             disconnects from a game session or fails to connect it should be destroyed, and a new Network Runner instance should
-            be created to start any new game sessions. For more information see the 
+            be created to start any new game sessions. For more information see the
             <a href="https://doc.photonengine.com/fusion/v2/manual/network-runner">Online Manual</a>.
             </summary>
         </member>
@@ -14822,7 +14866,7 @@
         </member>
         <member name="M:Fusion.NetworkRunner.SendHostMigrationSnapshot">
             <summary>
-            Try to send a Host Snapshot to Plugin 
+            Try to send a Host Snapshot to Plugin
             </summary>
         </member>
         <member name="M:Fusion.NetworkRunner.ChecksForHostMigration">
@@ -14960,7 +15004,7 @@
         <member name="E:Fusion.NetworkRunner.FailedToResolveNetworkObject">
             <summary>
             Event raised when [Networked] property of <see cref="T:Fusion.NetworkObject"/> or <see cref="T:Fusion.NetworkBehaviour"/> has a valid underlying <see cref="T:Fusion.NetworkId"/>, but
-            the simulation is unable to find an instance, e.g. due to AoI. In such case, a property will return null. 
+            the simulation is unable to find an instance, e.g. due to AoI. In such case, a property will return null.
             </summary>
         </member>
         <member name="E:Fusion.NetworkRunner.DebugEvent">
@@ -14990,7 +15034,7 @@
         </member>
         <member name="F:Fusion.NetworkRunner.OnGameStartedInvoked">
             <summary>
-            Signal if the OnGameStarted was invoked already 
+            Signal if the OnGameStarted was invoked already
             </summary>
         </member>
         <member name="F:Fusion.NetworkRunner._spawnedSimBehaviourQueue">
@@ -15031,21 +15075,21 @@
         </member>
         <member name="P:Fusion.NetworkRunner.SimulationTime">
             <summary>
-            The time the current State represents (the most recent FixedUpdateNetwork simulation). 
+            The time the current State represents (the most recent FixedUpdateNetwork simulation).
             Use as an equivalent to Unity's Time.fixedTime.
             Time is relative to Tick 0 (which represents Time 0f).
             </summary>
         </member>
         <member name="P:Fusion.NetworkRunner.LocalRenderTime">
             <summary>
-            The point in time that predicted objects (objects in the local timeframe) are being rendered. 
+            The point in time that predicted objects (objects in the local timeframe) are being rendered.
             For those objects, use this where you would normally use Unity's <c>Time.time</c>.
             Time is relative to Tick 0 (which corresponds to Time <c>0f</c>).
             </summary>
         </member>
         <member name="P:Fusion.NetworkRunner.RemoteRenderTime">
             <summary>
-            The point in time that non-predicted objects (objects in the remote timeframe) are being rendered. 
+            The point in time that non-predicted objects (objects in the remote timeframe) are being rendered.
             For those objects, use this where you would normally use Unity's <c>Time.time</c>.
             Time is relative to Tick 0 (which corresponds to Time <c>0f</c>).
             </summary>
@@ -15136,9 +15180,9 @@
             </summary>
         </member>
         <member name="P:Fusion.NetworkRunner.TickRate">
-            <summary>
+             <summary>
             
-            </summary>
+             </summary>
         </member>
         <member name="P:Fusion.NetworkRunner.State">
             <summary>
@@ -15147,7 +15191,7 @@
         </member>
         <member name="P:Fusion.NetworkRunner.LocalPlayer">
             <summary>
-            Returns a <see cref="T:Fusion.PlayerRef"/> for the local simulation. For a dedicated server <see cref="P:Fusion.PlayerRef.IsRealPlayer"/> will equal false. 
+            Returns a <see cref="T:Fusion.PlayerRef"/> for the local simulation. For a dedicated server <see cref="P:Fusion.PlayerRef.IsRealPlayer"/> will equal false.
             PlayerRefs are assigned in order from 0 to MaxPlayers-1 and are re-used as players join and leave.
             The only caveat is that the server player (if one exists), always gets the last index no matter how many clients are connected.
             </summary>
@@ -15180,6 +15224,18 @@
         <member name="P:Fusion.NetworkRunner.ActivePlayers">
             <summary>
             Returns the collection of <see cref="T:Fusion.PlayerRef"/> objects for this NetworkRunner's <see cref="T:Fusion.Simulation"/>.
+            </summary>
+        </member>
+        <member name="P:Fusion.NetworkRunner.CommittedPlayers">
+            <summary>
+            Returns the collection of <see cref="T:Fusion.PlayerRef"/> objects for this NetworkRunner's <see cref="T:Fusion.Simulation"/>.
+            Unlike <see cref="P:Fusion.NetworkRunner.ActivePlayers"/> it will not contain players that have just left the room and are pending 
+            deletion.
+            </summary>
+        </member>
+        <member name="M:Fusion.NetworkRunner.IsPlayerCommitted(Fusion.PlayerRef)">
+            <summary>
+            Is the Fusion player in the room and not pending deletion?
             </summary>
         </member>
         <member name="P:Fusion.NetworkRunner.ObjectProvider">
@@ -15356,24 +15412,24 @@
             <returns>Returns a list with information about all the available regions.</returns>
         </member>
         <member name="M:Fusion.NetworkRunner.GetPlayerActorId(Fusion.PlayerRef)">
-            <summary>
-            Gets Player's Actor Number (ID).
+             <summary>
+             Gets Player's Actor Number (ID).
             
-            If used in Shared Mode, every client can get this information.
-            If used in Client Server Mode, only the Server is able to get this information.
-            </summary>
-            <param name="player">PlayerRef to get the Actor Number (ID)</param>
-            <returns>Actor Number associated with the PlayerRef, otherwise null.</returns>
+             If used in Shared Mode, every client can get this information.
+             If used in Client Server Mode, only the Server is able to get this information.
+             </summary>
+             <param name="player">PlayerRef to get the Actor Number (ID)</param>
+             <returns>Actor Number associated with the PlayerRef, otherwise null.</returns>
         </member>
         <member name="M:Fusion.NetworkRunner.GetPlayerUserId(Fusion.PlayerRef)">
-            <summary>
-            Gets Player's UserID.
+             <summary>
+             Gets Player's UserID.
             
-            If used in Shared Mode, every client can get this information.
-            If used in Client Server Mode, only the Server is able to get this information.
-            </summary>
-            <param name="player">PlayerRef to get the UserID. If no PlayerRef is passed, the UserID of the local client is returned instead.</param>
-            <returns>UserID if valid player found, otherwise null.</returns>
+             If used in Shared Mode, every client can get this information.
+             If used in Client Server Mode, only the Server is able to get this information.
+             </summary>
+             <param name="player">PlayerRef to get the UserID. If no PlayerRef is passed, the UserID of the local client is returned instead.</param>
+             <returns>UserID if valid player found, otherwise null.</returns>
         </member>
         <member name="M:Fusion.NetworkRunner.SetPlayerObject(Fusion.PlayerRef,Fusion.NetworkObject)">
             <summary>
@@ -15560,11 +15616,25 @@
             </summary>
             <param name="id">The NetworkId for which state authority is being requested.</param>
         </member>
+        <member name="M:Fusion.NetworkRunner.BatchRequestStateAuthority(System.Collections.Generic.List{Fusion.NetworkId})">
+            <summary>
+            Requests state authority for up to <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.MAX_OBJECTS"/> objects in shared mode.
+            If any of the specified objects state authority cannot be changed, the entire batch request will fail and no authority will be changed.
+            </summary>
+            <param name="ids">Specified list of <see cref="T:Fusion.NetworkId"/> to request. Should have at max <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.MAX_OBJECTS"/> Ids.</param>
+        </member>
         <member name="M:Fusion.NetworkRunner.ReleaseStateAuthority(Fusion.NetworkId)">
             <summary>
             Releases state authority for a given <see cref="T:Fusion.NetworkId"/> on shared mode.
             </summary>
             <param name="id">The NetworkId for which state authority needs to be released.</param>
+        </member>
+        <member name="M:Fusion.NetworkRunner.BatchReleaseStateAuthority(System.Collections.Generic.List{Fusion.NetworkId})">
+            <summary>
+            Releases state authority for up to <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.MAX_OBJECTS"/> objects in shared mode.
+            If any of the specified objects state authority cannot be changed, the entire batch release will fail and no authority will be changed.
+            </summary>
+            <param name="ids">Specified list of <see cref="T:Fusion.NetworkId"/> to request. Should have at max <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.MAX_OBJECTS"/> Ids.</param>
         </member>
         <member name="M:Fusion.NetworkRunner.TryGetInputForPlayer``1(Fusion.PlayerRef,``0@)">
             <summary>
@@ -15704,7 +15774,7 @@
         </member>
         <member name="M:Fusion.NetworkRunner.GetSingleton``1">
             <summary>
-            Ensures that a specific <see cref="T:Fusion.SimulationBehaviour"/> component exists on this <see cref="T:Fusion.NetworkRunner"/> gameobject. 
+            Ensures that a specific <see cref="T:Fusion.SimulationBehaviour"/> component exists on this <see cref="T:Fusion.NetworkRunner"/> gameobject.
             </summary>
         </member>
         <member name="M:Fusion.NetworkRunner.HasSingleton``1">
@@ -15731,7 +15801,7 @@
         </member>
         <member name="M:Fusion.NetworkRunner.RemoveSimulationBehavior(Fusion.SimulationBehaviour)">
             <summary>
-            Unregister a <see cref="T:Fusion.SimulationBehaviour"/> instance from the <see cref="T:Fusion.SimulationBehaviourUpdater"/> callbacks. 
+            Unregister a <see cref="T:Fusion.SimulationBehaviour"/> instance from the <see cref="T:Fusion.SimulationBehaviourUpdater"/> callbacks.
             Invalid if NetworkRunner has not been started and initialized.
             </summary>
         </member>
@@ -16932,6 +17002,12 @@
             its trace can be used to simulate and troubleshoot it more effectively.
             </summary>
         </member>
+        <member name="F:Fusion.NetworkProjectConfig.ClientsOnlyRollbackUpdatedObjects">
+            <summary>
+            When this setting is enabled, clients will only rollback and re-simulate network objects that received an update.
+            Network objects that did not receive an update will be left as-is. 
+            </summary>
+        </member>
         <member name="F:Fusion.NetworkProjectConfig.PrefabTable">
             <summary>
             Reference to the <see cref="T:Fusion.NetworkPrefabTable"/> instance for this <see cref="T:Fusion.NetworkProjectConfig"/>.
@@ -17839,7 +17915,7 @@
         <member name="M:Fusion.NetworkRunnerUpdaterDefault.InvokeUpdate">
             <summary>
             Invokes <see cref="M:Fusion.NetworkRunner.UpdateInternal(System.Double)"/> for all the runners
-            and stores them for upcoming <see cref="M:Fusion.NetworkRunner.RenderInternal"/>. 
+            and stores them for upcoming <see cref="M:Fusion.NetworkRunner.RenderInternal"/>.
             </summary>
         </member>
         <member name="M:Fusion.NetworkRunnerUpdaterDefault.InvokeRender">
@@ -18460,33 +18536,33 @@
             </summary>
         </member>
         <member name="M:Fusion.NetworkSceneLoadId.op_Equality(Fusion.NetworkSceneLoadId,Fusion.NetworkSceneLoadId)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="left"></param>
-            <param name="right"></param>
-            <returns></returns>
+             </summary>
+             <param name="left"></param>
+             <param name="right"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.NetworkSceneLoadId.op_Inequality(Fusion.NetworkSceneLoadId,Fusion.NetworkSceneLoadId)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="left"></param>
-            <param name="right"></param>
-            <returns></returns>
+             </summary>
+             <param name="left"></param>
+             <param name="right"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.NetworkSceneLoadId.op_Implicit(System.Byte)~Fusion.NetworkSceneLoadId">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="value"></param>
-            <returns></returns>
+             </summary>
+             <param name="value"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.NetworkSceneLoadId.ToString">
-            <summary>
+             <summary>
             
-            </summary>
-            <returns></returns>
+             </summary>
+             <returns></returns>
         </member>
         <member name="F:Fusion.NetworkSceneLoadId.SIZE">
             <summary>Total size of the struct in bytes.</summary>
@@ -18616,9 +18692,9 @@
         </member>
         <member name="T:Fusion.NetworkSceneInfo">
             <summary>
-            Can store up to 8 active scenes and allows for duplicates.
+            Can store up to <see cref="F:Fusion.NetworkSceneInfo.MaxScenes"/> active scenes and allows for duplicates.
             Each write increases <see cref="P:Fusion.NetworkSceneInfo.Version"/> which can be used to generate unique scene objects ids
-            for when a scene is supposed to be reloaded. 
+            for when a scene is supposed to be reloaded.
             </summary>
         </member>
         <member name="F:Fusion.NetworkSceneInfo.MaxScenes">
@@ -18712,101 +18788,23 @@
         <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__FLAGS">
             <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._flags"/>.</summary>
         </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE0">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene0"/>.</summary>
+        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_REF">
+            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneRef"/>.</summary>
         </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE0">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene0"/>.</summary>
+        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_REF">
+            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneRef"/>.</summary>
         </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE1">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene1"/>.</summary>
+        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_LOAD_META">
+            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneLoadMeta"/>.</summary>
         </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE1">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene1"/>.</summary>
+        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_LOAD_META">
+            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneLoadMeta"/>.</summary>
         </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE2">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene2"/>.</summary>
+        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__PADDING">
+            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._padding"/>.</summary>
         </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE2">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene2"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE3">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene3"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE3">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene3"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE4">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene4"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE4">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene4"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE5">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene5"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE5">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene5"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE6">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene6"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE6">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene6"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE7">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._scene7"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE7">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._scene7"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META0">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta0"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META0">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta0"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META1">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta1"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META1">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta1"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META2">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta2"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META2">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta2"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META3">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta3"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META3">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta3"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META4">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta4"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META4">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta4"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META5">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta5"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META5">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta5"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META6">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta6"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META6">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta6"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_OF__SCENE_META7">
-            <summary>Byte offset of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta7"/>.</summary>
-        </member>
-        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__SCENE_META7">
-            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._sceneMeta7"/>.</summary>
+        <member name="F:Fusion.NetworkSceneInfo.BYTE_COUNT_OF__PADDING">
+            <summary>Byte size of <see cref="F:Fusion.NetworkSceneInfo._padding"/>.</summary>
         </member>
         <member name="T:Fusion.NetworkSceneInfoChangeSource">
             <summary>
@@ -19154,11 +19152,6 @@
             The latest time we've received from the server.
             </summary>
         </member>
-        <member name="P:Fusion.Simulation.Client.LatestServerTick">
-            <summary>
-            latest tick on server we are aware of
-            </summary>
-        </member>
         <member name="P:Fusion.Simulation.TickStride">
             <summary>
             How large the ticks the current simulation takes are
@@ -19181,7 +19174,7 @@
         </member>
         <member name="P:Fusion.Simulation.SendRate">
             <summary>
-            The packet send rate 
+            The packet send rate
             </summary>
         </member>
         <member name="P:Fusion.Simulation.SendDelta">
@@ -19195,28 +19188,28 @@
             </summary>
         </member>
         <member name="P:Fusion.Simulation.IsShutdown">
-            <summary>
+             <summary>
             
-            </summary>
+             </summary>
         </member>
         <member name="P:Fusion.Simulation.LocalAlpha">
-            <summary>
+             <summary>
             
-            </summary>
+             </summary>
         </member>
         <member name="P:Fusion.Simulation.IsResimulation">
             <summary>
             Use inside of FixedUpdateNetwork to determine if the tick currently being simulated has previously been simulated locally.
-            Resimulation occurs in client prediction when new states arrive from the StateAuthority. 
+            Resimulation occurs in client prediction when new states arrive from the StateAuthority.
             Networked objects are set to the most current authority state tick, and simulations are repeated from that tick to the local current tick.
             </summary>
         </member>
         <member name="P:Fusion.Simulation.IsLastTick">
             <summary>
-            Use in conjunction with IsResimulation/IsForward inside of FixedUpdateNetwork to determine if the current tick being simulated 
+            Use in conjunction with IsResimulation/IsForward inside of FixedUpdateNetwork to determine if the current tick being simulated
             is the last tick of the resimulation or forward phase of the simulation loop.
             <para>
-            'Resimulation' describes simulating a tick that has been previously been simulated.<br></br> 
+            'Resimulation' describes simulating a tick that has been previously been simulated.<br></br>
             'Forward' describes simulating a tick that is being simulated for the first time locally.<br></br>
             'Prediction' describes simulating ticks higher than the most current known StateAuthority snapshot tick.
             </para>
@@ -19224,10 +19217,10 @@
         </member>
         <member name="P:Fusion.Simulation.IsFirstTick">
             <summary>
-            Use in conjunction with IsResimulation/IsForward inside of FixedUpdateNetwork to determine if the current tick being simulated 
+            Use in conjunction with IsResimulation/IsForward inside of FixedUpdateNetwork to determine if the current tick being simulated
             is the first tick of the resimulation or forward phase of the simulation loop.
             <para>
-            'Resimulation' describes simulating a tick that has been previously been simulated.<br></br> 
+            'Resimulation' describes simulating a tick that has been previously been simulated.<br></br>
             'Forward' describes simulating a tick that is being simulated for the first time locally.<br></br>
             'Prediction' describes simulating ticks higher than the most current known StateAuthority snapshot tick.
             </para>
@@ -19242,7 +19235,7 @@
             <summary>
             True if the current stage of the simulation loop is Forward. False during resimulations.
             <para>
-            'Resimulation' describes simulating a tick that has been previously been simulated.<br></br> 
+            'Resimulation' describes simulating a tick that has been previously been simulated.<br></br>
             'Forward' describes simulating a tick that is being simulated for the first time locally.<br></br>
             'Prediction' describes simulating ticks higher than the most current known StateAuthority snapshot tick.
             </para>
@@ -19335,7 +19328,7 @@
         </member>
         <member name="P:Fusion.Simulation.IsServer">
             <summary>
-            If this peer is the server. True for the Server or Host peer in Server/Client topologies, and always false for all peers in Shared Mode (the relay is the server). 
+            If this peer is the server. True for the Server or Host peer in Server/Client topologies, and always false for all peers in Shared Mode (the relay is the server).
             </summary>
         </member>
         <member name="P:Fusion.Simulation.IsPlayer">
@@ -19420,6 +19413,12 @@
         <member name="M:Fusion.Simulation.BeforeFirstTick">
             <summary>
             Callback invoked before the First Tick
+            </summary>
+        </member>
+        <member name="M:Fusion.Simulation.BatchRequestStateAuthority(System.Collections.Generic.List{Fusion.NetworkId},System.Boolean)">
+            <summary>
+            Does not validate locally. Callers must run <see cref="M:Fusion.Simulation.CanRequestStateAuthorityChange(Fusion.PlayerRef,Fusion.NetworkId,System.Boolean,System.Boolean)"/> per id. Tests skip it on
+            purpose to check the plugin-side validation.
             </summary>
         </member>
         <member name="M:Fusion.Simulation.SetPlayerAlwaysInterested(Fusion.PlayerRef,Fusion.NetworkId,System.Boolean)">
@@ -19538,10 +19537,10 @@
         </member>
         <member name="M:Fusion.Simulation.GetInputForPlayer(Fusion.PlayerRef)">
             <summary>
-            Get the Simulation Input for a specific Player 
+            Get the Simulation Input for a specific Player
             </summary>
             <param name="player">Player to check for the Simulation Input</param>
-            <returns>Simulation Input for a specific Player</returns> 
+            <returns>Simulation Input for a specific Player</returns>
         </member>
         <member name="M:Fusion.Simulation.HasAnyActiveConnections">
             <summary>
@@ -19561,7 +19560,7 @@
         </member>
         <member name="M:Fusion.Simulation.UpdateSimulationStateForMasterClientObjects(System.Boolean)">
             <summary>
-            Called when Master Client status is gained or lost 
+            Called when Master Client status is gained or lost
             </summary>
             <param name="isMasterClient">Whether we are Master Client currently</param>
         </member>
@@ -19576,7 +19575,7 @@
             <summary>
             Set the rate at which reliable data is sent in hz.
             Minimum value is 1hz, maximum value is the same as the <see cref="P:Fusion.Simulation.SendRate"/>
-            Increasing this value increases the throughput when sending reliable data such as with 
+            Increasing this value increases the throughput when sending reliable data such as with
             </summary>
         </member>
         <member name="P:Fusion.Simulation.ObjectCount">
@@ -19591,21 +19590,21 @@
             </summary>
         </member>
         <member name="M:Fusion.Simulation.DrainPendingMessages">
-            <summary>
-            WARNING: This was intentionally extracted from the finally above and made NoInlining
-            if this code is inlined or placed inside the finally block it can cause a SIGSEGV
-            with no callstack if it iterates >2 times. Or cause it to rethrow a NulLReferenceException
-            if iterated once. 0 iterations works fine.
+             <summary>
+             WARNING: This was intentionally extracted from the finally above and made NoInlining
+             if this code is inlined or placed inside the finally block it can cause a SIGSEGV
+             with no callstack if it iterates >2 times. Or cause it to rethrow a NulLReferenceException
+             if iterated once. 0 iterations works fine.
             
-            This crash only manifests itself in Mono, using a release DLL when an exception is thrown
-            in the try block. The cause is almost certainly a bug in the mono jit compilation of the 
-            try{}finally{} unwinding. Some analysis has been carried out of the jitted bytecode to
-            back up this theory.
-            </summary>
+             This crash only manifests itself in Mono, using a release DLL when an exception is thrown
+             in the try block. The cause is almost certainly a bug in the mono jit compilation of the
+             try{}finally{} unwinding. Some analysis has been carried out of the jitted bytecode to
+             back up this theory.
+             </summary>
         </member>
         <member name="T:Fusion.Simulation.SimulationMessageResultCode">
             <summary>
-            Error codes representing local <see cref="T:Fusion.SimulationMessage"/> handling. 
+            Error codes representing local <see cref="T:Fusion.SimulationMessage"/> handling.
             </summary>
         </member>
         <member name="M:Fusion.Simulation.Server.Disconnect(Fusion.Sockets.NetAddress)">
@@ -20535,6 +20534,30 @@
         </member>
         <member name="F:Fusion.SimulationMessageInternal_SharedModeRequestStateAuthority.BYTE_COUNT_OF_ACQUIRE">
             <summary>Byte size of <see cref="F:Fusion.SimulationMessageInternal_SharedModeRequestStateAuthority.Acquire"/>.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.SIZE">
+            <summary>Total size of the struct in bytes.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.WORD_COUNT">
+            <summary>Total word count of the struct (4-byte words).</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.BYTE_OF_ACQUIRE">
+            <summary>Byte offset of <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.Acquire"/>.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.BYTE_COUNT_OF_ACQUIRE">
+            <summary>Byte size of <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.Acquire"/>.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.BYTE_OF_COUNT">
+            <summary>Byte offset of <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.Count"/>.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.BYTE_COUNT_OF_COUNT">
+            <summary>Byte size of <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.Count"/>.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.BYTE_OF__BUFFER">
+            <summary>Byte offset of <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority._buffer"/>.</summary>
+        </member>
+        <member name="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority.BYTE_COUNT_OF__BUFFER">
+            <summary>Byte size of <see cref="F:Fusion.SimulationMessageInternal_SharedModeBatchRequestStateAuthority._buffer"/>.</summary>
         </member>
         <member name="F:Fusion.SimulationMessageInternal_SetAreaOfInterest.SIZE">
             <summary>Total size of the struct in bytes.</summary>

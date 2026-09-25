@@ -20,6 +20,7 @@
   using Debug = UnityEngine.Debug;
 
   [CreateAssetMenu(menuName = "Fusion/Plugin Project Settings")]
+  [FusionGlobalScriptableObject("Assets/Photon/Fusion/Resources/PluginProjectSettings.asset")]
   public partial class FusionPluginProjectSettings : FusionGlobalScriptableObject<FusionPluginProjectSettings> {
 
     const string CustomPluginProjectName = "Fusion.Plugin.Types";
@@ -29,12 +30,12 @@
     /// Label used to mark assets or scripts to be included in the plugin.
     /// </summary>
     public const string IncludeLabel = "FusionPluginInclude";
-    
+
     /// <summary>
     /// The name of the partial project file, used to point to scripts in the Unity project.
     /// </summary>
     public const string PartialProjectName = "UnityProjectLinks.props";
-    
+
     const string GeneratedSourceFilesPrefix = "UserTypes.";
     const string DBFilesPrefix = "DB.";
 
@@ -50,7 +51,7 @@
     /// <summary>
     /// The plugin needs to know about simulation types used on Unity side. Code export converts all user networked
     /// types to a plugin-compatible version with matching memory layout.
-    /// 
+    ///
     /// Assemblies to be excluded when exporting network types. Use * as a wildcard.
     /// </summary>
     [Space]
@@ -63,7 +64,7 @@
     /// </summary>
     [InlineHelp]
     public string[] IncludePaths = Array.Empty<string>();
-    
+
     /// <summary>
     /// Auto export settings. Due to API limitations this is not fully automatic, most notably for scenes. When run in batch mode, call <see cref="ExportPrefabsAndScenes"/> to ensure exported data
     /// is fully in sync.
@@ -72,7 +73,7 @@
     [Space]
     [WarnIf(nameof(IsGlobal), false, "Only settings with " + nameof(FusionGlobalScriptableObjectUtils.GlobalAssetLabel) + " label is used for auto-exporting")]
     public FusionPluginAutoExportFlags AutoExport;
-    
+
     /// <summary>
     /// Serialization callbacks. Create a scriptable object with matching methods.
     /// </summary>
@@ -80,7 +81,7 @@
     [SpaceAfter]
     [Space]
     public FusionPluginExportCallbacks ExportCallbacks = new();
-    
+
     /// <summary>
     /// Attempts to get the global instance, if exists.
     /// </summary>
@@ -89,7 +90,7 @@
     public static bool TryGetGlobal(out FusionPluginProjectSettings global) {
       return TryGetGlobalInternal(out global);
     }
-    
+
     /// <summary>
     /// Exports code and data.
     /// </summary>
@@ -109,7 +110,7 @@
         FusionEditorLog.LogPlugin($"Exported user types: {result}");
       }
     }
-    
+
     /// <summary>
     /// Exports data.
     /// </summary>
@@ -175,8 +176,8 @@
     public void OpenProject() {
       Process.Start(new ProcessStartInfo() { FileName = Path.Combine(GetValidSdkPathOrThrow(), "Fusion.Plugin.Custom.sln"), UseShellExecute = true });
     }
-    
-    
+
+
     /// <summary>
     /// Exports data from a single scene.
     /// </summary>
@@ -189,7 +190,7 @@
       WriteOutput(filePath, data);
       return filePath;
     }
-    
+
     /// <summary>
     /// Exports data from a single prefab.
     /// </summary>
@@ -203,7 +204,7 @@
     }
 
     /// <summary>
-    /// 
+    ///
     /// </summary>
     /// <param name="scriptableObject"></param>
     /// <returns></returns>
@@ -225,7 +226,7 @@
       var outputFolder = GetValidGeneratedFolderPathOrThrow();
 
       var stopwatch = Stopwatch.StartNew();
-      
+
       var exporter = new FusionPluginCodeExporter(FusionPluginCodeExporter.Options.AddJsonNETAttributes);
 
       var filters = IgnoredAssemblies
@@ -242,7 +243,7 @@
       }
 
       int filesGeneratedCount = 0;
-      
+
       foreach (var (scope, contents) in exporter.Export(outputFolder, filter)) {
         var userTypesPath = Path.Combine(outputFolder, $"{GeneratedSourceFilesPrefix}{scope}.cs");
         File.WriteAllText(userTypesPath, contents);
@@ -255,7 +256,7 @@
       var linkPath = Path.Combine(outputFolder, PartialProjectName);
       File.WriteAllText(linkPath, CreateUnityProjectLinks(Path.GetDirectoryName(outputFolder)!, IncludeLabel, IncludePaths));
       FusionEditorLog.TracePlugin($"Exported partial project file to {linkPath}");
-      
+
       if (generatedFilesToRemove?.Count > 0) {
         foreach (var path in generatedFilesToRemove) {
           FusionEditorLog.TracePlugin($"Deleting outdated {path}");
@@ -277,7 +278,7 @@
       if (string.IsNullOrEmpty(sceneGuid)) {
         return false;
       }
-      
+
       var sceneAddress = AssetDatabaseUtils.GetAddress(sceneGuid);
       if (string.IsNullOrEmpty(sceneAddress)) {
         return false;
@@ -285,7 +286,7 @@
 
       return true;
     }
-    
+
     public FusionPluginExportDataSummary ExportAllScenesAndPrefabs(string outputFolder) {
 
       SceneSetup[] scenesToRestore = null;
@@ -307,7 +308,7 @@
       }
 
       var stopwatch = Stopwatch.StartNew();
-      
+
       // first go through assets and prefabs
 
       var exporter = new FusionPluginAssetExporter();
@@ -316,7 +317,7 @@
       int prefabCount = 0;
       int sceneCount = 0;
       int assetCount = 0;
-      
+
       try {
 
         // first make sure all the labeled non-networked assets are exported
@@ -327,7 +328,7 @@
           .Where(x => x.IsSubclassOf(typeof(ScriptableObject)))
           .SelectMany(x => AssetDatabaseUtils.IterateAssets(type: x).Select(it => (ScriptableObject)it.pptrValue))
           .ToList();
-        
+
         foreach (var obj in assetsMarkedWithLabels.Concat(assetsMarkedByAttributes).Distinct()) {
           UpdateProgressBar($"Exporting Asset {obj.name}...");
           var data = exporter.CaptureAsset(obj);
@@ -409,14 +410,14 @@
     static string[] GetScriptableObjectDataFiles(string outputFolder, string guid) {
       return Directory.GetFiles(outputFolder, $"{DBFilesPrefix}ScriptableObject.{guid}-*.json");
     }
-    
+
 
     string WriteOutput(string path, object obj) {
       var json = JsonUtility.ToJson(obj, true);
       File.WriteAllText(path, json);
       return path;
     }
-    
+
     void StartPhotonServer() {
       var arguments = "/run LoadBalancing";
       var path = Path.Combine(GetValidSdkPathOrThrow(), "Photon.Server", "bin");
@@ -448,11 +449,11 @@
           previousProcess.Kill();
           WaitForProcessToExit(previousProcess, "Shutting down Photon.Server", $"Waiting for process {previousProcessPid} to shut down");
         } catch {
-          // ignore all the errors 
+          // ignore all the errors
         }
       }
     }
-    
+
     static string CreateUnityProjectLinks(string referencePath, string includeLabel, IEnumerable<string> includePaths) {
       var includes = new List<string>();
 
@@ -710,7 +711,7 @@
             RemovePrefabSafe(path);
           }
         }
-        
+
         if ((global.AutoExport & FusionPluginAutoExportFlags.ScriptableObjects) == FusionPluginAutoExportFlags.ScriptableObjects) {
           foreach (var path in importedAssets) {
             if (!IsScriptableObject(path)) {
@@ -751,11 +752,11 @@
         static bool IsExportedWithAttribute([CanBeNull] Type type) {
           return type?.GetCustomAttribute<PluginAssetExportSettingsAttribute>(true)?.Options == PluginExportOptions.Export;
         }
-        
+
         static bool IsPrefabPath(string path) {
           return path.EndsWith(".prefab");
         }
-        
+
         static bool IsScriptableObject(string path) {
           return !path.EndsWith(".prefab") && !path.EndsWith(".unity");
         }
@@ -772,7 +773,7 @@
             FusionEditorLog.TracePlugin($"Not auto-exporting {path}: unable to load prefab");
             return;
           }
-          
+
           FusionEditorLog.TracePlugin($"Auto-exporting prefab {path}");
           try {
             global.ExportPrefab(networkObject);
@@ -788,7 +789,7 @@
             FusionEditorLog.TracePlugin($"Not auto-removing {path}: unable to translate {path} to guid");
             return;
           }
-          
+
           try {
             var filePath = GetPrefabDataPath(global.GetValidGeneratedFolderPathOrThrow(), guid);
             if (File.Exists(filePath)) {
@@ -801,7 +802,7 @@
             FusionEditorLog.ErrorPlugin($"Auto-remove of {path} failed: {ex}");
           }
         }
-      
+
 
         void SyncScriptableObjects(string path, ScriptableObject[] objects) {
           var guid = AssetDatabase.AssetPathToGUID(path);
@@ -816,11 +817,11 @@
               if (!obj) {
                 continue;
               }
-              
+
               FusionEditorLog.TracePlugin($"Auto-exporting scriptable object {path} ({obj.name})");
               filesToRemove.Remove(global.ExportScriptableObject(obj));
             }
-            
+
             foreach (var toRemove in filesToRemove) {
               FusionEditorLog.TracePlugin($"Auto-removing scriptable object {path} from {toRemove}");
               File.Delete(toRemove);
@@ -842,13 +843,13 @@
         if (!TryGetGlobalInternal(out var global) || (global.AutoExport & FusionPluginAutoExportFlags.Scenes) == 0) {
           return;
         }
-        
+
         // check if this scene is in build settings or addressable
         if (!ShouldExportScene(scene.path)) {
           FusionEditorLog.TracePlugin($"Ignoring scene {scene.path}: not enabled in build settings and not addressable");
           return;
         }
-        
+
         FusionEditorLog.TracePlugin($"Auto-exporting scene {scene.path}");
         try {
           global.ExportScene(scene);
@@ -859,7 +860,7 @@
     }
 
     #endregion
-    
+
     #region Menu Items
 
     const int MenuItemPriority = 2000;
@@ -872,15 +873,15 @@
 
     [MenuItem("Tools/Fusion/Plugin/Export Code", priority = MenuItemPriority + 41)]
     static void MenuExportScenes() => GlobalInternal.ExportCode();
-    
+
     [MenuItem("Tools/Fusion/Plugin/Export All", priority = MenuItemPriority + 42)]
     static void MenuExportAll() => GlobalInternal.ExportAll();
-    
+
     [MenuItem("Tools/Fusion/Plugin/Build and Run", priority = MenuItemPriority + 60)]
     static void MenuBuildAndRun() => GlobalInternal.BuildAndRun();
     [MenuItem("Tools/Fusion/Plugin/Build and Run (Debug)", priority = MenuItemPriority + 60)]
     static void MenuBuildAndRunDebug() => GlobalInternal.BuildAndRun();
-    
+
     [MenuItem("Tools/Fusion/Plugin/Open C# Project", isValidateFunction: true)]
     [MenuItem("Tools/Fusion/Plugin/Export Prefabs", isValidateFunction: true)]
     [MenuItem("Tools/Fusion/Plugin/Export Code", isValidateFunction: true)]
@@ -890,7 +891,7 @@
     static bool ValidateMenuItems() {
       return TryGetGlobalInternal(out var global);
     }
-    
+
     #endregion
   }
 
@@ -903,7 +904,7 @@
     /// Export each Fusion prefab that gets updated/moved or remove any data left-over from a removed prefab.
     /// </summary>
     Prefabs = 1,
-    
+
     /// <summary>
     /// Export scriptable objects.
     /// </summary>
@@ -913,13 +914,13 @@
     /// Exports active scene when it is being saved. Note that this will not cause any imported scenes to be exported automatically; a scene needs to be opened and saved for the export to happen.
     /// </summary>
     Scenes = 4,
-    
+
     /// <summary>
     /// After each recompile, affected assemblies get reexported. Note that this might not work in batch mode, since [DidReloadScript] has to be run.
     /// </summary>
     Code = 8
   }
-  
+
   /// <summary>
   /// A collection of callbacks invoked whenever an export happens. Make sure "Editor and Runtime" is chosen for each.
   /// </summary>
@@ -941,7 +942,7 @@
     [InlineHelp]
     public UnityEvent<ScriptableObject, JsonNetworkObjectDB.ScriptableObjectData> PostprocessScriptableObjectData;
   }
-  
+
   /// <summary>
   /// Summary of the plugin data export.
   /// </summary>
@@ -955,7 +956,7 @@
     /// <summary/>
     public int AssetCount { get; } = AssetCount;
   }
-  
+
   /// <summary>
   /// Summary of the plugin code export.
   /// </summary>

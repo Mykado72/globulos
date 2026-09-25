@@ -422,14 +422,12 @@ namespace Fusion {
         }
         else
         {
-          if (loadSceneMode == LoadSceneMode.Single)
-          {
+          if (loadSceneMode == LoadSceneMode.Single) {
             // find the scene to unload
             var sceneToBeUnloaded = SceneManager.GetSceneAt(0); // will be unloaded by Unity on scene load
             var sceneRefToBeUnloaded = GetSceneRef(sceneToBeUnloaded.path);
 
-            if (sceneRefToBeUnloaded != SceneRef.None)
-            {
+            if (sceneRefToBeUnloaded != SceneRef.None) {
               DestroyAllRuntimeSpawnedObjectsInScene(sceneToBeUnloaded, sceneRefToBeUnloaded);
             }
           }
@@ -658,13 +656,15 @@ namespace Fusion {
     /// </summary>
     protected virtual IEnumerator OnSceneLoaded(SceneRef sceneRef, Scene scene, NetworkLoadSceneParameters sceneParams) {
       Log.TraceSceneManager(Runner, $"Finished loading, starting processing {scene.Dump()} for {sceneRef}");
-
-      var sceneObjects = scene.GetComponents<NetworkObject>(includeInactive: true, out var rootObjects);
-
+      
+      // only get objects that have sortkey set
+      var rootObjects = scene.GetRootGameObjects();
+      var sceneObjects = FusionUnitySceneManagerUtils.GetComponentsInHierarchyOrder<NetworkObject>(rootObjects, includeInactive: true, exclude: x => x.SortKey == 0);
+      
       // since it is impossible to get objects in deterministic order (sibling index is 0 for all root objects in builds),
       // scene objects need to be sorted by something that will guarantee the order
       Array.Sort(sceneObjects, NetworkObjectSortKeyComparer.Instance);
-
+      
       if (IsMultiplePeer) {
         // create a root GO for all the gameObjects in the newly loaded scene
         var newSceneRoot = new GameObject($"[{scene.name}]").AddComponent<MultiPeerSceneRoot>();
@@ -672,7 +672,7 @@ namespace Fusion {
         newSceneRoot.SceneHandle = scene.GetRawHandle();
         newSceneRoot.Scene       = scene;
         newSceneRoot.ScenePath   = scene.path;
-
+        
         SceneManager.MoveGameObjectToScene(newSceneRoot.gameObject, scene);
 
         foreach (var rootGameObject in rootObjects) {

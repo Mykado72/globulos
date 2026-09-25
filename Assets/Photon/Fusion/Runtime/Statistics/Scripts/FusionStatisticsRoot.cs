@@ -1,9 +1,10 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections;
   using System.Collections.Generic;
   using UnityEngine;
   using UnityEngine.UI;
-  
+
   [ScriptHelp(BackColor = FusionStatistics.StatisticsBackColor)]
   public class FusionStatisticsRoot : FusionMonoBehaviour {
     public static FusionStatisticsRoot ActiveRoot { get; private set; }
@@ -20,7 +21,7 @@
     public FusionStatistics Statistics => _statistics;
     public bool IsVisible => _collapsed == false;
     private FusionStatistics _statistics;
-    
+
     private MultipleOptionsPanel _peerOptionsInstance;
     private bool _collapsed;
     private RectTransform _rectTransform;
@@ -34,7 +35,7 @@
       Roots       = new List<FusionStatisticsRoot>();
       ActiveRoot  = null;
     }
-    
+
     private void Start() {
       EnsureCorrectAnchor();
     }
@@ -101,7 +102,7 @@
       StartCoroutine(MoveToPosition(pos, .2f));
       var zRotation = _anchorSide == FusionStatisticsConfig.Side.Right ? -90 : 90;
       _collapseButton.transform.GetChild(0).rotation = Quaternion.Euler(0f, 0f, _collapsed ? zRotation : -zRotation);
-      
+
       _anchorButton.interactable = _collapsed == false;
       _multiPeerButton.interactable = _collapsed == false;
     }
@@ -133,10 +134,10 @@
       sideBarPivot.x            = currentSide == FusionStatisticsConfig.Side.Right ? 1 : 0;
       _sideBar.pivot            = sideBarPivot;
       _sideBar.anchoredPosition = Vector3.zero;
-      
+
       var rootMin = _rectTransform.anchorMin;
       var rootMax = _rectTransform.anchorMax;
-      
+
       rootMin.x                = currentSide == FusionStatisticsConfig.Side.Right ? .75f : 0f;
       rootMax.x                = currentSide == FusionStatisticsConfig.Side.Right ? 1f : .25f;
       _rectTransform.anchorMin = rootMin;
@@ -144,7 +145,7 @@
 
       var collapseButtonIconRot = _collapseButton.transform.GetChild(0).rotation;
       collapseButtonIconRot.z                        *= -1;
-      _collapseButton.transform.GetChild(0).rotation =  collapseButtonIconRot; 
+      _collapseButton.transform.GetChild(0).rotation =  collapseButtonIconRot;
     }
 
     private void Update() {
@@ -166,4 +167,5 @@
       _rectTransform.anchoredPosition = target;
     }
   }
+#endif
 }

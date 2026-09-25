@@ -354,6 +354,7 @@ namespace Photon.Realtime
         }
 
         /// <summary>Calling this will stop pinging the regions and suppress the onComplete callback.</summary>
+        /// <remarks>IsPinging becomes false immediately, so a new ping run (or a new RegionHandler) can start right away, even if the aborted pinger threads are still winding down.</remarks>
         public void Abort()
         {
             if (this.Aborted)
@@ -364,6 +365,7 @@ namespace Photon.Realtime
             this.Aborted = true;
             lock (this.pingerList)
             {
+                this.IsPinging = false;
                 foreach (RegionPinger pinger in this.pingerList)
                 {
                     pinger.Abort();
@@ -380,6 +382,12 @@ namespace Photon.Realtime
 
         private void OnPreferredRegionPinged(Region preferredRegion)
         {
+            if (this.Aborted)
+            {
+                // an aborted preferred-region ping reports a bad rtt. don't start pinging all regions because of that and don't call back.
+                return;
+            }
+
             if (preferredRegion.Ping > this.BestRegionSummaryPingLimit || preferredRegion.Ping > this.previousPing * this.rePingFactor)
             {
                 this.PingEnabledRegions();
@@ -608,7 +616,7 @@ namespace Photon.Realtime
                 sw.Stop();
                 if (sw.ElapsedMilliseconds > 100)
                 {
-                    Log.Info($"RegionPingThreaded.ResolveHost() took: {sw.ElapsedMilliseconds}ms");
+                    Log.Debug($"RegionPingThreaded.ResolveHost() took: {sw.ElapsedMilliseconds}ms");
                 }
             }
             catch (Exception e)

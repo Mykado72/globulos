@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections.Generic;
   using UnityEngine;
 
@@ -8,7 +9,7 @@
     /// Side of the screen that the statistics root is anchored to.
     /// </summary>
     public enum Side {Right, Left}
-    
+
     /// <summary>
     /// Background opacity of the root panel.
     /// </summary>
@@ -18,7 +19,7 @@
     /// Refresh rate used to call <see cref="FusionStatisticsPage.Render()"/> on the active <see cref="FusionStatisticsPage"/>.
     /// </summary>
     public int PageRefreshRate = 30;
-    
+
     /// <summary>
     /// Default color gradient to render values on <see cref="LineChart"/>.
     /// </summary>
@@ -45,4 +46,5 @@
     /// </summary>
     public List<FusionStatisticsPage> StatisticsPages;
   }
+#endif
 }

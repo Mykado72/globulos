@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
   using UnityEngine.UI;
 
@@ -60,4 +61,5 @@
       _outB.RefreshDisplay();
     }
   }
+#endif
 }

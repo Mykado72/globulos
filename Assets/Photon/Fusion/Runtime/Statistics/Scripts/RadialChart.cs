@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
   using UnityEngine.UI;
 
@@ -11,7 +12,7 @@
     private float _value;
     private float _maxValue;
     private Material _material;
-    
+
     /// <summary>
     /// Chart title.
     /// </summary>
@@ -53,4 +54,5 @@
       _maxValue = maxValue;
     }
   }
+#endif
 }

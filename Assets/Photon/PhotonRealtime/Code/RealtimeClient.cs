@@ -493,6 +493,7 @@ namespace Photon.Realtime
 
 
         /// <summary>Contains the list if enabled regions this client may use. Null, unless the client got a response to OpGetRegions.</summary>
+        /// <remarks>Gets reset to null by ConnectUsingSettings and GetRegions, so a previous run can't affect the new one. Read SummaryToCache in OnRegionListReceived or once connected.</remarks>
         public RegionHandler RegionHandler;
 
         /// <summary>Accesses this.RegionHandler?.SummaryToCache. May be null.</summary>
@@ -509,6 +510,13 @@ namespace Photon.Realtime
 
         /// <summary>Can be used to run a "workflow", aside from the usual connecting and calling operations. Used for GetRegions.</summary>
         private ClientWorkflowOption clientWorkflow;
+
+        /// <summary>Set while this client's own connect-workflow is pinging regions (PingMinimumOfRegions with OnRegionPingCompleted).</summary>
+        /// <remarks>
+        /// Helps abort region pinging only if this client's connect-workflow started it. Used by the disconnect paths.
+        /// Region pinging which was started by the game logic (e.g. calling RegionHandler.PingAvailableRegions in OnRegionListReceived) must keep running.
+        /// </remarks>
+        private bool workflowRegionPinging;
 
 
         /// <summary>Creates a RealtimeClient with UDP protocol or the one specified.</summary>
@@ -595,6 +603,8 @@ namespace Photon.Realtime
             this.LogLevel = this.AppSettings.ClientLogging;
             this.RealtimePeer.LogLevel = this.AppSettings.NetworkLogging;
             this.CurrentRegion = null;
+            this.clientWorkflow = ClientWorkflowOption.Default;
+            this.DiscardRegionHandler();    // a previous GetRegions/ping run must not influence this connect. a new RegionHandler is created on the next GetRegions response.
             this.DisconnectedCause = DisconnectCause.None;
             this.SystemConnectionSummary = null;
 
@@ -714,8 +724,8 @@ namespace Photon.Realtime
                 return;
             }
 
+            this.ConnectUsingSettings(appSettings);                 // resets workflow to Default internally
             this.clientWorkflow = ping ? ClientWorkflowOption.GetRegionsAndPing : ClientWorkflowOption.GetRegionsOnly;
-            this.ConnectUsingSettings(appSettings);
             this.AppSettings.BestRegionSummaryFromStorage = null;   // appSettings are COPIED from parameter to internal variable, so we can change this now without side-effects
         }
 
@@ -775,6 +785,12 @@ namespace Photon.Realtime
             switch (serverType)
             {
                 case ServerConnection.NameServer:
+                    // use WSS as transport on NameServer for AuthOnceWss
+                    if (this.AppSettings.AuthMode == AuthModeOption.AuthOnceWss)
+                    {
+                        this.RealtimePeer.TransportProtocol = ConnectionProtocol.WebSocketSecure;
+                    }
+
                     serverAddress = this.GetNameServerAddress();
                     stateOnSuccess = ClientState.ConnectingToNameServer;
 
@@ -783,8 +799,6 @@ namespace Photon.Realtime
                     {
                         this.AuthValues.Token = null;
                     }
-                    // may have to use WSS as transport
-                    this.RealtimePeer.TransportProtocol = ConnectionProtocol.WebSocketSecure;
                     break;
 
                 case ServerConnection.MasterServer:
@@ -907,8 +921,11 @@ namespace Photon.Realtime
         }
 
         /// <summary>Disconnects the client / peer from a server or stays disconnected. Internal method that sets the DisconnectedCause as well.</summary>
+        /// <remarks>Region pinging started by the connect workflow gets aborted (which suppresses the ping-completed callback), no matter which cause led here. Pinging that the app started itself keeps running.</remarks>
         internal void Disconnect(DisconnectCause cause = DisconnectCause.DisconnectByClientLogic)
         {
+            this.AbortWorkflowRegionPinging();
+
             if (this.State == ClientState.Disconnecting || this.State == ClientState.Disconnected || this.State == ClientState.PeerCreated)
             {
                 Log.Info($"Disconnect() skipped because State is: {this.State}. Called for cause: {cause}. Current DisconnectedCause: {this.DisconnectedCause}.", this.LogLevel, this.LogPrefix);
@@ -918,6 +935,67 @@ namespace Photon.Realtime
             this.State = ClientState.Disconnecting;
             this.DisconnectedCause = cause;
             this.RealtimePeer.Disconnect();
+        }
+
+        /// <summary>Set when the ConnectionHandler's fallback thread initiated a disconnect. Consumed when the resulting StatusCode.Disconnect gets dispatched.</summary>
+        private volatile bool fallbackDisconnectPending;
+
+        /// <summary>Disconnects the client from the ConnectionHandler's fallback thread (after KeepAliveInBackground passed without Service calls).</summary>
+        /// <remarks>
+        /// Unlike Disconnect(), this method is safe to call from a thread other than the one calling Service() / DispatchIncomingCommands().
+        /// It only does a thread-safe subset of a disconnect: it sets the DisconnectedCause and calls the peer's Disconnect(), which
+        /// sends a disconnect command to the server right away (so the server registers a clean disconnect instead of a timeout).
+        ///
+        /// The client-side State changes, the region-ping abort and the callbacks must not run on the calling (timer) thread (may touch Unity objects).
+        /// They are deferred to the dispatch of the resulting StatusCode.Disconnect (see OnStatusChanged).
+        /// Until a regular dispatch runs (e.g. while a Unity app stays in background), this client's State remains unchanged.
+        /// </remarks>
+        internal void DisconnectFromFallbackThread()
+        {
+            if (this.State == ClientState.Disconnecting || this.State == ClientState.Disconnected || this.State == ClientState.PeerCreated)
+            {
+                return;
+            }
+
+            this.DisconnectedCause = DisconnectCause.ClientServiceInactivity;
+            this.fallbackDisconnectPending = true;
+            this.RealtimePeer.Disconnect();
+        }
+
+        /// <summary>Aborts region pinging, if the RegionHandler is currently pinging. Aborting suppresses the OnRegionPingCompleted callback.</summary>
+        private void AbortRegionPinging()
+        {
+            if (this.RegionHandler != null && this.RegionHandler.IsPinging)
+            {
+                this.RegionHandler.Abort();
+            }
+
+            this.workflowRegionPinging = false;
+        }
+
+        /// <summary>Aborts region pinging only if this client's connect-workflow started it. Used by the disconnect paths.</summary>
+        /// <remarks>
+        /// The conditional abort keeps pings running, which were started via (e.g.) ConnectToNameserverAndWaitForRegionsAsync.
+        /// If the client internally started the region-pinging, then a disconnect ends these pings (preventing late callbacks on a
+        /// client which was told to disconnect).
+        /// </remarks>
+        private void AbortWorkflowRegionPinging()
+        {
+            if (this.workflowRegionPinging)
+            {
+                this.AbortRegionPinging();
+            }
+        }
+
+        /// <summary>Aborts any region pinging and drops the RegionHandler. A new one gets created when the next GetRegions response arrives.</summary>
+        /// <remarks>
+        /// Used when a new connect-workflow starts. A RegionHandler from a previous run must not be reused: it may still be pinging
+        /// (its OnRegionPingCompleted callback would interfere with the new workflow) and while IsPinging, incoming GetRegions responses get skipped.
+        /// </remarks>
+        private void DiscardRegionHandler()
+        {
+            this.AbortRegionPinging();
+            this.RegionHandler = null;
         }
 
 
@@ -1850,7 +1928,7 @@ namespace Photon.Realtime
                     if (this.State == ClientState.ConnectedToNameServer)
                     {
                         // ping minimal regions (if one is known) and connect
-                        this.RegionHandler.PingMinimumOfRegions(this.OnRegionPingCompleted, this.AppSettings.BestRegionSummaryFromStorage);
+                        this.workflowRegionPinging = this.RegionHandler.PingMinimumOfRegions(this.OnRegionPingCompleted, this.AppSettings.BestRegionSummaryFromStorage);
                     }
                     break;
 
@@ -2053,6 +2131,7 @@ namespace Photon.Realtime
 
                 case StatusCode.Disconnect:
                     // disconnect due to connection exception is handled below (don't connect to GS or master in that case)
+                    this.AbortWorkflowRegionPinging();  // covers server-side and timeout disconnects, which don't go through this.Disconnect(cause)
                     this.friendListRequested = null;
 
                     bool wasInRoom = this.CurrentRoom != null;
@@ -2071,6 +2150,15 @@ namespace Photon.Realtime
                     {
                         Log.Info($"Disconnect switches TransportProtocol to: {this.AppSettings.Protocol}.", this.LogLevel, this.LogPrefix);
                         this.RealtimePeer.TransportProtocol = this.AppSettings.Protocol;
+                    }
+
+                    if (this.fallbackDisconnectPending)
+                    {
+                        // this disconnect was initiated by the ConnectionHandler's fallback thread (due to ClientServiceInactivity).
+                        // that thread should not change the State on its timer thread. DisconnectFromFallbackThread delayed the transition
+                        // to here (on the dispatching thread), and let the Disconnecting case below finish up (region pinging was already aborted above).
+                        this.fallbackDisconnectPending = false;
+                        this.State = ClientState.Disconnecting;
                     }
 
                     switch (this.State)
@@ -2403,6 +2491,15 @@ namespace Photon.Realtime
         /// <param name="regionHandler">The regionHandler wraps up best region and other region relevant info.</param>
         private void OnRegionPingCompleted(RegionHandler regionHandler)
         {
+            this.workflowRegionPinging = false;
+
+            if (regionHandler != this.RegionHandler || regionHandler.Aborted)
+            {
+                // a RegionHandler that got discarded or aborted (e.g. by a new ConnectUsingSettings or a disconnect) must not affect the current workflow
+                Log.Info("OnRegionPingCompleted() ignored: the RegionHandler is not the current one or was aborted.", this.LogLevel, this.LogPrefix);
+                return;
+            }
+
             if (this.LogLevel == LogLevel.Info)
             {
                 Log.Info($"Region pinging summary: {SummaryToCache}", this.LogLevel, this.LogPrefix);

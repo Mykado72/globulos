@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
   using UnityEngine.EventSystems;
   using UnityEngine.UI;
@@ -10,7 +11,7 @@
     [SerializeField] protected Text _peakValueText;
     [SerializeField] protected Text _avgValueText;
     [SerializeField] protected Text _lastValueText;
-    
+
     protected StatAccumulator _accumulator;
 
     private string _originalTitle;
@@ -26,7 +27,7 @@
         if (_titleText) _titleText.text = value;
       }
     }
-    
+
 
     private readonly int _valuesShaderPropertyID = Shader.PropertyToID("_Values");
     private readonly int _valueMinShaderPropertyID = Shader.PropertyToID("_ValueMin");
@@ -61,10 +62,10 @@
     public void SetColors(Gradient defaultGradient, Gradient thresholdGradient, bool zeroIsTransparent) {
       _material.SetColor(_baseBottomColorShaderPropertyID, defaultGradient.Evaluate(0));
       _material.SetColor(_baseTopColorShaderPropertyID, defaultGradient.Evaluate(1));
-      
+
       _material.SetColor(_thresholdBottomColorShaderPropertyID, thresholdGradient.Evaluate(0));
       _material.SetColor(_thresholdTopColorShaderPropertyID, thresholdGradient.Evaluate(1));
-      
+
       _material.SetInteger(_zeroIsTransparentShaderPropertyId, zeroIsTransparent ? 1 : 0);
     }
 
@@ -93,7 +94,7 @@
         if (_values[i] > maxValue) maxValue = _values[i];
         i = (i + 1) % BUFFER_SAMPLES;
       }
-      
+
       avg /= BUFFER_SAMPLES;
       if (_lookupTable != FusionStatsLookup.LOOKUP_TABLE_0_00ms && avg > 0 && avg < 1) avg = 1; // Avoid 0 on data without decimal places
 
@@ -172,8 +173,9 @@
       } else {
         _accumulator.DisplayingPerSecond = !_accumulator.DisplayingPerSecond;
       }
-      
+
       Title = $"{_originalTitle} {(_accumulator.DisplayingPerSecond ? "(S)" : "(U)")}";
     }
   }
+#endif
 }

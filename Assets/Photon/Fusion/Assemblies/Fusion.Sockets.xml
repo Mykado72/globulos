@@ -841,11 +841,11 @@
             <returns>The 32-bit signed integer value read from the buffer.</returns>
         </member>
         <member name="M:Fusion.Sockets.NetBitBuffer.TryReadInt32VarLength(System.Int32@)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="result"></param>
-            <returns></returns>
+             </summary>
+             <param name="result"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.Sockets.NetBitBuffer.TryReadUInt32(System.UInt32@)">
             <summary>
@@ -921,12 +921,12 @@
             <returns>The 64-bit unsigned integer value read from the buffer.</returns>
         </member>
         <member name="M:Fusion.Sockets.NetBitBuffer.TryReadUInt64VarLength(System.Int32,System.UInt64@)">
-            <summary>
+             <summary>
             
-            </summary>
-            <param name="blockSize"></param>
-            <param name="result"></param>
-            <returns></returns>
+             </summary>
+             <param name="blockSize"></param>
+             <param name="result"></param>
+             <returns></returns>
         </member>
         <member name="M:Fusion.Sockets.NetBitBuffer.TryReadUInt64VarLengthBoolPrefixed(System.Int32,System.UInt64@)">
             <summary/>
@@ -1782,12 +1782,17 @@
             <param name="address">The address of the connection to remove.</param>
             <returns>True if the connection was successfully removed, otherwise false.</returns>
         </member>
-        <member name="M:Fusion.Sockets.NetConnectionMap.Insert(Fusion.Sockets.NetAddress,System.Byte[])">
+        <member name="M:Fusion.Sockets.NetConnectionMap.Insert(Fusion.Sockets.NetAddress,System.Byte[],Fusion.Sockets.NetAddress@)">
             <summary>
             Inserts a new connection into the network peer group using the specified address and unique ID.
             </summary>
             <param name="address">The address of the connection to insert.</param>
             <param name="uniqueId">The unique ID of the connection to insert.</param>
+            <param name="remappedFrom">
+            The address an existing connection was moved away from, when the unique ID was already in use. Left as
+            <c>default</c> on every other path. The caller owns releasing that address from <see cref="T:Fusion.Sockets.NetPeer"/>, which this
+            map cannot reach.
+            </param>
             <returns>A pointer to the newly inserted connection, or null if the connection is already in use or the capacity is full.</returns>
         </member>
         <member name="M:Fusion.Sockets.NetConnectionMap.FindByIndex(System.Int32)">
@@ -1943,16 +1948,6 @@
              The maximum number of bytes that can be fragmented into multiple packets of size <see cref="F:Fusion.Sockets.NetPeer.MAX_MTU_BYTES_TOTAL"/>.
              </summary>
         </member>
-        <member name="F:Fusion.Sockets.NetPeer.FRAG_MAX_COUNT">
-            <summary>
-            Maximum number of fragments.
-            </summary>
-        </member>
-        <member name="F:Fusion.Sockets.NetPeer.FRAG_END_BIT">
-            <summary>
-            Flag for the last fragment.
-            </summary>
-        </member>
         <member name="P:Fusion.Sockets.NetPeer.Address">
             <summary>
             Gets the network address of the peer.
@@ -1967,6 +1962,24 @@
             <summary>
             Gets the number of connection groups.
             </summary>
+        </member>
+        <member name="M:Fusion.Sockets.NetPeer.GetGroupAssignedAddressCount(Fusion.Sockets.NetPeer*,System.Int32)">
+             <summary>
+             Gets the number of remote addresses currently mapped to the specified group.
+            
+             <remarks>
+             This is the value that gates <see cref="F:Fusion.Sockets.NetConnectFailedReason.ServerFull"/>, and it counts mapped addresses rather
+             than established connections - so it can exceed the number of connections in the group.
+             </remarks>
+             </summary>
+             <param name="p">A pointer to the NetPeer instance.</param>
+             <param name="group">The index of the connection group.</param>
+        </member>
+        <member name="M:Fusion.Sockets.NetPeer.GetMappedAddressCount(Fusion.Sockets.NetPeer*)">
+            <summary>
+            Gets the total number of remote addresses mapped across every group.
+            </summary>
+            <param name="p">A pointer to the NetPeer instance.</param>
         </member>
         <member name="P:Fusion.Sockets.NetPeer.IsShutdown">
             <summary>
@@ -2081,6 +2094,18 @@
             <summary>
             Network Peer Group.
             </summary>
+        </member>
+        <member name="T:Fusion.Sockets.NetPeerGroup.PendingAddress">
+             <summary>
+             An address that <see cref="T:Fusion.Sockets.NetPeer"/> mapped and counted on the socket thread when a Connect command arrived, but
+             which has not been promoted to a <see cref="T:Fusion.Sockets.NetConnection"/> yet.
+            
+             <remarks>
+             Nothing else can reclaim these: no NetConnection exists, so no connection state machine will time them out, and
+             NetPeerGroupMap is never iterated. Without tracking them here a Connect that never completes consumes one of
+             MaxConnections mappings for the lifetime of the peer.
+             </remarks>
+             </summary>
         </member>
         <member name="P:Fusion.Sockets.NetPeerGroup.Time">
             <summary>
@@ -2230,6 +2255,16 @@
             <param name="g">The network peer group.</param>
             <param name="c">The connection whose idle time is to be calculated.</param>
             <returns>The idle time of the connection in seconds.</returns>
+        </member>
+        <member name="M:Fusion.Sockets.NetPeerGroup.QueueAddressUnmap(Fusion.Sockets.NetPeerGroup*,Fusion.Sockets.NetAddress)">
+             <summary>
+             Queues an unmap for an address that has no connection to carry it.
+            
+             <remarks>
+             The caller must be certain the address is still mapped: <see cref="T:Fusion.Sockets.NetPeer"/> asserts on the group it removes, and
+             unmapping twice would decrement the assigned count for an address that is no longer there.
+             </remarks>
+             </summary>
         </member>
         <member name="T:Fusion.Sockets.OnConnectionRequestReply">
             <summary>

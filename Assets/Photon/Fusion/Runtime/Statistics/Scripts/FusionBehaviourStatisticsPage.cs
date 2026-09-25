@@ -1,10 +1,11 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System;
   using System.Collections.Generic;
   using System.Linq;
   using System.Reflection;
   using UnityEngine;
-  
+
   public class FusionBehaviourStatisticsPage : FusionStatisticsPage {
     public override string PageName => "Behaviour";
 
@@ -18,7 +19,7 @@
     /// If the list is displaying fixed update network, displaying render if false.
     /// </summary>
     public bool DisplayingFun => _showFun;
-    
+
     private Type[] _allBehaviours;
     private List<FusionBehaviourStats> _stats = new();
     private bool _showFun;
@@ -43,10 +44,10 @@
         }
       }
       _allBehaviours = behaviourList.ToArray();
-      
+
       DisplayFixedUpdateNetwork(true);
     }
-    
+
     /// <summary>
     /// Open the panel to monitor a new behaviour statistics.
     /// </summary>
@@ -60,7 +61,7 @@
     private void AddBehaviourStat(Type type) {
       // already have a behaviour stat for that type.
       if (_stats.Select(b => b.BehaviourType == type).Any(r => r)) return;
-      
+
       var instance = Instantiate(_behaviourStatsPrefab, _content);
       _stats.Add(instance);
       instance.Setup(type, this);
@@ -88,4 +89,5 @@
       Destroy(fusionBehaviourStats.gameObject);
     }
   }
+#endif
 }

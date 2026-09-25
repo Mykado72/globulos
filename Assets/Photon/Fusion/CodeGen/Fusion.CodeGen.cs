@@ -2330,6 +2330,29 @@ namespace Fusion.CodeGen {
 
 
           try {
+            // collections are views into networked memory, so their backing field gets replaced with a defaults field
+            // of a different type (e.g. T[]); an initializer other than MakeInitializer can't be weaved into a write
+            // to that field. '= default' and '= new()' both compile to initobj and amount to an empty collection,
+            // same as no initializer at all, so they are dropped; anything else is an error
+            if (propertyInfo.BackingField != null && property.PropertyType.IsNetworkCollection()) {
+              foreach (var constructor in type.GetConstructors().Where(x => !x.IsStatic)) {
+                var inlineInit = GetInlineFieldInit(constructor, propertyInfo.BackingField, type);
+                if (inlineInit.Length == 0 || inlineInit.Any(IsMakeInitializerCall)) {
+                  continue;
+                }
+                if (inlineInit[inlineInit.Length - 1].OpCode == OpCodes.Initobj) {
+                  var constructorIL = constructor.Body.GetILProcessor();
+                  foreach (var instruction in inlineInit.Reverse()) {
+                    constructorIL.Remove(instruction);
+                  }
+                } else {
+                  throw new ILWeaverException($"{property}: initializers of [Networked] collection properties need to be " +
+                    $"{nameof(NetworkBehaviour.MakeInitializer)} calls. Remove the initializer or use " +
+                    $"{nameof(NetworkBehaviour.MakeInitializer)} to provide initial values.");
+                }
+              }
+            }
+
             // try to maintain fields order
             int backingFieldIndex = type.Fields.Count;
             if (propertyInfo.BackingField != null) {
@@ -3472,7 +3495,7 @@ namespace Fusion.CodeGen {
       foreach (var referencePath in references) {
         var assemblyName = Path.GetFileNameWithoutExtension(referencePath);
         if (_assemblyNameToPath.TryGetValue(assemblyName, out var existingPath)) {
-          _log.Warn($"Assembly {assemblyName} (full path: {referencePath}) already referenced by {compiledAssemblyName} at {existingPath}");
+          _log.Debug($"Assembly {assemblyName} (full path: {referencePath}) already referenced by {compiledAssemblyName} at {existingPath}");
         } else {
           _log.Debug($"Adding {assemblyName}->{referencePath}");
           _assemblyNameToPath.Add(assemblyName, referencePath);

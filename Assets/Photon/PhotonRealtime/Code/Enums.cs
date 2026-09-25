@@ -238,7 +238,14 @@ namespace Photon.Realtime
         Fusion,
 
         /// <summary>Quantum clients are for matchmaking and relay in Photon Quantum.</summary>
-        Quantum
+        Quantum,
+
+        /// <summary>Video apps stream video (and audio).</summary>
+        Video,
+
+        /// <summary>Can be used when components work for either App Type.</summary>
+        /// <remarks>Have a look at AppSettings.GetAppId(ClientAppType ct).</remarks>
+        VoiceOrVideo
     }
 
 

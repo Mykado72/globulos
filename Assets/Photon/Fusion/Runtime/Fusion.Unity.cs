@@ -877,7 +877,7 @@ namespace Fusion {
     /// </summary>
     public string ResourcePath { get; }
     /// <summary>
-    /// If loaded in the editor, should the result be instantiated instead of returning the asset itself? The default is <see langword="true"/>. 
+    /// If loaded in the editor, should the result be instantiated instead of returning the asset itself? The default is <see langword="true"/>.
     /// </summary>
     public bool InstantiateIfLoadedInEditor { get; set; } = true;
 
@@ -886,9 +886,7 @@ namespace Fusion {
     /// </summary>
     public override FusionGlobalScriptableObjectLoadResult Load(Type type) {
 
-      var attribute = type.GetCustomAttribute<FusionGlobalScriptableObjectAttribute>();
-      Assert.Check(attribute != null);
-
+      var attribute = type.GetCustomAttribute<FusionGlobalScriptableObjectAttribute>() ?? throw new InvalidOperationException($"Missing {nameof(FusionGlobalScriptableObjectAttribute)} on {type?.FullName}");
       var resourcePath = GetResourcePath(type, attribute);
       if (resourcePath == null) {
         return default;
@@ -907,8 +905,7 @@ namespace Fusion {
     /// Loads the asset from Resources asynchronously.
     /// </summary>
     public override System.Threading.Tasks.Task<FusionGlobalScriptableObjectLoadResult> LoadAsync(Type type) {
-      var attribute = type.GetCustomAttribute<FusionGlobalScriptableObjectAttribute>();
-      Assert.Check(attribute != null);
+      var attribute = type.GetCustomAttribute<FusionGlobalScriptableObjectAttribute>() ?? throw new InvalidOperationException($"Missing {nameof(FusionGlobalScriptableObjectAttribute)} on {type?.FullName}");
 
       var tcs = new TaskCompletionSource<FusionGlobalScriptableObjectLoadResult>();
 
@@ -1134,7 +1131,7 @@ namespace Fusion {
 
 #region Assets/Photon/Fusion/Runtime/FusionLogConstants.cs
 
-
+﻿
 
 namespace Fusion {
   static class FusionLogConstants {
@@ -1224,6 +1221,9 @@ namespace Fusion {
 #endif
 #if FUSION_TRACE_PLUGINVERSION
       | TraceChannels.PluginVersion
+#endif
+#if FUSION_TRACE_LAGCOMPENSATION
+      | TraceChannels.LagCompensation
 #endif
       ;
   }
@@ -1485,10 +1485,12 @@ namespace Fusion {
     /// <param name="obj">Object to be serialized.</param>
     /// <param name="instanceIDHandler">Handler for UnityEngine.Object references. If the handler returns an empty string,
     /// the reference is removed from the final result.</param>
-    public static string ToJsonWithTypeAnnotation(object obj, InstanceIDHandlerDelegate instanceIDHandler = null) {
+    /// <param name="typeSerializer">Handler for obtaining serialized type names. If <see langword="null"/>, the short assembly
+    /// qualified name (namespace + name + assembly name) will be used.</param>
+    public static string ToJsonWithTypeAnnotation(object obj, InstanceIDHandlerDelegate instanceIDHandler = null, TypeSerializerDelegate typeSerializer = null) {
       var sb = new StringBuilder(1000);
       using (var writer = new StringWriter(sb)) {
-        ToJsonWithTypeAnnotation(obj, writer, instanceIDHandler: instanceIDHandler);
+        ToJsonWithTypeAnnotation(obj, writer, instanceIDHandler: instanceIDHandler, typeSerializer: typeSerializer);
       }
       return sb.ToString();
     }
@@ -2467,8 +2469,8 @@ namespace Fusion {
 #else
 #if UNITY_EDITOR
       return UnityEditor.GameObjectUtility.GetNavMeshAreaNames();
-#else 
-      return new string[0];
+#else
+      return System.Array.Empty<string>();
 #endif
 #endif
     }
@@ -2483,7 +2485,7 @@ namespace Fusion {
 #else
 #if UNITY_EDITOR
       return UnityEditor.GameObjectUtility.GetNavMeshAreaFromName(name);
-#else 
+#else
       return 0;
 #endif
 #endif
@@ -2503,6 +2505,7 @@ namespace Fusion {
   using System.Collections.Generic;
   using System.Linq;
   using System.Text;
+  using JetBrains.Annotations;
   using UnityEditor;
   using UnityEngine;
   using UnityEngine.Pool;
@@ -2513,7 +2516,7 @@ namespace Fusion {
 #else
   using ObjectIdType = System.Int32;
 #endif
-  
+
   /// <summary>
   /// Extension and utility methods for <see cref="SceneManager"/> and <see cref="Scene"/> types.
   /// </summary>
@@ -2680,7 +2683,7 @@ namespace Fusion {
     /// <summary>
     /// Gets a component on a scene. If there are none or more than one, throws an exception.
     /// </summary>
-    public static T GetSingleComponentOrThrow<T>(this Scene scene, bool includeInactive = false) where T : Component {
+    public static T GetSingleComponentOrThrow<T>(this Scene scene, bool includeInactive = false, Predicate<T> exclude = null) where T : Component {
       using (ListPool<GameObject>.Get(out var roots)) {
         // order does not matter
         scene.GetRootGameObjects(roots);
@@ -2692,7 +2695,9 @@ namespace Fusion {
             continue;
           }
 
-          var component = root.GetComponentInChildren<T>(includeInactive: includeInactive);
+          var component = exclude == null
+            ? root.GetComponentInChildren<T>(includeInactive: includeInactive)
+            : GetComponentInChildrenFiltered<T>(root, includeInactive, exclude);
           if (component) {
             if (result) {
               throw new InvalidOperationException($"Multiple components of type {typeof(T).FullName} found");
@@ -2705,22 +2710,24 @@ namespace Fusion {
         if (result == null) {
           throw new InvalidOperationException($"Components of type {typeof(T).FullName} not found");
         }
-        
+
         return result;
       }
     }
-    
+
     /// <summary>
-    /// Gets all the component present on a scene, depth first.
+    /// Gets first component on a scene.
     /// </summary>
-    public static T GetComponentInHierarchyOrder<T>(this Scene scene, bool includeInactive = false) where T: class{
+    public static T GetComponentInHierarchyOrder<T>(this Scene scene, bool includeInactive = false, Predicate<T> exclude = null) where T: class{
       using (ListPool<GameObject>.Get(out var roots)) {
         scene.GetRootGameObjectsInHierarchyOrder(roots);
         foreach (var root in roots) {
           if (!includeInactive && !root.activeInHierarchy) {
             continue;
           }
-          var result = root.GetComponentInChildren<T>(includeInactive: includeInactive);
+          var result = exclude == null
+            ? root.GetComponentInChildren<T>(includeInactive: includeInactive)
+            : GetComponentInChildrenFiltered<T>(root, includeInactive, exclude);
           if (result != null) {
             return result;
           }
@@ -2729,34 +2736,51 @@ namespace Fusion {
         return null;
       }
     }
-    
+
     /// <summary>
     /// Gets all the component present on a scene, depth first.
     /// </summary>
-    public static T[] GetComponentsInHierarchyOrder<T>(this Scene scene, bool includeInactive = false) where T : class {
+    public static T[] GetComponentsInHierarchyOrder<T>(this Scene scene, bool includeInactive = false, Predicate<T> exclude = null) where T : class {
       using (ListPool<GameObject>.Get(out var roots)) {
         scene.GetRootGameObjectsInHierarchyOrder(roots);
-        return GetComponentsInHierarchyOrder<T>(roots, includeInactive);
+        return GetComponentsInHierarchyOrder<T>(roots, includeInactive, exclude);
       }
     }
-    
+
     /// <summary>
     /// Gets all the component present on a scene, depth first.
     /// </summary>
-    public static T[] GetComponentsInHierarchyOrder<T>(IList<GameObject> roots, bool includeInactive = false) where T : class {
+    public static T[] GetComponentsInHierarchyOrder<T>(IList<GameObject> roots, bool includeInactive = false, Predicate<T> exclude = null) where T : class {
       using (ListPool<T>.Get(out var partialResults))
       using (ListPool<T>.Get(out var fullResults)) {
         foreach (var root in roots) {
           if (!includeInactive && !root.activeInHierarchy) {
             continue;
           }
-          
+
           partialResults.Clear();
           root.GetComponentsInChildren<T>(includeInactive: includeInactive, partialResults);
+          if (exclude != null) {
+            partialResults.RemoveAll(exclude);
+          }
           fullResults.AddRange(partialResults);
         }
 
         return fullResults.ToArray();
+      }
+    }
+    
+    static T GetComponentInChildrenFiltered<T>(GameObject root, bool includeInactive, [NotNull] Predicate<T> exclude) where T : class {
+      using (ListPool<T>.Get(out var components)) {
+        root.GetComponentsInChildren(includeInactive, components);
+        foreach (var component in components) {
+          if (exclude(component)) {
+            continue;
+          }
+          return component;
+        }
+
+        return null;
       }
     }
 
@@ -3339,6 +3363,7 @@ namespace Fusion {
 #region Assets/Photon/Fusion/Runtime/Statistics/Scripts/CanvasCreator.cs
 
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
   using UnityEngine.EventSystems;
   using UnityEngine.UI;
@@ -3346,7 +3371,7 @@ namespace Fusion {
   internal static class CanvasCreator {
     private static readonly Vector2 ReferenceResolution = new(1920, 1080);
     private static readonly float WorldSpaceWidthInMeters = 5f;
-    
+
     internal static Canvas CreateRootCanvas(string name) {
       GameObject canvasObject = new GameObject(name);
       canvasObject.layer = LayerMask.NameToLayer("UI");
@@ -3379,7 +3404,7 @@ namespace Fusion {
       if (canvas.gameObject.TryGetComponent<FusionBasicBillboard>(out var billboard)) {
         Object.Destroy(billboard);
       }
-      
+
       Object.DontDestroyOnLoad(canvas.gameObject);
     }
 
@@ -3392,6 +3417,7 @@ namespace Fusion {
       canvas.gameObject.AddComponent<FusionBasicBillboard>();
     }
   }
+#endif
 }
 
 #endregion
@@ -3400,6 +3426,7 @@ namespace Fusion {
 #region Assets/Photon/Fusion/Runtime/Statistics/Scripts/FusionStatisticsPage.cs
 
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
 
   /// <summary>
@@ -3418,7 +3445,7 @@ namespace Fusion {
     /// Hook for <see cref="IAfterUpdate"/> callback from Fusion, used to store the statistics data.
     /// </summary>
     public abstract void AfterFusionUpdate();
-    
+
     /// <summary>
     /// Logic when the page is opened.
     /// </summary>
@@ -3428,7 +3455,7 @@ namespace Fusion {
     /// Logic when the page is closed.
     /// </summary>
     public virtual void Close() => gameObject.SetActive(false);
-    
+
     public FusionStatisticsManager StatisticsManager { get; private set; }
     public FusionStatistics Statistics { get; private set; }
     public NetworkRunner Runner { get; private set; }
@@ -3445,6 +3472,7 @@ namespace Fusion {
       Close();
     }
   }
+#endif
 }
 
 #endregion
@@ -3453,13 +3481,14 @@ namespace Fusion {
 #region Assets/Photon/Fusion/Runtime/Statistics/Scripts/FusionStatsLookup.cs
 
 namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System;
   using System.Globalization;
   using UnityEngine;
 
   internal static class FusionStatsLookup {
     private static readonly IFormatProvider _formatProvider = CultureInfo.GetCultureInfo("en-US");
-    
+
     /// <summary>
     /// Convert from float number to one of the cached strings from the table.
     /// </summary>
@@ -3691,7 +3720,7 @@ namespace Fusion.Statistics {
       new string[] { "99%"},
     };
 
-    
+
     internal static readonly string[][] LOOKUP_TABLE_0ms =
     {
       new string[] {  "0ms","100ms","200ms","300ms","400ms","500ms","600ms","700ms","800ms","900ms", },
@@ -3795,7 +3824,7 @@ namespace Fusion.Statistics {
       new string[] { "98ms","198ms","298ms","398ms","498ms","598ms","698ms","798ms","898ms","998ms", },
       new string[] { "99ms","199ms","299ms","399ms","499ms","599ms","699ms","799ms","899ms","999ms", },
     };
-    
+
     internal static readonly string[][] LOOKUP_TABLE_0_BYTES =
     {
       new string[] {  "0 B","100 B","200 B","300 B","400 B","500 B","600 B","700 B","800 B","900 B", },
@@ -4004,6 +4033,7 @@ namespace Fusion.Statistics {
       new string[] { "0.99ms","1.99ms","2.99ms","3.99ms","4.99ms","5.99ms","6.99ms","7.99ms","8.99ms","9.99ms",    "10.99ms","11.99ms","12.99ms","13.99ms","14.99ms","15.99ms","16.99ms","17.99ms","18.99ms","19.99ms",    "20.99ms","21.99ms","22.99ms","23.99ms","24.99ms","25.99ms","26.99ms","27.99ms","28.99ms","29.99ms",    "30.99ms","31.99ms","32.99ms","33.99ms","34.99ms","35.99ms","36.99ms","37.99ms","38.99ms","39.99ms",    "40.99ms","41.99ms","42.99ms","43.99ms","44.99ms","45.99ms","46.99ms","47.99ms","48.99ms","49.99ms",    "50.99ms","51.99ms","52.99ms","53.99ms","54.99ms","55.99ms","56.99ms","57.99ms","58.99ms","59.99ms",    "60.99ms","61.99ms","62.99ms","63.99ms","64.99ms","65.99ms","66.99ms","67.99ms","68.99ms","69.99ms",    "70.99ms","71.99ms","72.99ms","73.99ms","74.99ms","75.99ms","76.99ms","77.99ms","78.99ms","79.99ms",    "80.99ms","81.99ms","82.99ms","83.99ms","84.99ms","85.99ms","86.99ms","87.99ms","88.99ms","89.99ms",    "90.99ms","91.99ms","92.99ms","93.99ms","94.99ms","95.99ms","96.99ms","97.99ms","98.99ms","99.99ms", },
     };
   }
+#endif
 }
 
 #endregion
@@ -4012,6 +4042,7 @@ namespace Fusion.Statistics {
 #region Assets/Photon/Fusion/Runtime/Statistics/Scripts/StatAccumulator.cs
 
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
 
   /// <summary>
@@ -4058,6 +4089,7 @@ namespace Fusion.Statistics {
       }
     }
   }
+#endif
 }
 
 #endregion

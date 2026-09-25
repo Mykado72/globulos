@@ -1,4 +1,5 @@
 namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System;
   using UnityEngine;
   using UnityEngine.UI;
@@ -48,7 +49,7 @@ namespace Fusion.Statistics {
     /// We bake line value data into a texture, this controls whether
     /// the texture stores data at full or half precision
     /// <see cref="TextureFormat.RHalf"/> vs <see cref="TextureFormat.RFloat"/>
-    /// 
+    ///
     /// Half precision should be prefered where possible to avoid using up
     /// to much GPU memory
     /// </summary>
@@ -128,7 +129,7 @@ namespace Fusion.Statistics {
 
     /// <summary>
     /// Add a threshold to the graph.
-    /// 
+    ///
     /// Note the graphs support upto <see cref="MultilineGraphData.MaxThresholds"/>
     /// when trying to add more than this -1 will be returned
     /// </summary>
@@ -575,4 +576,5 @@ namespace Fusion.Statistics {
       mat.SetFloatArray(_thresholdVisibleShaderPropertyID, _thresholdVisible);
     }
   }
+#endif
 }

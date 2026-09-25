@@ -1,8 +1,9 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections.Generic;
   using UnityEngine;
   using UnityEngine.UI;
-  
+
 
   /// <summary>
   /// Add this class to a <see cref="NetworkRunner"/> prefab and when a game is started a statistics canvas will be initialized to display internal stats. Stats are only collected when using DEBUG dll.
@@ -11,7 +12,7 @@
   [DisallowMultipleComponent]
   public class FusionStatistics : SimulationBehaviour, ISpawned, IDespawned, IAfterUpdate {
     public const ScriptHeaderBackColor StatisticsBackColor = ScriptHeaderBackColor.Orange;
-    
+
     /// <summary>
     /// The global statistics canvas shared between all peers.
     /// </summary>
@@ -41,14 +42,14 @@
     private int _currentPage;
 
     private float _refreshTime;
-    
+
     // Required to try to extrapolate the per update thresholds to a per second data.
     private int _updatesPerSecond;
     private float _updateTime = 1f;
 
     private void Awake() {
       GetResources();
-      
+
       if (_statsRootPrefab == null) {
         DestroyWithError("Error loading the required assets for Fusion Statistics. Make sure that the following paths are valid for the Fusion Statistics resource assets: " +
                          $"\n 1. {STATS_ROOT_PREFAB_PATH} \n 2. {STATS_DEFAULT_CONFIG_ASSET_PATH}");
@@ -147,7 +148,7 @@
 
     private void Update() {
       if (Runner == false || _pages == null) return;
-      
+
       // canvas root was deleted.
       if (_statsRootInstance == false)
       {
@@ -174,14 +175,14 @@
       if (_updateTime > 0) {
         _updateTime -= Time.deltaTime;
         _updatesPerSecond++;
-        
+
         if (_updateTime <= 0) {
           _updateTime              = 1f;
           EstimateFusionAfterUpdatesPerSecond = _updatesPerSecond;
           _updatesPerSecond = 0;
         }
       }
-      
+
       _pages?[_currentPage]?.AfterFusionUpdate();
     }
 
@@ -268,4 +269,5 @@
       }
     }
   }
+#endif
 }

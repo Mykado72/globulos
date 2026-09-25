@@ -1,4 +1,5 @@
 namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using UnityEngine;
 
   public class FusionStatisticsMemoryPage : FusionStatisticsPage {
@@ -37,19 +38,20 @@ namespace Fusion.Statistics {
       var objectBytesUsed = memorySnapshot.ObjectAllocatorMemorySnapshot.TotalBytesUsed;
       var objectTotalBytes = objectBytesUsed + memorySnapshot.ObjectAllocatorMemorySnapshot.TotalBytesFree;
       _objectMemoryChart.SetValue(objectBytesUsed, objectTotalBytes);
-      
+
       var objectTotalBlocks = memorySnapshot.ObjectAllocatorMemorySnapshot.TotalBlocks;
       var objectUsedBlocks = objectTotalBlocks - memorySnapshot.ObjectAllocatorMemorySnapshot.TotalFreeBlocks;
       _objectFreeBlocksChart.SetValue(objectUsedBlocks, objectTotalBlocks);
-      
+
       // general memory
       var generalBytesUsed = memorySnapshot.GeneralAllocatorMemorySnapshot.TotalBytesUsed;
       var generalTotalBytes = generalBytesUsed + memorySnapshot.GeneralAllocatorMemorySnapshot.TotalBytesFree;
       _generalMemoryChart.SetValue(generalBytesUsed, generalTotalBytes);
-      
+
       var generalTotalBlocks = memorySnapshot.GeneralAllocatorMemorySnapshot.TotalBlocks;
       var generalUsedBlocks = generalTotalBlocks - memorySnapshot.GeneralAllocatorMemorySnapshot.TotalFreeBlocks;
       _generalFreeBlocksChart.SetValue(generalUsedBlocks, generalTotalBlocks);
     }
   }
+#endif
 }

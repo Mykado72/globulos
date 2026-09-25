@@ -1,3 +1,11 @@
+// --------------------------------------------------------------------------------------------------------------------
+// <summary>
+//   Provided originally by Unity to cover WebSocket support in WebGL and the Editor. Modified by Exit Games GmbH.
+// </summary>
+// <author>developer@exitgames.com</author>
+// --------------------------------------------------------------------------------------------------------------------
+
+
 #if UNITY_WEBGL || WEBSOCKET || WEBSOCKET_PROXYCONFIG
 
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -5,13 +13,6 @@
 #else
 #define PHOTON_WEBSOCKET_CS
 #endif
-
-// --------------------------------------------------------------------------------------------------------------------
-// <summary>
-//   Provided originally by Unity to cover WebSocket support in WebGL and the Editor. Modified by Exit Games GmbH.
-// </summary>
-// <author>developer@exitgames.com</author>
-// --------------------------------------------------------------------------------------------------------------------
 
 
 namespace Photon.Client

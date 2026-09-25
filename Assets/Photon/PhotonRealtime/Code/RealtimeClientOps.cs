@@ -352,6 +352,12 @@ namespace Photon.Realtime
         ///
         /// When you're in the room, this client's State will become ClientState.Joined.
         ///
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). An op that fails on the Master Server keeps the client in the lobby.
+        /// The lobby is never re-joined automatically: call OpJoinLobby again if needed, e.g. from
+        /// OnJoinRoomFailed / OnCreateRoomFailed / OnJoinRandomFailed, which get called when the client is
+        /// back on the Master Server.
+        ///
         ///
         /// When entering a room, this client's Player Custom Properties will be sent to the room.
         /// Use LocalPlayer.SetCustomProperties to set them, even while not yet in the room.
@@ -477,6 +483,12 @@ namespace Photon.Realtime
         /// This client's State is set to ClientState.Joining immediately.
         ///
         /// Either IMatchmakingCallbacks.OnJoinedRoom or IMatchmakingCallbacks.OnCreatedRoom get called.
+        ///
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). An op that fails on the Master Server keeps the client in the lobby.
+        /// The lobby is never re-joined automatically: call OpJoinLobby again if needed, e.g. from
+        /// OnJoinRoomFailed / OnCreateRoomFailed / OnJoinRandomFailed, which get called when the client is
+        /// back on the Master Server.
         ///
         /// More about matchmaking:
         /// https://doc.photonengine.com/en-us/realtime/current/reference/matchmaking-and-lobby
@@ -619,6 +631,12 @@ namespace Photon.Realtime
         ///
         /// When you're in the room, this client's State will become ClientState.Joined.
         ///
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). An op that fails on the Master Server keeps the client in the lobby.
+        /// The lobby is never re-joined automatically: call OpJoinLobby again if needed, e.g. from
+        /// OnJoinRoomFailed / OnCreateRoomFailed / OnJoinRandomFailed, which get called when the client is
+        /// back on the Master Server.
+        ///
         ///
         /// When entering a room, this client's Player Custom Properties will be sent to the room.
         /// Use LocalPlayer.SetCustomProperties to set them, even while not yet in the room.
@@ -686,6 +704,12 @@ namespace Photon.Realtime
         /// be called. In the background, the client will switch servers and call various related operations.
         ///
         /// When you're in the room, this client's State will become ClientState.Joined.
+        ///
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). An op that fails on the Master Server keeps the client in the lobby.
+        /// The lobby is never re-joined automatically: call OpJoinLobby again if needed, e.g. from
+        /// OnJoinRoomFailed / OnCreateRoomFailed / OnJoinRandomFailed, which get called when the client is
+        /// back on the Master Server.
         ///
         ///
         /// If you set room properties in roomOptions, they get ignored when the room is existing already.
@@ -765,6 +789,12 @@ namespace Photon.Realtime
         /// be called. In the background, the client will switch servers and call various related operations.
         ///
         /// When you're in the room, this client's State will become ClientState.Joined.
+        ///
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). An op that fails on the Master Server keeps the client in the lobby.
+        /// The lobby is never re-joined automatically: call OpJoinLobby again if needed, e.g. from
+        /// OnJoinRoomFailed / OnCreateRoomFailed / OnJoinRandomFailed, which get called when the client is
+        /// back on the Master Server.
         ///
         ///
         /// When entering a room, this client's Player Custom Properties will be sent to the room.
@@ -1048,6 +1078,12 @@ namespace Photon.Realtime
         ///
         /// This method will fail on the server, when the room does not exist, can't be loaded (persistent rooms) or
         /// when the userId is not in the player list of this room. This will lead to a callback OnJoinRoomFailed.
+        ///
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). An op that fails on the Master Server keeps the client in the lobby.
+        /// The lobby is never re-joined automatically: call OpJoinLobby again if needed, e.g. from
+        /// OnJoinRoomFailed / OnCreateRoomFailed / OnJoinRandomFailed, which get called when the client is
+        /// back on the Master Server.
         ///
         /// Rejoining room will not send any player properties. Instead client will receive up-to-date ones from server.
         /// If you want to set new player properties, do it once rejoined.

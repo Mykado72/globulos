@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Text;
   using UnityEngine;
   using UnityEngine.UI;
@@ -20,7 +21,7 @@
     /// <inheritdoc />
     public override void Init() {
       _hitboxesUsage.Setup("Hitboxes Usage");
-      
+
       _totalElapsedTime.Setup("Total Elapsed Time", FusionStatsLookup.LOOKUP_TABLE_0_00ms, "{0} ms", lookUpTableMultiplier: 100);
       _advanceBufferTime.Setup("Advance Buffer Time", FusionStatsLookup.LOOKUP_TABLE_0_00ms, "{0} ms", lookUpTableMultiplier: 100);
       _updateBufferTime.Setup("Update Buffer Time", FusionStatsLookup.LOOKUP_TABLE_0_00ms, "{0} ms", lookUpTableMultiplier: 100);
@@ -39,7 +40,7 @@
       _refitBVHTime.RefreshDisplay();
       _updateBVHTime.RefreshDisplay();
       _addOnBVHTime.RefreshDisplay();
-      
+
       _hitboxesUsage.RefreshDisplay();
     }
 
@@ -47,7 +48,7 @@
     public override void AfterFusionUpdate() {
       var lagCompSnapshot = StatisticsManager.LagCompensationSnapshot;
       if (lagCompSnapshot == null) return;
-      
+
       _totalElapsedTime.AddValue((float)lagCompSnapshot.TotalElapsedTime);
       _advanceBufferTime.AddValue((float)lagCompSnapshot.AdvanceBufferTime);
       _updateBufferTime.AddValue((float)lagCompSnapshot.UpdateBufferTime);
@@ -55,8 +56,9 @@
       _refitBVHTime.AddValue((float)lagCompSnapshot.RefitBVHTime);
       _updateBVHTime.AddValue((float)lagCompSnapshot.UpdateBVHTime);
       _addOnBVHTime.AddValue((float)lagCompSnapshot.AddOnBVHTime);
-      
+
       _hitboxesUsage.SetValue(lagCompSnapshot.HitboxesCount, Runner.Config.LagCompensation.HitboxDefaultCapacity);
     }
   }
+#endif
 }

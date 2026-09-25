@@ -266,6 +266,14 @@
         <member name="F:Photon.Client.EnetChannel.ReceiveTrackingValues.receivedReliableSequenceNumbers">
             <summary>Stores the sequence numbers to ACK at some point. May include duplicates and is unordered. A bit-stream may be more effective here.</summary>
         </member>
+        <member name="F:Photon.Client.EnetPeer.MaxFragmentCount">
+            <summary>Upper bound for the fragmentCount an incoming fragment may declare (sanity limit, not a protocol value).</summary>
+            <remarks>
+            A received fragment's fragmentCount is the trip count of the reassembly scans and (times the MTU) the bound for
+            the reassembly buffer, so it must not be taken from the wire unchecked. 65535 fragments are ~78 MB at the
+            default MTU - orders of magnitude above any message an application sends over UDP.
+            </remarks>
+        </member>
         <member name="F:Photon.Client.EnetPeer.sentReliableCommands">
             <summary>One list for all channels keeps sent commands (for re-sending).</summary>
         </member>
@@ -278,6 +286,15 @@
         <member name="F:Photon.Client.EnetPeer.outgoingAcknowledgementsBuffer">
             <summary>One buffer of ACK byte arrays (20 bytes each)  for all channels to keep acknowledgements.</summary>
         </member>
+        <member name="F:Photon.Client.EnetPeer.UnsequencedWindowsFree">
+            <summary>How many windows ahead of the current one an incoming unsequenced group number may be, before it counts as bogus (enet: ENET_PEER_FREE_UNSEQUENCED_WINDOWS).</summary>
+        </member>
+        <member name="F:Photon.Client.EnetPeer.UnsequencedResyncAfter">
+            <summary>Number of unsequenced commands dropped in a row for being outside the receive window, after which that window resyncs to the most recent of them.</summary>
+        </member>
+        <member name="F:Photon.Client.EnetPeer.unsequencedGroupsDroppedInARow">
+            <summary>Counts the unsequenced commands dropped in a row for being outside the receive window (see QueueIncomingCommand). Any accepted command resets it.</summary>
+        </member>
         <member name="F:Photon.Client.EnetPeer.udpBufferEncryptedLayout">
             <summary>Layout of the datagram currently being assembled (encrypted: commands at offset 5; plain: commands at offset 12, 16 with CRC).</summary>
             <remarks>Snapshot of DatagramEncryptedConnection taken once
@@ -288,7 +305,13 @@
         </member>
         <member name="F:Photon.Client.EnetPeer.serverSentTime">
             <summary>Timestamp sent by the server in last udp package (enet header).</summary>
+            <remarks>
+            Written on the receive thread, but only for a datagram that fully validated and parsed (see
+            ReceiveIncomingCommands) - a dropped datagram must not leave its timestamp behind. Read on the send thread to
+            stamp outgoing ACK2s, where "latest known server time" is the wanted semantic; per-command server-time math
+            uses NCommand.datagramSentTime instead.
             TODO the serverSentTime should possibly never decrease?!
+            </remarks>
         </member>
         <member name="P:Photon.Client.EnetPeer.DatagramEncryptedConnection">
             <summary>Gets enabled by "request" from server (not by client). Thread safe.</summary>
@@ -334,6 +357,10 @@
             </remarks>
             <returns></returns>
         </member>
+        <member name="M:Photon.Client.EnetPeer.IsOutgoingDatagramFull">
+            <summary>True if the outgoing datagram can not fit another command, not even one that is just a header.</summary>
+            <remarks>Must be called while holding the send lock (it reads udpBufferIndex), as everything else in the send path does.</remarks>
+        </member>
         <member name="M:Photon.Client.EnetPeer.SendAcksOnly">
             <summary></summary>
             <returns></returns>
@@ -360,8 +387,45 @@
             <remarks>only called when a custom operation should be send</remarks>
             <returns>the invocation ID for this operation (the payload)</returns>
         </member>
+        <member name="F:Photon.Client.EnetPeer.SendWindowSkipsMax">
+            <summary>Number of window-blocked commands SerializeToBuffer looks past, before it stops walking the list for this send.</summary>
+            <remarks>
+            Within a channel's outgoing list, the sequence number a command is judged by only grows (it is assigned on
+            queueing and a fragment series is keyed by its startSequenceNumber), so the first command blocked by the send
+            window is followed by blocked ones only - with two exceptions: unsequenced commands, which the window does not
+            apply to, and unreliable commands, which carry the reliableSequenceNumber of the blocked command and can not be
+            delivered before it either. Walking on costs one iteration per queued command per send (a fragmented multi-MB
+            message queues thousands of them, on the sending thread) and finds nothing worth sending.
+            This cap keeps finding the unsequenced ones near the block - they are queued in creation order - while bounding
+            the walk. Anything past it stays queued and is sent once the window moves on.
+            </remarks>
+        </member>
         <member name="M:Photon.Client.EnetPeer.ReceiveIncomingCommands(System.Byte[],System.Int32)">
             <summary>reads incoming udp-packages to create and queue incoming commands*</summary>
+        </member>
+        <member name="M:Photon.Client.EnetPeer.DropFragmentSeries(Photon.Client.EnetChannel,System.Int32,System.Int32,System.Boolean)">
+            <summary>Removes and releases every fragment of a fragment-series (used when a series can not be assembled).</summary>
+            <remarks>
+            Dispatch-thread only, like the rest of the fragment handling (see QueueIncomingCommand remarks). The series
+            is dropped as a whole and can not come back: its fragments were acknowledged on arrival, so the server does
+            not resend them. For a sequenced series that means the channel's reliable stream stalls at that sequence
+            number - the same consequence the per-fragment "bad size" rejection above already has, and the intended
+            trade for a series that failed validation (the alternative would be dispatching stale buffer bytes).
+            </remarks>
+        </member>
+        <member name="F:Photon.Client.EnetPeer.toRemove">
+            <summary>Scratch lists for the ACK2 path: the commands an ACK2 confirmed and their (ascending) indices in sentReliableCommands.</summary>
+            <remarks>
+            The indices let the confirmed entries be dropped in one compacting pass over sentReliableCommands - removing
+            them one by one would rescan and shift the whole list per confirmed command. The command list keeps the
+            references alive for the release pass, which runs after the compaction so a pooled command is never handed
+            back out while sentReliableCommands still references it.
+            Both are only used inside lock(sentReliableCommands) on the send thread and reused to avoid per-ACK2 allocations.
+            </remarks>
+        </member>
+        <member name="M:Photon.Client.EnetPeer.MoveUnsequencedWindowTo(System.Int32)">
+            <summary>Moves the unreliable-unsequenced receive window to the given (block-aligned) group number and clears its bits.</summary>
+            <remarks>Called by QueueIncomingCommand (dispatch thread) and Reset. The base is always a multiple of UnsequencedWindowSize, so a group's index in the window is its distance from the base.</remarks>
         </member>
         <member name="M:Photon.Client.EnetPeer.QueueIncomingCommand(Photon.Client.NCommand)">
             <summary>Queues incoming commands in the correct order as either unreliable, reliable or unsequenced.</summary>
@@ -663,6 +727,20 @@
         <member name="T:Photon.Client.NCommand">
             <summary> Internal class for "commands" - the package in which operations are sent.</summary>
         </member>
+        <member name="F:Photon.Client.NCommand.fragmentBytesRemaining">
+            <summary>Payload bytes of this fragment-series still missing. Like fragmentsRemaining, only maintained in the start-command.</summary>
+            <remarks>
+            Counts down from totalLength as fragments are stored, so the reassembly knows the series covers exactly the
+            declared length before it sizes a buffer for it (a series may otherwise declare far more than it delivers).
+            </remarks>
+        </member>
+        <member name="F:Photon.Client.NCommand.datagramSentTime">
+            <summary>Timestamp from the enet header of the datagram this (incoming) command arrived in.</summary>
+            <remarks>
+            Frozen per command like <see cref="F:Photon.Client.NCommand.TimeOfReceive"/>: the server-time math runs on the send thread when the
+            ACK is executed, while the peer's serverSentTime field has meanwhile been overwritten by later datagrams.
+            </remarks>
+        </member>
         <member name="P:Photon.Client.NCommand.SizeOfPayload">
             <summary>Size of the Payload, which may be null.</summary>
         </member>
@@ -686,7 +764,7 @@
         <member name="M:Photon.Client.NCommand.Initialize(Photon.Client.EnetPeer,System.Byte,Photon.Client.StreamBuffer,System.Byte,Photon.Client.ConnectionStateValue)">
             <summary>this variant does only create outgoing commands and increments . incoming ones are created from a DataInputStream</summary>
         </member>
-        <member name="M:Photon.Client.NCommand.Initialize(Photon.Client.EnetPeer,System.Byte[],System.Int32@,System.Int32,System.Int32)">
+        <member name="M:Photon.Client.NCommand.Initialize(Photon.Client.EnetPeer,System.Byte[],System.Int32@,System.Int32,System.Int32,System.Int32)">
             <summary>
             Parses one incoming command out of <paramref name="inBuff"/> starting at <paramref name="readingOffset"/>.
             <paramref name="dataLength"/> is the number of valid bytes in the buffer (for datagram-encrypted connections
@@ -694,6 +772,8 @@
             Returns false if the command header or its declared body/payload would read past that valid region - the
             caller then drops the rest of the (truncated/malformed) datagram. All reads are bounded so a corrupt or
             short datagram can neither throw nor copy stale buffer bytes into a dispatched payload.
+            <paramref name="datagramSentTime"/> is the sent time from the enet header of the carrying datagram, frozen
+            on the command (see <see cref="F:Photon.Client.NCommand.datagramSentTime"/>).
             </summary>
         </member>
         <member name="T:Photon.Client.SimulationItem">
@@ -721,8 +801,8 @@
              The simulation runs on a dedicated background thread that exists only while IsSimulationEnabled is true.
              Outgoing and incoming packets are held in queues and delivered after the configured lag. The delay is
              accurate to about 1-2ms; it may end up a few ms longer than configured, but not shorter.
-             Even if all settings are 0, simulation will be used. Set PhotonPeer.IsSimulationEnabled
-             to false to disable it if no longer needed.
+             Packets keep passing through the simulation code as long as it is enabled, even if all settings are 0.
+             Set PhotonPeer.IsSimulationEnabled to false to disable it if no longer needed.
              As an optimization, a packet is passed through directly (not queued, and the background thread is not
              involved) whenever the lag and jitter for its direction are both 0 and that direction's queue is empty.
              A 0-lag/0-jitter setup therefore adds no delivery latency of its own; loss simulation still applies.
@@ -730,14 +810,22 @@
              All lag, jitter and loss is additional to the current, real network conditions.
              If the network is slow in reality, this will add even more lag.
              The jitter values will affect the lag positive and negative, so the lag settings
-             describe the medium lag even with jitter. The jitter influence is: [-jitter..+jitter].
-             Packets "lost" due to OutgoingLossPercentage count for BytesOut and LostPackagesOut.
-             Packets "lost" due to IncomingLossPercentage count for BytesIn and LostPackagesIn.
+             describe the medium lag even with jitter. The jitter influence is: [-jitter..+jitter-1].
+             On UDP, jitter can also re-order packets (as a real network would). Non-UDP protocols keep their
+             arrival order and are only delayed.
+             Loss is only simulated on UDP connections. Other protocols ignore the loss settings.
+             Packets "lost" due to OutgoingLossPercentage still count for BytesOut (they are counted before the
+             simulation drops them) and for LostPackagesOut.
+             Packets "lost" due to IncomingLossPercentage count for LostPackagesIn but not for BytesIn
+             (which is counted when a packet is actually handed to the peer).
             
              Caveats:
-             Disconnecting temporarily turns the simulation off, so the disconnect command and any packets still queued
-             for sending are flushed to the socket immediately, without simulated lag or loss. This is necessary because
-             the socket is closed right after the disconnect is sent - a lag-delayed disconnect would be dropped.
+             Disconnecting a UDP peer temporarily turns the simulation off (EnetPeer.Disconnect restores the setting
+             afterwards), so the disconnect command and any packets still queued for sending are flushed to the socket
+             immediately, without simulated lag or loss. This is necessary because the socket is closed right after the
+             disconnect is sent - a lag-delayed disconnect would be dropped.
+             TPeer (TCP and the WebSocket variants) does not do this: it closes the socket, so packets still queued in
+             the simulation are discarded.
             
              The simulation's background thread is torn down when the process exits. Any outgoing packets still waiting in
              the lag queue at that point are not sent. To send pending data and a graceful disconnect on application quit,
@@ -800,7 +888,7 @@
             <summary>Randomizes OutgoingLag by [-OutgoingJitter..+OutgoingJitter]. Default: 0.</summary>
         </member>
         <member name="P:Photon.Client.NetworkSimulationSet.OutgoingLossPercentage">
-            <summary>Percentage of outgoing packets that should be lost. Between 0..100. Default: 1. TCP ignores this setting.</summary>
+            <summary>Percentage of outgoing packets that should be lost. Between 0..100. Default: 1. Only applied on UDP connections.</summary>
         </member>
         <member name="P:Photon.Client.NetworkSimulationSet.IncomingLag">
             <summary>Incoming packages delay in ms. Default: 100.</summary>
@@ -809,13 +897,13 @@
             <summary>Randomizes IncomingLag by [-IncomingJitter..+IncomingJitter]. Default: 0.</summary>
         </member>
         <member name="P:Photon.Client.NetworkSimulationSet.IncomingLossPercentage">
-            <summary>Percentage of incoming packets that should be lost. Between 0..100. Default: 1. TCP ignores this setting.</summary>
+            <summary>Percentage of incoming packets that should be lost. Between 0..100. Default: 1. Only applied on UDP connections.</summary>
         </member>
         <member name="P:Photon.Client.NetworkSimulationSet.LostPackagesOut">
-            <summary>Counts how many outgoing packages actually got lost. TCP connections ignore loss and this stays 0.</summary>
+            <summary>Counts how many outgoing packages actually got lost. Non-UDP connections ignore loss and this stays 0.</summary>
         </member>
         <member name="P:Photon.Client.NetworkSimulationSet.LostPackagesIn">
-            <summary>Counts how many incoming packages actually got lost. TCP connections ignore loss and this stays 0.</summary>
+            <summary>Counts how many incoming packages actually got lost. Non-UDP connections ignore loss and this stays 0.</summary>
         </member>
         <member name="M:Photon.Client.NetworkSimulationSet.ToString">
             <summary>Provides an overview of the current values in form of a string.</summary>
@@ -2738,9 +2826,8 @@
             concurrent enqueues: only items actually dequeued are released.</remarks>
         </member>
         <member name="T:Photon.Client.PreserveAttribute">
-            <summary>
-            An Attribute named "Preserve" tells Unity to not strip the code.
-            </summary>
+            <summary>An Attribute named "Preserve" tells Unity to not strip the code.</summary>
+            <remarks>UnityLinker treats any attribute whose type name is PreserveAttribute as a preserve directive, regardless of namespace.</remarks>
         </member>
         <member name="F:Photon.Client.TPeer.TCP_HEADER_BYTES">
             <summary>TCP "Package" header: 7 bytes</summary>

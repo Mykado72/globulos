@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections.Generic;
   using UnityEngine;
 
@@ -55,13 +56,13 @@
       var interpolationOffset = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.InterpolationOffset, 0f) * 1000;
       var interpolationSpeed = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.InterpolationSpeed, 0f);
       var inputDelay = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.SimulationInputDelay, 0f) * 1000;
-      
+
       var rtt = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.RoundTripTime, 0) * 1000; // rtt is in seconds, convert to ms.
       if (rtt == 0) {
         rtt = _lastRTT;
       }
       _lastRTT =  rtt;
-      
+
       _rtt.AddValue(rtt);
       _inputReceiveDelta.AddValue(inputRcvDelta);
       _timeResets.AddValue(timeResets);
@@ -73,4 +74,5 @@
       _inputDelay.AddValue(inputDelay);
     }
   }
+#endif
 }

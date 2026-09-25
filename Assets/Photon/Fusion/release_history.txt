@@ -1,3 +1,41 @@
+# 2.1.3
+
+## Stable
+
+### Build 2390 (Sep 17, 2026)
+
+**What's New**
+
+- Added `Networkrunner.CommittedPlayers`, which lists only players both fully in the room and the Fusion session
+- Added a new option `NetworkProjectConfig.ClientsOnlyRollbackUpdatedObjects`. When enabled, clients will skip rolling back and resimulating objects that haven't received new state since the previous rollback
+- NetworkRunner now exposes BatchRequestStateAuthority and BatchReleaseStateAuthority, allowing for request or release of state authority for up to 16 NetworkObjects in a single all-or-nothing call instead of one call per object
+- Developers can now choose the deadzone velocity behaviour of the forecast physics system in the NetworkTransform inspector. Local Physics - the 2.1 default uses purely local physics when inside the deadzone, Match Target - new behaviour that makes the object track the velocity of the extrapolated remote snapshot
+
+**Changes**
+
+- Update to Photon Realtime SDK to 5.1.20
+- Fusion no longer needs `com.unity.ugui` package. Removing it disables menu and statistics features, though
+- Cache completed Task<bool> in Fusion's polling services
+- RequestStateAuthority now returns false locally on a MasterClientObject with AllowStateAuthorityOverride instead of sending a message that will always be rejected
+- Obsoleted `DebugWarn` and `DebugError` log methods
+- Increased the max loaded scene count from 8 to 31
+- [Weaver] "Assembly ... (full path: ...) already referenced" message is now only visible if `FUSION_WEAVER_DEBUG` is defined
+
+**Bug Fixes**
+
+- Fixed: Connection-slot leak behind ServerFull
+- Fixed: TaskManager.Delay precision loss on long-running WebGL builds
+- Fixed: An Exception that was thrown if a derived SimulationBehaviour had an overload of FixedUpdateNetwork/Render or PreRender
+- Fixed: NetworkTransform removes the forced proxy kinematic override on despawn and on spawn
+- Fixed: Scripting defines could become mismatched across build targets leading to builds with incorrect defines or potentially compile errors depending on usage
+- Fixed: NetworkTransform with physics Forecast disabled now re-evaluates the proxy kinematic Rigidbody override when State Authority is transferred (and whenever IsInSimulation changes); previously it was only applied at spawn
+- Fixed: Got rid of double initial import of `NetworkProjectConfig` and `FusionWeaverTrigger`
+- Fixed: [Networked] string Capacity is now the number of characters - the length and hash header words no longer eat into it (Capacity(30) held only 28 characters, Capacity(1) threw IndexOutOfRangeException)
+- Fixed: '= default' and '= new()' initializers for `[Networked]` collections no longer result in runtime IL error
+- Fixed: Invalid IL code errors when using Odin's `UnitySerializationUtility` for `NetworkBehaviours`
+- Fixed: Guard scene baking against unloaded scenes
+- Fixed: [MPPM] `NetworkProjectConfig.Global` throwing "Failed to load NetworkProjectConfigAsset" in some use cases
+
 # 2.1.2
 
 ## Stable

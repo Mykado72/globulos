@@ -50,6 +50,7 @@ namespace Photon.Realtime
         /// If false, a regular timeout time will have to pass (on top) to time out the client.
         /// </remarks>
         [Obsolete("After the KeepAliveInBackground, the client will always properly disconnect with DisconnectCause.ClientServiceInactivity.")]
+        [NonSerialized]
         public bool DisconnectAfterKeepAlive = false;
 
         /// <summary>Defines for how long the Fallback Thread should keep the connection, before it may time out as usual.</summary>
@@ -299,17 +300,15 @@ namespace Photon.Realtime
                     this.backgroundStopwatch.Restart();
                 }
 
-                // check if the client should disconnect after some seconds in background
+                // the client should disconnect after some seconds in background - this component gets cleaned up in OnDisconnected().
+                // this runs on the timer thread, so only the thread-safe DisconnectFromFallbackThread() may be used here. it notifies
+                // the server right away; the client-side State change and callbacks follow with the next DispatchIncomingCommands().
                 if (this.backgroundStopwatch.ElapsedMilliseconds > this.KeepAliveInBackground)
                 {
-                    this.Client.Disconnect(DisconnectCause.ClientServiceInactivity);
+                    this.Client.DisconnectFromFallbackThread();
                     this.StopFallbackSendAckThread();
-                    #if SUPPORTED_UNITY
-                    Destroy(this);
-                    #endif
                     return;
                 }
-
 
                 this.didSendAcks = true;
                 this.CountSendAcksOnly++;
@@ -320,11 +319,11 @@ namespace Photon.Realtime
                     this.didWarnAboutMissingService = true;
                     if (this.Client.State == ClientState.Disconnecting)
                     {
-                        Log.Warn($"The RealtimeClient is in Disconnecting state but DispatchIncomingCommands() wasn't called for > {timeWarnAboutMissingService} seconds. Continue to call DispatchIncomingCommands() after Disconnect() to get the OnDisconnected callback.", this.Client.LogLevel, this.Client.LogPrefix);
+                        Log.Warn($"The RealtimeClient is in Disconnecting state but DispatchIncomingCommands() wasn't called for > {timeWarnAboutMissingService/1000} seconds. Continue to call DispatchIncomingCommands() after Disconnect() to get the OnDisconnected callback.", this.Client.LogLevel, this.Client.LogPrefix);
                     }
                     else
                     {
-                        Log.Warn($"RealtimeClient.SendOutgoingCommands() was not called for > {timeWarnAboutMissingService} seconds. After the KeepAliveInBackground ({this.KeepAliveInBackground/1000}sec) this causes a disconnect.", this.Client.LogLevel, this.Client.LogPrefix);
+                        Log.Warn($"RealtimeClient.SendOutgoingCommands() was not called for > {timeWarnAboutMissingService/1000} seconds. After the KeepAliveInBackground ({this.KeepAliveInBackground/1000}sec) this causes a disconnect.", this.Client.LogLevel, this.Client.LogPrefix);
                     }
                 }
 
@@ -436,7 +435,7 @@ namespace Photon.Realtime
             /// <summary>Error code is of WinSock type bit.</summary>
             internal const int ErrorCodeWinSock = 16;
         }
-        
+
         /// <summary>Brief error description per Windows socket error code.</summary>
         static readonly Dictionary<int, string> UdpSocketErrors = new Dictionary<int, string>
                                                                   {

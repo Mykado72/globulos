@@ -3,6 +3,24 @@ Photon C# Client Library - Changelog
 www.photonengine.com  -  Join our Discord Server: https://dashboard.photonengine.com/account/profile
 
 
+Version 5.1.20 (16. September 2026)
+    Fixed: The receive window for unreliable unsequenced commands (UDP) now rejects group numbers which are implausibly far ahead of it, as enet does. A single corrupted datagram could move the window out of reach of the real group numbers, which silently discarded every unsequenced command that followed, for the rest of the connection.
+    Added: Should the unsequenced receive window get out of sync anyways, it resynchronizes after 16 commands outside of it (logged as a Warning), instead of discarding commands permanently.
+
+Version 5.1.19 (04. September 2026)
+    Improved: While the send window throttles a channel (UDP), SerializeToBuffer now walks past at most 32 blocked commands per send, instead of the channel's entire outgoing command list. This limits the effort, no matter how much data needs to be sent.
+    Note: Commands beyond that are sent as soon as the send window allows. Their sequence numbers are higher, so they are blocked, too (with the exception of unsequenced commands, which are found near the block as commands queue in creation order).
+    Changed: SendOutgoingCommands() no longer reports "more to send" for commands which the send window blocks. This avoids busy loops for callers which send while SendOutgoingCommands() returns true.
+    Improved: SendOutgoingCommands() skips the remaining channels once the datagram can not fit another command.
+    Fixed: Scheduling of the next resend-check (UDP). A command that was resent did not update the time of the next check, so its next resend could wait for the 50ms fallback interval instead of its own resend timeout. This delayed resends on connections with a roundtrip timeout below 50ms (e.g. a local server).
+    Changed: Network Simulation. Only UDP gets re-sorted with jitter simulation.
+    Added: Special handling for some enet commands in ACK2 confirmation case. A confirmed CT_CONNECT sets the initial rtt, a confirmed CT_DISCONNECT ends connection and CT_EG_SERVERTIME only updates time if it's rtt is OK.
+    Changed: Fragment assembly hardening, datagram header checks and server-time correctness.
+    Changed: Arrival now bounds fragmentCount, fragmentNumber, totalLength (<= fragmentCount * mtu) and offsets. There is also byte accounting, so the reassembly buffer is sized only by bytes actually received.
+    Changed: Server's sent time gets stored per command. The Peer only updates its serverTimestamp after the complete datagram was validated. This is more precise, using the received timestamp to ignore local delays.
+    Changed: DatagramEncryptedConnection enables only after the datagram was validated.
+    Changed: ExecuteCommand now drops the confirmed entries in a single compacting pass (optimization).
+
 Version 5.1.18 (12. August 2026)
     No notable changes.
 
@@ -24,7 +42,7 @@ Version 5.1.16 (30. June 2026)
 Version 5.1.15 (18. June 2026)
     Updated: Internal locking for critical sections of the de/serialization and message handling. This fixes some rare issues but it was also possible to optimize existing locking.
     Note: Outgoing ACKs are generated at receive time, so this doesn't delay them. ACK side-effects stay on the send thread, where resends/send-window already lived.
-    Removed: EnetChannel.reliableCommandsInFlight. It was buggy (never decremented on the ACK2) and redundant with the sentReliableCommands scan.
+    Removed: EnetChannel.reliableCommandsInFlight. It was buggy (never decremented on the ACK2) and redundant with theÂ sentReliableCommands scan.
     Changed: Split incoming ACKs from data commands in EnetPeer. New AckQueue for incoming ACKs is drained in SendOutgoingCommands. CommandQueue executed only on dispatch.
     Fixed: SendOutgoingCommands() to queue the Disconnect()-call in case of client timeout and to not send in Zombie state (client detected timeout but did not disconnect yet).
     Note: Timeout teardown now completes on the dispatch thread.
@@ -34,7 +52,7 @@ Version 5.1.15 (18. June 2026)
     Removed: Shared buffer for TCP ping. This is now lock-free and allocation-free (writes into the pooled buffer it's about to enqueue).
     Changed: outgoingStream: List<StreamBuffer> to Queue<StreamBuffer>. The blocking send no longer holds outgoingStream, so an enqueueing thread on another thread is never stalled by a slow/back-pressured send.
     Changed: Enet command pooling. On disconnect, commands are also all returned to pools. This automatically returns and pooled payload buffers to their pool as well.
-    Changed: TCP handling of late arriving messages and network simulation. 
+    Changed: TCP handling of late arriving messages and network simulation.
     Fixed: WebSocket case where full send buffers (on the socket) could cause more memory allocations, as internal buffers were not released to the pool.
     Added: TPeer.pendingSendBuffer to temporarily store a buffer until the next send happens. Released when sending becomes possible again.
     Fixed: DatagramEncryptedConnection bool could flip mid-datagram-assembly (causing a single "0" command to be sent).

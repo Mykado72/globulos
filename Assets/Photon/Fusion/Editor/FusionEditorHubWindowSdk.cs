@@ -22,7 +22,7 @@ namespace Fusion.Editor {
       }
     }
 
-    
+
     static partial void FindPagesUser(List<FusionEditorHubPage> pages) {
       FindPages(pages, FusionEditorHubPage.AssetLabel);
       if (Mode == NetworkProjectConfig.FusionHubMode.Beginner) {
@@ -41,7 +41,7 @@ namespace Fusion.Editor {
         EditorApplication.delayCall += FusionEditorHubWindowSdk.Open;
         return;
       }
-      
+
       // Layouts requires popup
       for (int i = 0; i < Pages.Count; i++) {
         if (Pages[i].IsPopupRequired) {
@@ -56,7 +56,7 @@ namespace Fusion.Editor {
         page = Pages.FindIndex(x => x.Title.Contains("Addons"));
       }
     }
-    
+
     static partial void OnImportPackageCompletedUser(string packageName) {
       if (packageName == "TMP Essential Resources") {
         // Workaround uninitialized TMP text after installing TMP essential resources
@@ -83,7 +83,7 @@ namespace Fusion.Editor {
       var npc = NetworkProjectConfigAsset.Global;
       npc.Config.HubMode = mode;
       NetworkProjectConfigUtilities.SaveGlobalConfig(npc.Config);
-      
+
       GetWindow<FusionEditorHubWindowSdk>()?.Close();
       ClearPagesCache();
       FusionEditorHubWindowSdk.Open();
@@ -94,7 +94,9 @@ namespace Fusion.Editor {
     static partial void RegisterTypesUser(List<string> types) {
       types.Add(FusionEditorHubWindowSdk.CustomWidgetTypes.ClearFusionPlayerPrefs);
       types.Add(FusionEditorHubWindowSdk.CustomWidgetTypes.SwitchHubMode);
+#if FUSION_ENABLE_UGUI
       types.Add(nameof(FusionStatisticsHubWidget));
+#endif
       types.Add(nameof(EditorHubWidget));
     }
   }
@@ -135,7 +137,7 @@ namespace Fusion.Editor {
         AssetDatabase.SaveAssets();
       }
     }
-    
+
     public override string AppIdVoice {
       get {
         try {
@@ -188,7 +190,7 @@ namespace Fusion.Editor {
         var labelText = "Switch to Beginner Mode";
         var buttonText = "Fusion Hub is in Advanced Mode. Switch to Beginner Mode to hide advanced content.";
         Action callback = () => { SwitchHubMode(NetworkProjectConfig.FusionHubMode.Beginner); };
-        
+
         if (Mode == NetworkProjectConfig.FusionHubMode.Beginner) {
           labelText = "Switch to Advanced Mode";
           buttonText = "Fusion Hub is in Beginner Mode. Switch to Advanced Mode to display more content.";
@@ -205,9 +207,12 @@ namespace Fusion.Editor {
             ClearAllPlayerPrefs();
           });
       }
+#if FUSION_ENABLE_UGUI
       else if (widget.WidgetMode.Value == nameof(FusionStatisticsHubWidget)) {
         FusionStatisticsHubWidget.DrawStatisticsWidget(widget);
-      }else if (widget.WidgetMode.Value == nameof(EditorHubWidget)) {
+      }
+#endif
+      else if (widget.WidgetMode.Value == nameof(EditorHubWidget)) {
         EditorHubWidget.DrawEditorWidget(widget);
       }
     }
@@ -258,7 +263,7 @@ namespace Fusion.Editor {
     public static void Open() {
       FusionGlobalScriptableObjectUtils.EnsureAssetExists<NetworkProjectConfigAsset>();
       FusionGlobalScriptableObjectUtils.EnsureAssetExists<PhotonAppSettings>();
-      
+
       var npc = NetworkProjectConfig.Global;
       if (npc.HubMode == NetworkProjectConfig.FusionHubMode.None) {
         FusionEditorHubModeSelectionWindow.ShowWindow();

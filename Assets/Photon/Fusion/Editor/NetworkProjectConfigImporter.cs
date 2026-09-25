@@ -187,13 +187,11 @@ namespace Fusion.Editor {
         return false;
       }
     }
-    
+
+    [FusionCustomDependencyEager]
     static readonly FusionCustomDependency ScriptOrderDependency = new("Fusion.ScriptOrderDependency", () => {
-      var hash = new Hash128();
-
-      var scripts = MonoImporter.GetAllRuntimeMonoScripts();
-
-      foreach (var monoScript in scripts) {
+      var entries = new List<(string AssemblyQualifiedName, int ExecutionOrder)>();
+      foreach (var monoScript in MonoImporter.GetAllRuntimeMonoScripts()) {
         var scriptType = monoScript.GetClass();
 
         if (scriptType?.IsSubclassOf(typeof(SimulationBehaviour)) != true) {
@@ -206,29 +204,40 @@ namespace Fusion.Editor {
           continue;
         }
 
-        hash.Append(scriptType.FullName);
+        entries.Add((scriptType.AssemblyQualifiedName, executionOrder));
+      }
+
+      // script enumeration order is not stable across processes and sessions
+      entries.Sort((a, b) => string.CompareOrdinal(a.AssemblyQualifiedName, b.AssemblyQualifiedName));
+
+      var hash = new Hash128();
+      foreach (var (assemblyQualifiedName, executionOrder) in entries) {
+        hash.Append(assemblyQualifiedName);
         hash.Append(executionOrder);
       }
 
       return hash;
     });
-    
+
+    [FusionCustomDependencyEager]
     static readonly FusionCustomDependency AddressablesDependency = new("Fusion.AddressablesDependency", () => {
 #if FUSION_ENABLE_ADDRESSABLES && !FUSION_DISABLE_ADDRESSABLES
-      var assetsSettings = UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject.Settings;
-      if (assetsSettings) {
-        return assetsSettings.currentHash;
-      }
-#endif
+      return AssetDatabaseUtils.GetAddressablesContentHash();
+#else
       return default;
+#endif
     });
-    
+
+    [FusionCustomDependencyEager]
     static readonly FusionCustomDependency NetworkObjectPrefabDependency = new("Fusion.PrefabsDependency", () => {
-      var hash = new Hash128();
+      var guids = new List<GUID>();
       foreach (var it in AssetDatabaseUtils.IterateAssets<GameObject>(label: FusionPrefabTag)) {
-        hash.Append(it.guid);
+        guids.Add(it.GetAssetGuid());
       }
-      return hash;
+
+      // asset enumeration order is not stable across processes and sessions
+      guids.Sort();
+      return Hash128.Compute(guids);
     });
 
     public static void RebuildPrefabHash() {

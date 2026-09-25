@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections.Generic;
   using System.Linq;
   using UnityEngine;
@@ -6,12 +7,12 @@
   public class FusionStatisticsForecastObjectPage : FusionStatisticsPage {
     /// <inheritdoc />
     public override string PageName => "Forecast Object";
-    
+
     [Header("References")]
     [SerializeField] private FusionStatisticsForecastObjectStats _prefabNOStats;
     [SerializeField] private MultipleOptionsPanel _multipleOptionsPrefab;
     [SerializeField] private Transform _content;
-    
+
     private MultipleOptionsPanel _NoOptionsInstance;
     private List<FusionStatisticsForecastObjectStats> _forecastedObjectStats = new();
 
@@ -44,11 +45,11 @@
 
       var allObjects = Runner.GetAllBehaviours<NetworkTransform>().Where(obj => obj.HasForecastEnabled).ToArray();
 
-      
+
       _NoOptionsInstance = Instantiate(_multipleOptionsPrefab, FusionStatistics.GlobalStatisticsCanvas.transform);
       _NoOptionsInstance.Setup("Select Object", allObjects, nt => nt.gameObject.name, nt => MonitorObject(nt));
     }
-    
+
     /// <inheritdoc />
     public override void Init() {
     }
@@ -78,4 +79,5 @@
       }
     }
   }
+#endif
 }

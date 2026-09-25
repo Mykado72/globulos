@@ -81,6 +81,11 @@
             "name": "com.unity.modules.assetbundle",
             "expression": "1",
             "define": "FUSION_ENABLE_ASSET_BUNDLE_ASSET_SOURCE"
+        },
+        {
+            "name": "com.unity.ugui",
+            "expression": "1.0",
+            "define": "FUSION_ENABLE_UGUI"
         }
     ],
     "noEngineReferences": false

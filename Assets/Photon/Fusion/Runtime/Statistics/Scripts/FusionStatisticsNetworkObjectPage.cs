@@ -1,16 +1,17 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections.Generic;
   using UnityEngine;
 
   public class FusionStatisticsNetworkObjectPage : FusionStatisticsPage {
     /// <inheritdoc />
     public override string PageName => "Network Object";
-    
+
     [Header("References")]
     [SerializeField] private FusionStatisticsNetworkObjectStats _prefabNOStats;
     [SerializeField] private MultipleOptionsPanel _multipleOptionsPrefab;
     [SerializeField] private Transform _content;
-    
+
     private MultipleOptionsPanel _NoOptionsInstance;
     private List<FusionStatisticsNetworkObjectStats> _networkObjectStats = new();
 
@@ -19,9 +20,9 @@
     /// </summary>
     public void MonitorObject(NetworkId networkId) {
       if (StatisticsManager.IsObjectMonitored(networkId)) return;
-      
+
       StatisticsManager.MonitorNetworkObject(networkId);
-      
+
       var NOStat = Instantiate(_prefabNOStats, _content);
       NOStat.Setup(this, Runner.FindObject(networkId).Name, networkId);
       _networkObjectStats.Add(NOStat);
@@ -44,11 +45,11 @@
       if (_NoOptionsInstance) return;
 
       var allObjects = Runner.GetAllNetworkObjects().ToArray();
-      
+
       _NoOptionsInstance = Instantiate(_multipleOptionsPrefab, FusionStatistics.GlobalStatisticsCanvas.transform);
       _NoOptionsInstance.Setup("Select Object", allObjects, no => no.Name, no => MonitorObject(no.Id));
     }
-    
+
     /// <inheritdoc />
     public override void Init() {
     }
@@ -78,4 +79,5 @@
       }
     }
   }
+#endif
 }

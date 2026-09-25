@@ -1,5 +1,5 @@
-
 namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System;
   using UnityEngine;
   using UnityEngine.UI;
@@ -47,4 +47,5 @@ namespace Fusion.Statistics {
 
     Color GetColor() => _visible ? _color : Color.grey;
   }
+#endif
 }

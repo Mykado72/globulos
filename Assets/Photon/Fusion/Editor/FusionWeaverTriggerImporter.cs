@@ -9,7 +9,7 @@ namespace Fusion.Editor {
   public class FusionWeaverTriggerImporter : ScriptedImporter {
     public const string Extension = "." + ExtensionWithoutDot;
     public const string ExtensionWithoutDot = "fusionweavertrigger";
-    
+
     [Tooltip("If enabled, runs the weaver when weaving-related changes are detected in the config file.")]
     public bool RunWeaverOnConfigChanges = true;
 
@@ -20,8 +20,9 @@ namespace Fusion.Editor {
       }
     }
 
+    [FusionCustomDependencyEager]
     static readonly FusionCustomDependency DependencyHash = new("FusionILWeaverTriggerImporter/ConfigHash", () => {
-      if (EditorApplication.isCompiling || EditorApplication.isUpdating) {
+      if (EditorApplication.isCompiling) {
         return default;
       }
 
@@ -50,7 +51,7 @@ namespace Fusion.Editor {
         return default;
       }
     });
-    
+
     private class Postprocessor : AssetPostprocessor {
       private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths) {
         foreach (var path in importedAssets) {

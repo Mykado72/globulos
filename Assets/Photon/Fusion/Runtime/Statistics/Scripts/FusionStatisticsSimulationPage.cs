@@ -1,11 +1,12 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System.Collections.Generic;
   using UnityEngine;
 
   public class FusionStatisticsSimulationPage : FusionStatisticsPage {
     /// <inheritdoc />
     public override string PageName => "Simulation";
-    
+
     [Header("References")]
     [SerializeField] private LineChart _forwardTick;
     [SerializeField] private LineChart _resimTick;
@@ -20,8 +21,8 @@
       _objUpdateIn.Setup("Object Update In", FusionStatsLookup.LOOKUP_TABLE_0);
       _objUpdateOut.Setup("Object Update Out", FusionStatsLookup.LOOKUP_TABLE_0);
     }
-    
-    
+
+
     /// <inheritdoc />
     public override void Render() {
       _forwardTick.RefreshDisplay();
@@ -36,11 +37,12 @@
       var resimTicks = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.Resimulations, 0f);
       var objectUpdateIn = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.InObjectUpdates, 0f);
       var objectUpdateOut = StatisticsManager.SimulationSnapshot.Stats.GetValueOrDefault(FusionStatType.OutObjectUpdates, 0f);
-      
+
       _forwardTick.AddValue(forwardTicks);
       _resimTick.AddValue(resimTicks);
       _objUpdateIn.AddValue(objectUpdateIn);
       _objUpdateOut.AddValue(objectUpdateOut);
     }
   }
+#endif
 }

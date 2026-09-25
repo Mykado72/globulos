@@ -3,6 +3,30 @@ Photon Realtime C# Client - Changelog
 www.photonengine.com  -  Join our Discord Server: https://dashboard.photonengine.com/account/profile
 
 
+Version 5.1.20 (16. September 2026)
+    Fixed: A disconnect no longer aborts region pinging that the game-logic started (RegionHandler.PingAvailableRegions / PingMinimumOfRegions). Only a ping-run started by the client's own connect workflow gets aborted. The GetRegions workflow disconnects before it calls OnRegionListReceived, so pings started in that callback were aborted right away (this broke ConnectToNameserverAndWaitForRegionsAsync(), which then timed out instead of returning ping results).
+    Note: On WebGL region pings complete via a MonoBehaviour (PING_VIA_COROUTINE) which RegionHandler.Abort() destroys, so the result of an already finished ping could not be delivered anymore and the task never completed.
+    Fixed: ConnectToNameserverAndWaitForRegionsAsync() now sends OpGetRegions itself when the client is connected to the Name Server already. It now fails with an OperationStartException when the client is still connecting to the Name Server with AppSettings.FixedRegion set. That combination skips OpGetRegions, so it can not produce a region list. Disconnect the client before calling the method.
+    Fixed: ConnectToNameserverAndWaitForRegionsAsync() now fails with a DisconnectException when the connection ends before the region list arrived (it only listened for OnRegionListReceived before). A disconnect after the region list is part of the GetRegions workflow and gets ignored, so the region pinging can finish.
+    Changed: ConnectToNameserverAndWaitForRegionsAsync() passes its AsyncConfig to the DisconnectAsync() it calls when done. Before, that used AsyncConfig.Global with its TaskFactory and timeout.
+    Fixed: WebGL in Unity no longer set the flag TaskCreationOptions.RunContinuationsAsynchronously on TaskCompletionSource. This was introduced in v5.1.19 as an improvement to avoid work being done off the main thread in Unity. It can be a problem on WebGL (e.g. Fusion used ConfigureAwait(false) stalling execution).
+    Removed: Surplus InitializeOnLoadMethod-attribute from ApplyDefinesRealtimeV5() in PhotonUtilitiesUnity.
+    Updated: Reference docs to explain that a client does not rejoin a lobby, if any part of the join/create workflow fails on the Game Server.
+    Changed: AsyncExtensions.Startup() for Unity is now run BeforeSceneLoad, which makes sure the initialization is done before Awake() and OnEnable().
+
+Version 5.1.19 (04. September 2026)
+    Added: Support for the Video SDK. This adds ClientAppType.Video and ClientAppType.VoiceOrVideo as well as AppSettings.AppIdVideo and AppSettings.AppIdVoiceOrVideo. The latter is the simplest way to get the right AppId for Voice or Video.
+    Changed: In Unity, ConnectionHandler.RealtimeFallback() will not call Destroy(this). Instead, this will be called when the client disconnected (OnDisconnected), which is called on the Main Thread. This drops a surplus Destroy call which was flawed anyways.
+    Fixed: ConnectionHandler.RealtimeFallback() no longer calls RealtimeClient.Disconnect() on its timer thread which potentially ran code off the main thread (e.g. via StateChanged) and could Destroy a GameObject off the main thread. It now uses the new internal RealtimeClient.DisconnectFromFallbackThread(), which is thread-safe but still immediately sends a disconnect message.
+    Note: State changes, region-ping abort and callbacks are deferred to the dispatch of the resulting StatusCode.Disconnect (run on main thread). Until that dispatch runs (e.g. app still in background), the client State remains unchanged.
+    Changed: ConnectionHandler.DisconnectAfterKeepAlive now has the NonSerialized attribute to skip it from the Inspector (it is obsolete and not used anymore).
+    Updated: websocket-sharp.dll, which is only required for WS/WSS proxy support. It brings all updates from the original project and has a custom fix to always use a new connection if the proxy asks for auth values. See .README with more details.
+    Changed: How RegionPinging gets started and aborted. ConnectUsingSettings now aborts and discards any existing RegionHandler. The internal clientWorkflow is reset. Calling Disconnect or a connection loss will also abort region pinging (it's likely the later callback isn't expected / needed anymore).
+    Note: SummaryToCache (for region pinging) is now null from ConnectUsingSettings until the next ping run completes (and stays null if FixedRegion skips GetRegions). Read it in OnRegionListReceived or after connecting.
+    Fixed: AsyncOperationHandler now creates its TaskCompletionSource with RunContinuationsAsynchronously. Before, code awaiting an async extension (e.g. CreateAndJoinRoomAsync) could continue inline on the thread dispatching the completing callback, keeping the peer's dispatch lock. That could deadlock permanently in .Net (Unity was unaffected, running everything on the main thread).
+    Changed: The async extensions create their AsyncOperationHandler (and therefore the operation timeout) before calling the method that starts the operation (Connect, Disconnect, Op*). If that call fails, the handler faults with an OperationStartException. If it blocks, the timeout still faults the returned task instead of hanging it.
+    Fixed: ConnectToNameserverAndWaitForRegionsAsync() now unlistens its OnRegionListReceivedMsg handler when the operation completes.
+
 Version 5.1.18 (12. August 2026)
     Fixed: Internal method CallConnect() now changes the TransportProtocol before calling GetNameServerAddress(). Before this, an IP could be passed to the WebSocket as a race condition when using AuthMode AuthOnceWss.
     Changed: MatchmakingExtensions to use UTC timestamp. The Unity Auditor was pointing out usages of DateTime.Now even if rarely used.
@@ -22,7 +46,7 @@ Version 5.1.15 (18. June 2026)
     Updated: Logging to avoid boxing and allocations as much as possible. Checked this with Unity's Project Auditor in 6.4. No Major/Critical issues remain.
     Changed: EventBetter (handling callbacks) is now NonSerialized (as intended).
 
-Version 5.1.14 (1. June 2026 - sha 81dc467)
+Version 5.1.14 (01. June 2026 - sha 81dc467)
     Updated: Static value initialization for Unity using RuntimeInitializeOnLoadMethod in RegionHandler and Log.
     Updated: AsyncExtensions with annotations for the Unity Analyzer to avoid misleading warnings about static values. See SuppressMessage why each is fine.
     Updated: SystemConnectionSummary.ToString() to include an annotation of the error codes.

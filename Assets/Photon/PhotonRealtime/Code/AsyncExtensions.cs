@@ -52,7 +52,7 @@ namespace Photon.Realtime
         }
 
         /// <summary>Initialization within Unity. Setting CancellationToken and some more.</summary>
-        [RuntimeInitializeOnLoadMethod]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Startup()
         {
             // Uses a task factory that creates tasks on the same synchronization context (main thread). This is essential to make TPL comfortably work in Unity.
@@ -92,7 +92,6 @@ namespace Photon.Realtime
 
     /// <summary>
     /// Extensions methods to wrap Photon Realtime API calls into <see cref="System.Threading.Tasks"/>.
-    /// 
     /// </summary>
     public static class AsyncExtensions
     {
@@ -128,11 +127,7 @@ namespace Photon.Realtime
                     return Task.FromException(new OperationStartException("Client still connected"));
                 }
 
-                if (client.ConnectUsingSettings(appSettings) == false)
-                {
-                    return Task.FromException(new OperationStartException("Failed to start connecting"));
-                }
-
+                // the handler (and its timeout) is created before the call that starts the operation, so a call that blocks or fails still results in a faulted task
                 var handler = client.CreateConnectionHandler(true, config.Resolve());
 #if DEBUG
                 handler.Name = "ConnectUsingSettings";
@@ -140,6 +135,12 @@ namespace Photon.Realtime
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnDisconnectedMsg>(m => handler.SetException(new DisconnectException(m.cause))));
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnCustomAuthenticationFailedMsg>(m => handler.SetException(new AuthenticationFailedException(m.debugMessage))));
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnConnectedToMasterMsg>(m => handler.SetResult(ErrorCode.Ok)));
+
+                if (client.ConnectUsingSettings(appSettings) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to start connecting"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -166,11 +167,6 @@ namespace Photon.Realtime
                     return Task.FromException<short>(new OperationStartException("Client still connected"));
                 }
 
-                if (client.ReconnectAndRejoin(ticket) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to start reconnecting"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "ReconnectAndRejoin";
@@ -191,6 +187,12 @@ namespace Photon.Realtime
                     else {
                         handler.SetResult(m.returnCode);
                     }}));
+
+                if (client.ReconnectAndRejoin(ticket) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to start reconnecting"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -203,14 +205,24 @@ namespace Photon.Realtime
         }
 
         /// <summary>
-        /// Reconnect to master server.
+        /// Reconnect to master server, re-using the existing authentication token (<see cref="RealtimeClient.AuthValues"/>).
         /// </summary>
+        /// <remarks>
+        /// Authentication errors are not signalled as <see cref="AuthenticationFailedException"/> here (unlike
+        /// <see cref="ConnectUsingSettingsAsync"/>). The server rejects the token with an error response and the client
+        /// disconnects, so an expired or invalid token arrives as a <see cref="DisconnectException"/>. Check its
+        /// <see cref="DisconnectException.Cause"/> for <see cref="DisconnectCause.AuthenticationTicketExpired"/>,
+        /// <see cref="DisconnectCause.InvalidAuthentication"/> or <see cref="DisconnectCause.CustomAuthenticationFailed"/>
+        /// to tell an auth failure apart from a network drop. Recovering from those means setting fresh
+        /// <see cref="RealtimeClient.AuthValues"/> and running a full <see cref="ConnectUsingSettingsAsync"/>.
+        ///
+        /// <see cref="RealtimeClient.ReconnectToMaster"/> only checks that a token is present, not whether it expired.
+        /// </remarks>
         /// <param name="client">Client object should be in Disconnected state.</param>
         /// <param name="config">Optional AsyncConfig, otherwise AsyncConfig.Global is used.</param>
-        /// <returns></returns>
-        /// <exception cref="DisconnectException">Is thrown when the connection terminated.</exception>
-        /// <exception cref="OperationStartException">Is thrown when the operation could not be started.</exception>
-        /// <exception cref="OperationException">Is thrown when the operation completed unsuccessfully.</exception>
+        /// <returns>Returns when connected to the Master Server (OnConnectedToMaster was called).</returns>
+        /// <exception cref="DisconnectException">Is thrown when the connection terminated, including when the token was rejected (see remarks).</exception>
+        /// <exception cref="OperationStartException">Is thrown when the operation could not be started (client still connected, no known Master Server address or no token).</exception>
         /// <exception cref="OperationTimeoutException">Is thrown when the operation timed out.</exception>
         /// <exception cref="OperationCanceledException">Is thrown when the operation have been canceled (AsyncConfig.CancellationSource).</exception>
         public static Task ReconnectToMasterAsync(this RealtimeClient client, AsyncConfig config = null)
@@ -222,17 +234,18 @@ namespace Photon.Realtime
                     return Task.FromException(new OperationStartException("Client still connected"));
                 }
 
-                if (client.ReconnectToMaster() == false)
-                {
-                    return Task.FromException(new OperationStartException("Failed to start reconnecting"));
-                }
-
                 var handler = client.CreateConnectionHandler(true, config.Resolve());
 #if DEBUG
                 handler.Name = "ReconnectToMaster";
 #endif
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnDisconnectedMsg>(m => handler.SetException(new DisconnectException(m.cause))));
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnConnectedToMasterMsg>(m => handler.SetResult(ErrorCode.Ok)));
+
+                if (client.ReconnectToMaster() == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to start reconnecting"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -291,6 +304,11 @@ namespace Photon.Realtime
         /// Will fail when connected to another server type.
         /// The client connection will be disconnected AFTER returning the result. It's not supposed to be useable.
         /// </summary>
+        /// <remarks>
+        /// A client that is already connected to the Name Server gets sent an OpGetRegions by this method.
+        /// A client that is still connecting to it sends that operation by itself, unless its AppSettings.FixedRegion is set.
+        /// That case can not produce a region list, so it fails with an OperationStartException right away (disconnect the client first).
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="appSettings">Photon AppSettings, only uses AppId.</param>
         /// <param name="pingRegions">Ping each region, takes longer to complete.</param>
@@ -306,54 +324,91 @@ namespace Photon.Realtime
             var asyncConfig = config.Resolve();
             return asyncConfig.TaskFactory.StartNew(() =>
             {
-                // connected // connecting
-                if (client.State == ClientState.ConnectedToNameServer || client.State == ClientState.ConnectingToNameServer)
+                bool isDisconnected = client.State == ClientState.Disconnected || client.State == ClientState.PeerCreated;
+                bool isOnNameServer = client.State == ClientState.ConnectedToNameServer || client.State == ClientState.ConnectingToNameServer;
+                if (!isDisconnected && !isOnNameServer)
                 {
-                    // empty
+                    return Task.FromException<RegionHandler>(new OperationStartException($"Client state ({client.State.ToString()}) unuseable for name server connection."));
                 }
-                // disconnected
-                else if (client.State == ClientState.Disconnected || client.State == ClientState.PeerCreated)
+
+                // a client that is still connecting to the Name Server sends OpGetRegions on its own (when encryption got established), but only while no FixedRegion is set.
+                // with one, nothing would ever raise OnRegionListReceived, so this fails now instead of waiting for the operation timeout (which WebGL builds don't have).
+                if (client.State == ClientState.ConnectingToNameServer && !string.IsNullOrEmpty(client.AppSettings?.FixedRegion))
+                {
+                    return Task.FromException<RegionHandler>(new OperationStartException($"Client is connecting to the Name Server with FixedRegion '{client.AppSettings.FixedRegion}' set, which skips OpGetRegions. Disconnect the client first."));
+                }
+
+                // the handler (and its timeout) is created before the call that starts connecting, so a call that blocks or fails still results in a faulted task
+                var handler = client.CreateConnectionHandler(true, asyncConfig);
+#if DEBUG
+                handler.Name = "ConnectToNameserverAndWaitForRegions";
+#endif
+                // the GetRegions workflow disconnects the client before it calls OnRegionListReceived and the region pinging runs on after that.
+                // so only a disconnect BEFORE the region list arrived ends this operation. later ones are part of the workflow and get ignored.
+                bool regionListReceived = false;
+
+                // Because we set PingAvailableRegions ourselves the connection logic started by ConnectUsingSettings is canceled.
+                handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnRegionListReceivedMsg>(m => {
+                    regionListReceived = true;
+
+                    if (pingRegions)
+                    {
+                        m.regionHandler.PingAvailableRegions(r => handler.SetResult(ErrorCode.Ok));
+                    }
+                    else
+                    {
+                        handler.SetResult(ErrorCode.Ok);
+                    }
+                }));
+
+                handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnDisconnectedMsg>(m => {
+                    if (!regionListReceived)
+                    {
+                        handler.SetException(new DisconnectException(m.cause));
+                    }
+                }));
+
+                if (isDisconnected)
                 {
                     // TODO: add different app ids here
                     var appSettingsCopy = new AppSettings(appSettings);
                     appSettingsCopy.FixedRegion = null;
 
-                    client.GetRegions(appSettingsCopy, ping: pingRegions);
-                }
-                // everything else
-                else
-                {
-                    return Task.FromException<RegionHandler>(new OperationStartException($"Client state ({client.State.ToString()}) unuseable for name server connection."));
+                    client.GetRegions(appSettingsCopy, false);  // deliberately skip this "ping" option. there is an explicit call to PingAvailableRegions() below.
                 }
 
-                if (client.RegionHandler?.EnabledRegions == null || client.RegionHandler?.EnabledRegions.Count <= 0)
+                if (client.RegionHandler?.EnabledRegions != null && client.RegionHandler.EnabledRegions.Count > 0)
                 {
-                    var handler = client.CreateConnectionHandler(true, config.Resolve());
-#if DEBUG
-                    handler.Name = "ConnectToNameserverAndWaitForRegions";
-#endif
-                    // Because we set PingAvailableRegions ourselves the connection logic started by ConnectUsingSettings is canceled.
-                    client.CallbackMessage.ListenManual<OnRegionListReceivedMsg>(m => {
-                        if (pingRegions)
-                        {
-                            m.regionHandler.PingAvailableRegions(r => handler.SetResult(ErrorCode.Ok));
-                        }
-                        else
-                        {
-                            handler.SetResult(ErrorCode.Ok);
-                        }
-                    });
-                    var result = handler.Task.ContinueWith(c => client.RegionHandler, asyncConfig.TaskScheduler);
-                    result.ContinueWith(c => client.DisconnectAsync(), asyncConfig.TaskScheduler);
-                    return result;
+                    // regions are known already. complete the handler to stop its service task and unlisten.
+                    handler.SetResult(ErrorCode.Ok);
+                    return Task.FromResult(client.RegionHandler);
                 }
-                return Task.FromResult(client.RegionHandler);
+
+                if (isOnNameServer && client.State == ClientState.ConnectedToNameServer)
+                {
+                    // the client sits on the Name Server without a region list and nothing else is going to fetch one (OpGetRegions gets sent
+                    // automatically only right after encryption got established). without this, the operation could never complete.
+                    if (!client.OpGetRegions())
+                    {
+                        handler.SetException(new OperationStartException("Failed to send GetRegions operation"));
+                    }
+                }
+
+                var result = handler.Task.ContinueWith(c => client.RegionHandler, asyncConfig.TaskScheduler);
+                result.ContinueWith(c => client.DisconnectAsync(asyncConfig), asyncConfig.TaskScheduler);
+                return result;
             }).Unwrap();
         }
 
         /// <summary>
         /// Create and join a room.
         /// </summary>
+        /// <remarks>
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). A failure on the Master Server keeps the client in the lobby. The lobby is
+        /// never re-joined automatically. When the entry fails on the Game Server, the client returns to the
+        /// Master Server before this task completes, so JoinLobbyAsync can be called right after it.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="enterRoomArgs">Enter room params.</param>
         /// <param name="throwOnError">Set ErrorCode as result on RoomCreateFailed or RoomJoinFailed.</param>
@@ -368,11 +423,6 @@ namespace Photon.Realtime
         {
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpCreateRoom(enterRoomArgs) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send CreateRoom operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "CreateAndJoinRoom";
@@ -399,6 +449,12 @@ namespace Photon.Realtime
                         handler.SetResult(m.returnCode);
                     }
                 }));
+
+                if (client.OpCreateRoom(enterRoomArgs) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send CreateRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -406,6 +462,12 @@ namespace Photon.Realtime
         /// <summary>
         /// Join room.
         /// </summary>
+        /// <remarks>
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). A failure on the Master Server keeps the client in the lobby. The lobby is
+        /// never re-joined automatically. When the entry fails on the Game Server, the client returns to the
+        /// Master Server before this task completes, so JoinLobbyAsync can be called right after it.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="enterRoomArgs">Enter room params.</param>
         /// <param name="throwOnError">Set ErrorCode as result when JoinRoomFailed.</param>
@@ -420,11 +482,6 @@ namespace Photon.Realtime
         {
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpJoinRoom(enterRoomArgs) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send JoinRoom operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "JoinRoom";
@@ -441,6 +498,12 @@ namespace Photon.Realtime
                         handler.SetResult(m.returnCode);
                     }
                 }));
+
+                if (client.OpJoinRoom(enterRoomArgs) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send JoinRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -448,6 +511,12 @@ namespace Photon.Realtime
         /// <summary>
         /// Rejoin room.
         /// </summary>
+        /// <remarks>
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). A failure on the Master Server keeps the client in the lobby. The lobby is
+        /// never re-joined automatically. When the entry fails on the Game Server, the client returns to the
+        /// Master Server before this task completes, so JoinLobbyAsync can be called right after it.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="roomName">Room name to rejoin.</param>
         /// <param name="ticket">Matchmaking Ticket for this user and room. Can be null if not used.</param>
@@ -469,11 +538,6 @@ namespace Photon.Realtime
                     return Task.FromException<short>(new OperationStartException("Must be connected to master server"));
                 }
 
-                if (client.OpRejoinRoom(roomName, ticket) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send RejoinRoom operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "RejoinRoom";
@@ -490,6 +554,12 @@ namespace Photon.Realtime
                         handler.SetResult(m.returnCode);
                     }
                 }));
+
+                if (client.OpRejoinRoom(roomName, ticket) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send RejoinRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -497,6 +567,12 @@ namespace Photon.Realtime
         /// <summary>
         /// Join or create room.
         /// </summary>
+        /// <remarks>
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). A failure on the Master Server keeps the client in the lobby. The lobby is
+        /// never re-joined automatically. When the entry fails on the Game Server, the client returns to the
+        /// Master Server before this task completes, so JoinLobbyAsync can be called right after it.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="enterRoomArgs">Enter room params.</param>
         /// <param name="throwOnError">Set ErrorCode as result when JoinRoomFailed.</param>
@@ -511,11 +587,6 @@ namespace Photon.Realtime
         {
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpJoinOrCreateRoom(enterRoomArgs) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send JoinRoom operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "JoinOrCreateRoom";
@@ -542,6 +613,12 @@ namespace Photon.Realtime
                         handler.SetResult(m.returnCode);
                     }
                 }));
+
+                if (client.OpJoinOrCreateRoom(enterRoomArgs) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send JoinOrCreateRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -549,6 +626,12 @@ namespace Photon.Realtime
         /// <summary>
         /// Join random or create room
         /// </summary>
+        /// <remarks>
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). A failure on the Master Server keeps the client in the lobby. The lobby is
+        /// never re-joined automatically. When the entry fails on the Game Server, the client returns to the
+        /// Master Server before this task completes, so JoinLobbyAsync can be called right after it.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="joinRandomRoomParams">Join random room params.</param>
         /// <param name="enterRoomArgs">Enter room params.</param>
@@ -564,10 +647,6 @@ namespace Photon.Realtime
         {
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpJoinRandomOrCreateRoom(joinRandomRoomParams, enterRoomArgs) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send JoinRandomOrCreateRoom operation"));
-                }
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "JoinRandomOrCreateRoom";
@@ -604,6 +683,12 @@ namespace Photon.Realtime
                         handler.SetResult(m.returnCode);
                     }
                 }));
+
+                if (client.OpJoinRandomOrCreateRoom(joinRandomRoomParams, enterRoomArgs) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send JoinRandomOrCreateRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -611,6 +696,12 @@ namespace Photon.Realtime
         /// <summary>
         /// Join random room
         /// </summary>
+        /// <remarks>
+        /// The lobby is only left when the client leaves the Master Server to enter a room on a Game Server
+        /// (InLobby becomes false). A failure on the Master Server keeps the client in the lobby. The lobby is
+        /// never re-joined automatically. When the entry fails on the Game Server, the client returns to the
+        /// Master Server before this task completes, so JoinLobbyAsync can be called right after it.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="joinRandomRoomParams">Join random room params.</param>
         /// <param name="throwOnError">Set ErrorCode as result when operation fails with ErrorCode.</param>
@@ -625,11 +716,6 @@ namespace Photon.Realtime
         {
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpJoinRandomRoom(joinRandomRoomParams) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send JoinRandomRoom operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "JoinRandomRoom";
@@ -646,6 +732,12 @@ namespace Photon.Realtime
                         handler.SetResult(m.returnCode);
                     }
                 }));
+
+                if (client.OpJoinRandomRoom(joinRandomRoomParams) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send JoinRandomRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -653,6 +745,10 @@ namespace Photon.Realtime
         /// <summary>
         /// Leave room
         /// </summary>
+        /// <remarks>
+        /// The task completes when the client is back on the Master Server. The lobby the client was in before
+        /// it entered the room is not re-joined automatically (InLobby is false): call JoinLobbyAsync if needed.
+        /// </remarks>
         /// <param name="client">Client object.</param>
         /// <param name="becomeInactive">If true, this player becomes inactive in the game and can return later (if PlayerTTL of the room is != 0).</param>
         /// <param name="throwOnError">Set ErrorCode as result when operation fails with ErrorCode.</param>
@@ -672,17 +768,18 @@ namespace Photon.Realtime
                     return Task.FromException(new OperationStartException("Must be inside a room"));
                 }
 
-                if (client.OpLeaveRoom(becomeInactive) == false)
-                {
-                    return Task.FromException(new OperationStartException("Failed to send LeaveRoom operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "LeaveRoom";
 #endif
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnDisconnectedMsg>(m => handler.SetException(new DisconnectException(m.cause))));
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnConnectedToMasterMsg>(m => handler.SetResult(ErrorCode.Ok)));
+
+                if (client.OpLeaveRoom(becomeInactive) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send LeaveRoom operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -699,17 +796,18 @@ namespace Photon.Realtime
         {
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpJoinLobby(lobby) == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send JoinLobby operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "JoinLobby";
 #endif
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnDisconnectedMsg>(m => handler.SetException(new DisconnectException(m.cause))));
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnJoinedLobbyMsg>(m => handler.SetResult(ErrorCode.Ok)));
+
+                if (client.OpJoinLobby(lobby) == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send JoinLobby operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -734,17 +832,18 @@ namespace Photon.Realtime
 
             return config.Resolve().TaskFactory.StartNew(() =>
             {
-                if (client.OpLeaveLobby() == false)
-                {
-                    return Task.FromException<short>(new OperationStartException("Failed to send LeaveLobby operation"));
-                }
-
                 var handler = client.CreateConnectionHandler(throwOnError, config.Resolve());
 #if DEBUG
                 handler.Name = "LeaveLobby";
 #endif
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnDisconnectedMsg>(m => handler.SetException(new DisconnectException(m.cause))));
                 handler.Disposables.Enqueue(client.CallbackMessage.ListenManual<OnLeftLobbyMsg>(m => handler.SetResult(ErrorCode.Ok)));
+
+                if (client.OpLeaveLobby() == false)
+                {
+                    handler.SetException(new OperationStartException("Failed to send LeaveLobby operation"));
+                }
+
                 return handler.Task;
             }).Unwrap();
         }
@@ -905,6 +1004,12 @@ namespace Photon.Realtime
     /// <summary>
     /// The operation handler is used to monitor the Photon Realtime operation callbacks for an async task.
     /// </summary>
+    /// <remarks>
+    /// The handler completes its task from inside the client's dispatch (i.e. while the peer holds its dispatch lock).
+    /// The completion source therefore uses RunContinuationsAsynchronously: awaiting code is never run inline on the
+    /// dispatching thread, so it can't deadlock by (synchronously) waiting for something that needs the dispatch lock
+    /// (e.g. Disconnect(), Connect() or another Service() call). Exception: Unity WebGL, as it's single threaded anyways.
+    /// </remarks>
     public class AsyncOperationHandler : IDisposable
     {
         private TaskCompletionSource<short> _result;
@@ -942,7 +1047,11 @@ namespace Photon.Realtime
         /// <param name="operationTimeoutSec">Operation timeout in seconds.</param>
         public AsyncOperationHandler(float operationTimeoutSec)
         {
+            #if UNITY_WEBGL
             _result = new TaskCompletionSource<short>();
+            #else
+            _result = new TaskCompletionSource<short>(TaskCreationOptions.RunContinuationsAsynchronously);
+            #endif
             _cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(operationTimeoutSec));
             _cancellation.Token.Register(() => SetException(new OperationTimeoutException($"Operation timed out {Name}")));
             Disposables = new ConcurrentQueue<IDisposable>();
@@ -953,7 +1062,12 @@ namespace Photon.Realtime
         /// </summary>
         public AsyncOperationHandler()
         {
+
+            #if UNITY_WEBGL
             _result = new TaskCompletionSource<short>();
+            #else
+            _result = new TaskCompletionSource<short>(TaskCreationOptions.RunContinuationsAsynchronously);
+            #endif
             Disposables = new ConcurrentQueue<IDisposable>();
         }
 

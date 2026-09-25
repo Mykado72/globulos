@@ -73,11 +73,6 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
             TurnManager.Instance.BroadcastScoreSync(Team1ScoreNet, Team2ScoreNet);
         }
 
-        // ✅ FIX : cet appel manquait. AddGoal() est entièrement redéfinie ici (elle n'appelle
-        // pas base.AddGoal()), donc ResetTurnAfterGoal() n'était jamais déclenché en mode
-        // Réseau — TurnManager.RequestTurnReset() n'était donc jamais appelé après un but qui
-        // ne terminait pas la partie. Comme dans ScoreManagerBase.AddGoal(), on l'appelle
-        // AVANT de vérifier la victoire.
         ResetTurnAfterGoal(scorerPlayerId);
 
         // Vérifier condition de victoire

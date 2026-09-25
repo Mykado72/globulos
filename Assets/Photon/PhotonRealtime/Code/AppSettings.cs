@@ -49,6 +49,21 @@ namespace Photon.Realtime
         /// <summary>AppId for Photon Voice.</summary>
         public string AppIdVoice;
 
+        /// <summary>AppId for Photon Video.</summary>
+        /// <remarks>Photon Video is a separate SDK and AppId-type. Components that work for Voice and Video alike can use AppIdVoiceOrVideo.</remarks>
+        public string AppIdVideo;
+
+        /// <summary>Gets either the AppIdVoice or the AppIdVideo for convenient use in either SDK.</summary>
+        /// <remarks>If the Video SDK is enabled, AppIdVideo is preferred. If that is empty, AppIdVoice is returned.</remarks>
+        public string AppIdVoiceOrVideo
+        {
+            #if PHOTON_VOICE_VIDEO_ENABLE
+            get { return string.IsNullOrEmpty(this.AppIdVideo) ? this.AppIdVoice : this.AppIdVideo; }
+            #else
+            get { return string.IsNullOrEmpty(this.AppIdVoice) ? this.AppIdVideo : this.AppIdVoice; }
+            #endif
+        }
+
         /// <summary>The AppVersion can be used to identify builds and will split the AppId distinct "Virtual AppIds" (important for matchmaking).</summary>
         public string AppVersion;
 
@@ -110,7 +125,7 @@ namespace Photon.Realtime
         /// If the fallback is impossible or if that connection also fails, the app logic must handle the case.
         /// It might even make sense to just try the same connection settings once more (or ask the user to do something about
         /// the network connectivity, firewalls, etc).
-        /// 
+        ///
         /// The fallback will use the default Name Server port as defined by ProtocolToNameServerPort.
         /// </remarks>
         public bool EnableProtocolFallback = true;
@@ -131,7 +146,7 @@ namespace Photon.Realtime
 
         /// <summary>Log level for the PhotonPeer and connection. Useful to debug connection related issues.</summary>
         public LogLevel NetworkLogging = LogLevel.Error;
-        
+
         /// <summary>Log level for the RealtimeClient and callbacks. Useful to get info about the client state, servers it uses and operations called.</summary>
         public LogLevel ClientLogging = LogLevel.Warning;
 
@@ -181,6 +196,10 @@ namespace Photon.Realtime
 
 
         /// <summary>Gets the AppId for a specific type of client.</summary>
+        /// <remarks>
+        /// Components that can work for the Voice SDK or the Video
+        /// SDK can use ClientAppType.VoiceOrVideo. It returns AppIdVoiceOrVideo.
+        /// </remarks>
         public string GetAppId(ClientAppType ct)
         {
             switch (ct)
@@ -191,8 +210,12 @@ namespace Photon.Realtime
                     return this.AppIdFusion;
                 case ClientAppType.Quantum:
                     return this.AppIdQuantum;
+                case ClientAppType.VoiceOrVideo:
+                    return this.AppIdVoiceOrVideo;
                 case ClientAppType.Voice:
                     return this.AppIdVoice;
+                case ClientAppType.Video:
+                    return this.AppIdVideo;
                 case ClientAppType.Chat:
                     return this.AppIdChat;
                 default:
@@ -241,6 +264,7 @@ namespace Photon.Realtime
             AppendAppIdIfNotEmpty(appIds, "Quantum", AppIdQuantum);
             AppendAppIdIfNotEmpty(appIds, "Chat", AppIdChat);
             AppendAppIdIfNotEmpty(appIds, "Voice", AppIdVoice);
+            AppendAppIdIfNotEmpty(appIds, "Video", AppIdVideo);
 
             sb.Append(string.Join(", ", appIds));
 
@@ -303,6 +327,7 @@ namespace Photon.Realtime
             target.AppIdQuantum = this.AppIdQuantum;
             target.AppIdChat = this.AppIdChat;
             target.AppIdVoice = this.AppIdVoice;
+            target.AppIdVideo = this.AppIdVideo;
             target.AppVersion = this.AppVersion;
             target.UseNameServer = this.UseNameServer;
             target.FixedRegion = this.FixedRegion;

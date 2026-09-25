@@ -115,7 +115,6 @@ namespace Fusion.Editor {
     private Vector2 _scrollPosition;
     private double _lastRepaintTime;
 
-    private readonly Dictionary<NetworkRunner, FusionStatistics> _stats = new();
     /// <summary>
     /// Create window instance.
     /// </summary>
@@ -282,15 +281,17 @@ namespace Fusion.Editor {
               }
             }
           }
-          
+
           // Draw runtime stats creation buttons. Reflection used since this namespace can't see FusionStats.
           if (currentViewWidth >= WINDOW_MIN_W + 10) {
             var statsRect  = EditorGUILayout.GetControlRect(GUILayout.Width(isWide ? STATS_BTTN_WIDE : STATS_BTTN_SLIM));
             var statsGC        = s_statsGC.Value;
             statsGC.text = isWide ? Labels.StatsFull : Labels.StatsShort;
+#if FUSION_ENABLE_UGUI
             if (GUI.Button(statsRect, statsGC, s_buttonStyle.Value)) {
               CreateOrDestroyFusionStats(runner);
             }
+#endif
           }
 
           // Draw UserID
@@ -306,13 +307,15 @@ namespace Fusion.Editor {
         EditorGUILayout.EndHorizontal();
       }
     }
-    
+
+#if FUSION_ENABLE_UGUI
+    private readonly Dictionary<NetworkRunner, FusionStatistics> _stats = new();
     private void CreateOrDestroyFusionStats(NetworkRunner runner) {
       // stats were destroyed by other means.
       if (_stats.TryGetValue(runner, out var statistics) && statistics == false) {
         _stats.Remove(runner);
       }
-      
+
       if (_stats.Remove(runner, out var stats) == false) {
         stats = runner.SetupStatistics();
         EditorGUIUtility.PingObject(stats.Root);
@@ -323,6 +326,7 @@ namespace Fusion.Editor {
         runner.RemoveStatistics();
       }
     }
+#endif
 
     /// <summary>
     /// Draw buttons on toolbar.
@@ -334,7 +338,7 @@ namespace Fusion.Editor {
       if (_toolbarButtonStyle == null) {
         _toolbarButtonStyle = new GUIStyle(GUI.skin.button) { padding = new RectOffset() };
       }
-    
+
       // draw button
       if (GUI.Button(position, EditorGUIUtility.IconContent("_Help"), _toolbarButtonStyle)) {
         Application.OpenURL("https://doc.photonengine.com/fusion/current/manual/testing-and-tooling/multipeer");

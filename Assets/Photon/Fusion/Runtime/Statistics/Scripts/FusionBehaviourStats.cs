@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System;
   using UnityEngine;
   using UnityEngine.UI;
@@ -14,8 +15,8 @@
     private StatAccumulator _execTimeAccum;
     private Type _behaviour;
     private FusionBehaviourStatisticsPage _behaviourPage;
-    
-    
+
+
     /// <summary>
     /// Setups the behaviour stats, define the behaviour type and pass a reference to the behaviour page.
     /// </summary>
@@ -34,7 +35,7 @@
     /// </summary>
     public void AccumulateRunAndTime(FusionBehaviourStatisticsPage statisticsPage) {
       if (!statisticsPage.Runner.TryGetBehaviourStatistics(_behaviour, out var snapshot)) return;
-      
+
       _runCountAccum.Accumulate(statisticsPage.DisplayingFun ? snapshot.FixedUpdateNetworkExecutionCount : snapshot.RenderExecutionCount);
       _execTimeAccum.Accumulate((float)(statisticsPage.DisplayingFun ? snapshot.FixedUpdateNetworkExecutionTime : snapshot.RenderExecutionTime));
     }
@@ -56,4 +57,5 @@
       _behaviourPage.DeleteStat(this);
     }
   }
+#endif
 }

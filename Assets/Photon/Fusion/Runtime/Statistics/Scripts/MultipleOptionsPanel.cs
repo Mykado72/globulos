@@ -1,4 +1,5 @@
 ﻿namespace Fusion.Statistics {
+#if FUSION_ENABLE_UGUI
   using System;
   using System.Linq;
   using UnityEngine;
@@ -46,4 +47,5 @@
       Destroy(gameObject);
     }
   }
+#endif
 }
