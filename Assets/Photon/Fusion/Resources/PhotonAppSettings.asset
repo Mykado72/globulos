@@ -24,7 +24,7 @@ MonoBehaviour:
     Server: 
     Port: 0
     ProxyServer: 
-    Protocol: 4
+    Protocol: 5
     EnableProtocolFallback: 1
     AuthMode: 2
     EnableLobbyStatistics: 0
