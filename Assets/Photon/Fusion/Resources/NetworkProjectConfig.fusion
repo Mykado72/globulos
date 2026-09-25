@@ -10,11 +10,11 @@
         "CachedStaticCollidersSize": 64
     },
     "PhysicsForecast": true,
-    "EnqueueIncompleteSynchronousSpawns": false,
+    "EnqueueIncompleteSynchronousSpawns": true,
     "InvokeRenderMode": 1,
-    "NetworkIdIsObjectName": false,
+    "NetworkIdIsObjectName": true,
     "HideNetworkObjectInactivityGuard": false,
-    "AllowClientServerModesInWebGL": true,
+    "AllowClientServerModesInWebGL": false,
     "AllowMasterClientReassignRequest": false,
     "MasterClientRequestReassignThreshold": 2.0,
     "ClientsRecordFrameAndPacketTimingTraces": false,
@@ -62,9 +62,7 @@
     "Network": {
         "ConnectionTimeout": 10.0,
         "ConnectionShutdownTime": 1.0,
-        "ReliableDataTransferModes": 3,
-        "GameChannelSendCount": 2,
-        "GameReliableChannelSendCount": 1
+        "ReliableDataTransferModes": 3
     },
     "HostMigration": {
         "EnableAutoUpdate": false,

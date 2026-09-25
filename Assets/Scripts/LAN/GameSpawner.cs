@@ -23,6 +23,18 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     private bool _hasSpawnedSoccerBall = false;
     private NetworkRunner _runner;
 
+    // 🆕 Handshake "tous les joueurs prêts avant de spawner" (voir TurnManager)
+    private bool _hasNotifiedReady = false;
+    private bool _allPlayersReadyToSpawn = false;
+
+    private void OnEnable()
+    {
+        // 🆕 Abonnement à l'événement diffusé par TurnManager (via RPC) quand TOUS les
+        // clients ont signalé être prêts. C'est uniquement à ce moment-là qu'on autorise
+        // le spawn réel du joueur local / du ballon.
+        TurnManager.OnAllPlayersReadyToSpawn += HandleAllPlayersReadyToSpawn;
+    }
+
     private void Start()
     {
         _runner = FindFirstObjectByType<NetworkRunner>();
@@ -40,6 +52,8 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
     private void OnDisable()
     {
+        TurnManager.OnAllPlayersReadyToSpawn -= HandleAllPlayersReadyToSpawn;
+
         if (_runner != null)
         {
             _runner.RemoveCallbacks(this);
@@ -51,19 +65,35 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"[GameSpawner] 🎬 Scène chargée pour LocalPlayer ID : {runner.LocalPlayer.PlayerId}");
 
-        // 1. Tenter de spawner le joueur local
+        // 🆕 Ne spawne plus rien directement ici : TrySpawnLocalPlayerWithRetry() se
+        // contente désormais de signaler qu'on est prêt, puis attend le feu vert de
+        // TurnManager (tous les joueurs prêts) avant d'instancier quoi que ce soit.
+        // Le spawn du ballon par le Master a aussi été déplacé dans
+        // HandleAllPlayersReadyToSpawn() pour la même raison.
         _ = TrySpawnLocalPlayerWithRetry();
+    }
 
-        // 2. Le Master Client spawn le ballon
-        if (runner.IsSharedModeMasterClient && !_hasSpawnedSoccerBall)
+    /// <summary>
+    /// 🆕 Appelé quand TurnManager confirme que TOUS les clients ont fini de charger
+    /// leur scène et signalé leur disponibilité. C'est le vrai point de départ du
+    /// spawn du ballon côté Master (auparavant fait dans OnSceneLoadDone, ce qui ne
+    /// garantissait pas que l'autre client avait fini de charger sa propre scène).
+    /// </summary>
+    private void HandleAllPlayersReadyToSpawn()
+    {
+        _allPlayersReadyToSpawn = true;
+
+        if (_runner != null && _runner.IsSharedModeMasterClient && !_hasSpawnedSoccerBall)
         {
             _hasSpawnedSoccerBall = true;
-            SpawnSoccerBall(runner);
+            SpawnSoccerBall(_runner);
         }
     }
 
     /// 
-    /// Attend que le joueur local soit 100% valide dans la session Fusion avant d'instancier.
+    /// Attend que le joueur local soit 100% valide dans la session Fusion, signale sa
+    /// disponibilité à TurnManager, puis attend que TOUS les joueurs soient prêts avant
+    /// d'instancier quoi que ce soit.
     /// 
     private async Task TrySpawnLocalPlayerWithRetry()
     {
@@ -80,6 +110,16 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                 return;
             }
             await Task.Delay(100);
+        }
+
+        if (_hasSpawnedLocalPlayer || _runner == null || !_runner.IsRunning) return;
+
+        // 🆕 Signale à TurnManager qu'on est prêt à spawner, puis attend que TOUS les
+        // clients (donc les deux joueurs) aient fait de même avant de continuer.
+        if (!await WaitUntilAllPlayersReadyToSpawn())
+        {
+            Debug.LogError("[GameSpawner] ❌ Timeout : les joueurs ne sont jamais tous devenus prêts à spawner.");
+            return;
         }
 
         if (_hasSpawnedLocalPlayer || _runner == null || !_runner.IsRunning) return;
@@ -147,6 +187,44 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         Debug.Log($"[GameSpawner] ✅ Succès : Toutes les billes du Joueur {localPlayer.PlayerId} ont été créées !");
+    }
+
+    /// <summary>
+    /// 🆕 Signale une seule fois à TurnManager que ce client est prêt à spawner, puis
+    /// attend (avec timeout) que TurnManager diffuse OnAllPlayersReadyToSpawn.
+    /// </summary>
+    private async Task<bool> WaitUntilAllPlayersReadyToSpawn()
+    {
+        if (!_hasNotifiedReady)
+        {
+            int waitAttempts = 0;
+            while (TurnManager.Instance == null)
+            {
+                waitAttempts++;
+                if (waitAttempts > 50) // Timeout après ~5 secondes
+                {
+                    Debug.LogError("[GameSpawner] ❌ TurnManager.Instance introuvable après attente.");
+                    return false;
+                }
+                await Task.Delay(100);
+            }
+
+            _hasNotifiedReady = true;
+            TurnManager.Instance.NotifyPlayerReadyToSpawn(_runner.LocalPlayer);
+        }
+
+        int attempts = 0;
+        while (!_allPlayersReadyToSpawn)
+        {
+            attempts++;
+            if (attempts > 300) // Timeout après ~30 secondes
+            {
+                return false;
+            }
+            await Task.Delay(100);
+        }
+
+        return true;
     }
 
     private void SpawnSoccerBall(NetworkRunner runner)

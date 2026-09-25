@@ -1,5 +1,6 @@
 using Fusion;
 using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
@@ -39,6 +40,34 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Networked] private TickTimer GoalResetTimer { get; set; }
     [Networked] private NetworkBool IsPendingGoalReset { get; set; }
 
+    // ============================================
+    // 🆕 Handshake "tous les joueurs prêts avant de spawner"
+    // ============================================
+    // La scène de jeu est chargée dès que le lobby atteint le nombre de joueurs
+    // requis (voir LobbyManager.CheckPlayersAndStartGame). Mais chaque client charge
+    // sa PROPRE instance de la scène à sa propre vitesse (réseau, mémoire, etc.).
+    // Sans ce garde-fou, GameSpawner spawnait le joueur local dès que SA scène à lui
+    // était chargée, sans attendre que l'autre client ait fini la sienne : la partie
+    // (et le premier tour) pouvait démarrer alors qu'un des deux joueurs n'était pas
+    // encore réellement présent sur le terrain.
+    //
+    // Principe : chaque GameSpawner appelle NotifyPlayerReadyToSpawn() dès que sa
+    // scène est chargée et son LocalPlayer valide. Le State Authority (Master) compte
+    // les joueurs prêts ; une fois que tous ont signalé, il diffuse RPC_BeginGameplay
+    // à tout le monde, qui déclenche l'événement statique OnAllPlayersReadyToSpawn.
+    // C'est UNIQUEMENT à ce moment-là que GameSpawner spawn réellement les billes et
+    // le ballon.
+    [Networked, Capacity(8)] private NetworkDictionary<PlayerRef, NetworkBool> PlayersReadyToSpawn => default;
+    [Networked] private int RequiredPlayersForSpawn { get; set; }
+    private bool _gameplayBegun = false;
+
+    /// <summary>
+    /// 🆕 Diffusé sur TOUS les clients (y compris le State Authority) une fois que
+    /// tous les joueurs ont signalé être prêts à spawner. GameSpawner s'y abonne pour
+    /// savoir quand spawner réellement le joueur local / le ballon.
+    /// </summary>
+    public static event Action OnAllPlayersReadyToSpawn;
+
     public static TurnManager Instance { get; private set; }
 
     public override void Spawned()
@@ -51,22 +80,29 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
             IsTurnBased = defaultTurnBasedMode;
             WinnerPlayerId = -1;
 
-            if (IsTurnBased)
-            {
-                StartNewTurn();
-            }
-            else
-            {
-                CurrentState = TurnState.RealTime;
-                TurnTimer = TickTimer.None;
-            }
+            // 🆕 On ne démarre PAS encore le premier tour ici : on attend que tous les
+            // joueurs aient confirmé être prêts à spawner (voir RPC_BeginGameplay).
+            RequiredPlayersForSpawn = CountActivePlayers();
 
-            Debug.Log("[TurnManager] ✅ Serveur initialisé (Mode NETWORK)");
+            Debug.Log($"[TurnManager] ✅ Serveur initialisé (Mode NETWORK) - en attente de {RequiredPlayersForSpawn} joueur(s) prêt(s) à spawner");
         }
         else
         {
             Debug.Log("[TurnManager] ℹ️ Client : reçoit les mises à jour du serveur");
         }
+    }
+
+    private int CountActivePlayers()
+    {
+        int count = 0;
+        if (Runner != null && Runner.ActivePlayers != null)
+        {
+            foreach (var p in Runner.ActivePlayers)
+            {
+                count++;
+            }
+        }
+        return count;
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -77,10 +113,67 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         }
     }
 
+    // ============================================
+    // 🆕 Handshake de démarrage - appelé par GameSpawner
+    // ============================================
+
+    /// <summary>
+    /// 🆕 À appeler par GameSpawner dès que le client local a fini de charger sa scène
+    /// et que son LocalPlayer est valide. N'effectue AUCUN spawn ici : ça ne fait que
+    /// signaler la disponibilité au State Authority.
+    /// </summary>
+    public void NotifyPlayerReadyToSpawn(PlayerRef player)
+    {
+        RPC_NotifyPlayerReadyToSpawn(player);
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RPC_NotifyPlayerReadyToSpawn(PlayerRef player)
+    {
+        if (!HasStateAuthority || _gameplayBegun) return;
+
+        PlayersReadyToSpawn.Set(player, true);
+
+        Debug.Log($"[TurnManager] 🟢 Joueur {player.PlayerId} prêt à spawner ({PlayersReadyToSpawn.Count}/{RequiredPlayersForSpawn})");
+
+        if (RequiredPlayersForSpawn > 0 && PlayersReadyToSpawn.Count >= RequiredPlayersForSpawn)
+        {
+            _gameplayBegun = true;
+            RPC_BeginGameplay();
+        }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_BeginGameplay()
+    {
+        Debug.Log("[TurnManager] 🚀 Tous les joueurs sont prêts - démarrage effectif de la partie");
+
+        // Prévient GameSpawner (sur CE client) qu'il peut maintenant spawner réellement.
+        OnAllPlayersReadyToSpawn?.Invoke();
+
+        // Le premier tour ne démarre que maintenant, et uniquement côté State Authority.
+        if (HasStateAuthority)
+        {
+            if (IsTurnBased)
+            {
+                StartNewTurn();
+            }
+            else
+            {
+                CurrentState = TurnState.RealTime;
+                TurnTimer = TickTimer.None;
+            }
+        }
+    }
+
     public override void FixedUpdateNetwork()
     {
         // ✅ CLIENT/SERVER : Seul le serveur gère la logique
         if (!HasStateAuthority || !IsTurnBased) return;
+
+        // 🆕 Tant que tous les joueurs ne sont pas prêts, la logique de tour ne doit
+        // pas tourner (CurrentState vaut encore sa valeur par défaut / précédente).
+        if (!_gameplayBegun) return;
 
         // ✅ FIX : un but vient d'être marqué mais la partie continue (voir
         // ScoreManagerNetwork.ResetTurnAfterGoal -> RequestTurnReset). On attend que la
@@ -241,7 +334,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
         if (playersWithNoBalls >= 2)
         {
-            Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");           
+            Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");
             return;
         }
 
