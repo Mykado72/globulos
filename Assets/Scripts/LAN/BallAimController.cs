@@ -145,14 +145,14 @@ public class BallAimController : NetworkBehaviour
     private void Update()
     {
         float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
-        if (_rb.linearVelocity.sqrMagnitude > thresholdSqr)
+        if (_rb.velocity.sqrMagnitude > thresholdSqr)
         {
             IsMoving = true;
         }
         else
         {
             IsMoving = false;
-            _rb.linearVelocity = Vector2.zero;
+            _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;
         }
 
@@ -364,7 +364,7 @@ public class BallAimController : NetworkBehaviour
         if (_rb != null)
         {
             float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
-            IsMoving = !IsDead && _rb.linearVelocity.sqrMagnitude > thresholdSqr;
+            IsMoving = !IsDead && _rb.velocity.sqrMagnitude > thresholdSqr;
         }
     }
 
@@ -380,7 +380,7 @@ public class BallAimController : NetworkBehaviour
         if (IsDead) return;
 
         // Vérifie si le rebond est assez violent
-        if (_rb.linearVelocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
+        if (_rb.velocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
         {
 
             // ✅ NOUVEAU : son de rebond. Pas de RPC ici (contrairement au tir) : comme pour
@@ -462,7 +462,7 @@ public class BallAimController : NetworkBehaviour
 
         if (_rb != null)
         {
-            _rb.linearVelocity = Vector2.zero;
+            _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;
         }
 

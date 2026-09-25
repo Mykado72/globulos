@@ -10,7 +10,7 @@
         "CachedStaticCollidersSize": 64
     },
     "PhysicsForecast": true,
-    "EnqueueIncompleteSynchronousSpawns": true,
+    "EnqueueIncompleteSynchronousSpawns": false,
     "InvokeRenderMode": 1,
     "NetworkIdIsObjectName": true,
     "HideNetworkObjectInactivityGuard": false,
@@ -62,7 +62,9 @@
     "Network": {
         "ConnectionTimeout": 10.0,
         "ConnectionShutdownTime": 1.0,
-        "ReliableDataTransferModes": 3
+        "ReliableDataTransferModes": 3,
+        "GameChannelSendCount": 2,
+        "GameReliableChannelSendCount": 1
     },
     "HostMigration": {
         "EnableAutoUpdate": false,

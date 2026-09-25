@@ -114,7 +114,7 @@ public class LocalBallAimController : MonoBehaviour
 
         if (_rb != null)
         {
-            _rb.linearVelocity = Vector2.zero;
+            _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;            
             _rb.simulated = true;
         }
@@ -290,14 +290,14 @@ public class LocalBallAimController : MonoBehaviour
         if (_rb != null)
         {
             float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
-            if (_rb.linearVelocity.sqrMagnitude > thresholdSqr)
+            if (_rb.velocity.sqrMagnitude > thresholdSqr)
             {
                 IsMoving = true;
             }
             else
             {
                 IsMoving = false;
-                _rb.linearVelocity = Vector2.zero;
+                _rb.velocity = Vector2.zero;
                 _rb.angularVelocity = 0f;
             }
         }
@@ -437,7 +437,7 @@ public class LocalBallAimController : MonoBehaviour
     {
         if (IsDead) return;
 
-        if (_rb.linearVelocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
+        if (_rb.velocity.sqrMagnitude > bounceForceThreshold * bounceForceThreshold)
         {
             Vector2 contactPoint = collision.GetContact(0).point;
             AudioManager.Instance?.PlayBounce(contactPoint);

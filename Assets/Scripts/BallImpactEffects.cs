@@ -45,7 +45,7 @@ public static class BallImpactEffects
         System.Action onFallStarted = null)
     {
         rb.isKinematic = true;
-        rb.linearVelocity = Vector2.zero;
+        rb.velocity = Vector2.zero;
 
         onFallStarted?.Invoke();
 

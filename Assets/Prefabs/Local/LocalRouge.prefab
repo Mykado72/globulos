@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 2384234035569668972}
   - component: {fileID: 8565663288508091538}
   - component: {fileID: -3544280881337377624}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: LocalRouge
   m_TagString: Ball
   m_Icon: {fileID: 0}
@@ -76,7 +76,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: -544039361
-  m_SortingLayer: 2
+  m_SortingLayer: 0
   m_SortingOrder: 10
   m_Sprite: {fileID: 21300000, guid: e06fc7fc29f4abf42b7e880ca26ad454, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -315,10 +315,7 @@ MonoBehaviour:
   squashDuration: 0.15
   squashAmount: 0.7
   stretchAmount: 1.2
-  maxTurnDuration: 6
   stationaryVelocityThreshold: 4
-  aiAimInaccuracyDegrees: 12
-  aiMinForceFraction: 0.7
   aiDifficulty: 2
   aiRole: 2
   botReactionDelaySeconds: 0.3
@@ -332,7 +329,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1581219064038314233}
   - component: {fileID: 910612680514337087}
-  m_Layer: 6
+  m_Layer: 3
   m_Name: TouchZone
   m_TagString: Untagged
   m_Icon: {fileID: 0}

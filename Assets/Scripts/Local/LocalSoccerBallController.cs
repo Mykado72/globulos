@@ -120,7 +120,7 @@ public class LocalSoccerBallController : MonoBehaviour
         // Réinitialise la vélocité physique
         if (_rb != null)
         {
-            _rb.linearVelocity = Vector2.zero;
+            _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;
         }
 
@@ -159,7 +159,7 @@ public class LocalSoccerBallController : MonoBehaviour
         if (_rb != null)
         {
             _rb.isKinematic = false;
-            _rb.linearVelocity = Vector2.zero;
+            _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;
         }
 

@@ -14,7 +14,7 @@ public static class GoalScoreAnimation
     {
         if (rb != null)
         {
-            rb.linearVelocity /= 5f;
+            rb.velocity /= 5f;
             rb.angularVelocity /= 5f;
         }
 
@@ -47,7 +47,7 @@ public static class GoalScoreAnimation
 
         if (rb != null)
         {
-            rb.linearVelocity = Vector2.zero;
+            rb.velocity = Vector2.zero;
             rb.angularVelocity = 0f;
             rb.isKinematic = true;
         }

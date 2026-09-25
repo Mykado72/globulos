@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: -46532438855375033}
   - component: {fileID: -2023324552880989916}
   - component: {fileID: 8565663288508091538}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: NetworkRouge
   m_TagString: Ball
   m_Icon: {fileID: 0}
@@ -78,7 +78,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: -544039361
-  m_SortingLayer: 2
+  m_SortingLayer: 0
   m_SortingOrder: 10
   m_Sprite: {fileID: 21300000, guid: e06fc7fc29f4abf42b7e880ca26ad454, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -271,13 +271,13 @@ MonoBehaviour:
   squashAmount: 0.7
   stretchAmount: 1.2
   flashDuration: 0.08
-  maxTurnDuration: 6
   stationaryVelocityThreshold: 2
   _OwnerPlayerId: 0
   _IsAiming: 0
   _IsDead: 0
   _IsMoving: 0
   aiDifficulty: 1
+  aiRole: 1
   botReactionDelaySeconds: 0.3
 --- !u!120 &8565663288508091538
 LineRenderer:
@@ -397,7 +397,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8307858029605818150}
   - component: {fileID: 8945023888869445644}
-  m_Layer: 6
+  m_Layer: 3
   m_Name: TouchZone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
