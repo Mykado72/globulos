@@ -2548,7 +2548,7 @@ MonoBehaviour:
   statusText: {fileID: 1150031957}
   roomStatusText: {fileID: 1150031957}
   defaultRoomName: COGEP
-  nbOfPlayers: 1
+  nbOfPlayers: 2
 --- !u!4 &1609862376
 Transform:
   m_ObjectHideFlags: 0

@@ -335,12 +335,14 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         if (playersWithNoBalls >= 2)
         {
             Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");
+            // EndGameAsDraw(); // à écrire : CurrentState = Finished, IsTurnBased = false, ReloadSceneAfterDelay("DRAW", ...)
             return;
         }
 
         if (playersWithNoBalls == 1 && lastAlivePlayer >= 0)
         {
             Debug.Log($"[TurnManager] 🎊 VICTOIRE du Joueur {lastAlivePlayer}!");
+            EndGameWinBySoccerGoal(lastAlivePlayer); // réutilise la méthode existante, déjà correcte
             return;
         }
     }
