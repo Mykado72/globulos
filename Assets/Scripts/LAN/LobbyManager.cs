@@ -67,7 +67,8 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             {
                 _isLoadingScene = true;
                 UpdateStatus("Tous les joueurs sont présents ! Lancement par le MasterClient...");
-                _ = StartGameSceneForMaster();
+                // _ = StartGameSceneForMaster();
+                StartGameSceneForMaster();
             }
             else
             {
@@ -76,6 +77,71 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    private void StartGameSceneForMaster()
+    {
+        StartCoroutine(StartGameSceneForMasterCoroutine());
+    }
+
+    private IEnumerator StartGameSceneForMasterCoroutine()
+    {
+        yield return new WaitForSeconds(1f);
+
+        if (_currentRunner == null || !_currentRunner.IsRunning) yield break;
+
+        if (_currentRunner.IsSharedModeMasterClient)
+        {
+            _sceneLoadConfirmed = false;
+            _sceneLoadRetryCount = 0;
+            yield return AttemptLoadSceneWithRetryCoroutine();
+        }
+    }
+
+    private IEnumerator AttemptLoadSceneWithRetryCoroutine()
+    {
+        int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
+        if (sceneIndex < 0)
+        {
+            sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/GameSceneLAN.unity");
+        }
+
+        if (sceneIndex < 0)
+        {
+            Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
+            UpdateStatus("❌ Erreur de configuration : scène introuvable.");
+            _isLoadingScene = false;
+            yield break;
+        }
+
+        // 🔴 On ne lance LoadScene qu'UNE fois, ici, avant la boucle.
+        _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
+        Debug.Log($"[LobbyManager] 🚀 Chargement scène index {sceneIndex}...");
+        UpdateStatus("Chargement de la partie...");
+
+        float elapsed = 0f;
+        const float pollInterval = 0.25f;
+        const float generousTimeout = 30f; // 🔴 Bien plus généreux, adapté à une mémoire contrainte
+
+        var wait = new WaitForSeconds(pollInterval);
+
+        while (elapsed < generousTimeout && !_sceneLoadConfirmed)
+        {
+            yield return wait;
+            elapsed += pollInterval;
+
+            if (_currentRunner == null || !_currentRunner.IsRunning) yield break;
+        }
+
+        if (_sceneLoadConfirmed)
+        {
+            Debug.Log("[LobbyManager] ✅ Scène chargée avec succès.");
+            yield break;
+        }
+        // 🔴 Après un VRAI échec (rien n'a jamais confirmé), on informe sans relancer
+        // LoadScene par-dessus un chargement peut-être encore actif.
+        UpdateStatus("❌ Le chargement prend trop de temps. Rechargez la page si besoin.");
+        _isLoadingScene = false;
+    }
+    /*
     private async Task StartGameSceneForMaster()
     {
         // Attente de sécurité pour laisser Fusion stabiliser l'autorité Shared Mode
@@ -90,6 +156,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             await AttemptLoadSceneWithRetry();
         }
     }
+    */
 
     private async Task AttemptLoadSceneWithRetry()
     {

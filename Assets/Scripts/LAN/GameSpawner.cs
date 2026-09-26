@@ -109,7 +109,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                 Debug.LogError("[GameSpawner] ❌ Timeout : LocalPlayer toujours invalide.");
                 return;
             }
-            await Task.Delay(100);
+            await WebGLDelay.Wait(0.1f, this);
         }
 
         if (_hasSpawnedLocalPlayer || _runner == null || !_runner.IsRunning) return;
@@ -206,7 +206,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                     Debug.LogError("[GameSpawner] ❌ TurnManager.Instance introuvable après attente.");
                     return false;
                 }
-                await Task.Delay(100);
+                await WebGLDelay.Wait(0.1f, this);
             }
 
             _hasNotifiedReady = true;
@@ -221,7 +221,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             {
                 return false;
             }
-            await Task.Delay(100);
+            await WebGLDelay.Wait(0.1f, this);
         }
 
         return true;

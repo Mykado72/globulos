@@ -18,6 +18,7 @@
     "AllowMasterClientReassignRequest": false,
     "MasterClientRequestReassignThreshold": 2.0,
     "ClientsRecordFrameAndPacketTimingTraces": false,
+    "ClientsOnlyRollbackUpdatedObjects": false,
     "Simulation": {
         "InputDataWordCount": 0,
         "ReplicationFeatures": 0,
