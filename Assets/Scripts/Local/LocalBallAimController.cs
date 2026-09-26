@@ -115,6 +115,7 @@ public class LocalBallAimController : MonoBehaviour
         if (_rb != null)
         {
             _rb.velocity = Vector2.zero;
+            _rb.bodyType = RigidbodyType2D.Dynamic;
             _rb.angularVelocity = 0f;            
             _rb.simulated = true;
         }
@@ -183,7 +184,7 @@ public class LocalBallAimController : MonoBehaviour
         if (_enemyGoal == null)
         {
             _enemyGoal = _botAI.FindEnemyGoal();
-            Debug.Log("🤖 Bot " + OwnerPlayerId + " IA PlayerId=" + _botAI._ownerPlayerId);
+            // Debug.Log("🤖 Bot " + OwnerPlayerId + " IA PlayerId=" + _botAI._ownerPlayerId);
             if (_enemyGoal != null)
                 Debug.Log("✅ But adverse trouvé: " + _enemyGoal.name);
             else
@@ -219,7 +220,7 @@ public class LocalBallAimController : MonoBehaviour
         if (ballGO != null)
         {
             _soccerBallTransform = ballGO.transform;
-            Debug.Log($"✅ Ballon trouvé: {ballGO.name}");
+            // Debug.Log($"✅ Ballon trouvé: {ballGO.name}");
             return;
         }
 

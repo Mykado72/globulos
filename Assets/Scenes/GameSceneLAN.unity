@@ -685,7 +685,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaultTurnBasedMode: 1
-  aimDuration: 7
+  aimDuration: 6
   resolutionSettleDuration: 0.25
   celebrationDuration: 2.2
   _IsTurnBased:
@@ -1869,7 +1869,7 @@ GameObject:
   - component: {fileID: 1014330811}
   - component: {fileID: 1014330812}
   m_Layer: 0
-  m_Name: Goal
+  m_Name: Celebration
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2844,7 +2844,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1742026627
 RectTransform:
   m_ObjectHideFlags: 0

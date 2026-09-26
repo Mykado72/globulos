@@ -96,7 +96,7 @@ public class BotAIStrategy
         if (_role == BotRole.Mixte)
         {
             roleToUse = DetermineBotRole(ballPosition, ownGoal, enemyGoal);
-            Debug.Log($"🔄 Bot MIXTE décide: {roleToUse}");
+            // Debug.Log($"🔄 Bot MIXTE décide: {roleToUse}");
         }
 
         if (roleToUse == BotRole.Offensive)
@@ -135,12 +135,12 @@ public class BotAIStrategy
 
         if (ballIsOnOwnSide)
         {
-            Debug.Log($"🛡️ Ballon du côté du bot ({ballPosition.x}) → DÉFENSIF");
+            // Debug.Log($"🛡️ Ballon du côté du bot ({ballPosition.x}) → DÉFENSIF");
             return BotRole.Defensive;
         }
         else
         {
-            Debug.Log($"⚔️ Ballon du côté adverse ({ballPosition.x}) → OFFENSIF");
+            // Debug.Log($"⚔️ Ballon du côté adverse ({ballPosition.x}) → OFFENSIF");
             return BotRole.Offensive;
         }
     }
@@ -243,7 +243,7 @@ public class BotAIStrategy
         // 3. Déjà bien placé : on ne tire pas (évite un replacement permanent bille sur bille)
         if (toTarget.magnitude < snapDistance)
         {
-            Debug.Log("🧤 Gardien déjà bien positionné -> pas de replacement");
+            // Debug.Log("🧤 Gardien déjà bien positionné -> pas de replacement");
             return (Vector2.zero, 0f);
         }
 
@@ -252,7 +252,7 @@ public class BotAIStrategy
         // Un gardien ajuste sa position par petites touches, jamais à pleine puissance
         float forceFraction = Random.Range(config.minForceFraction * 0.005f, config.maxForceFraction * 0.015f);
 
-        Debug.Log($"🧤 Gardien -> replacement devant son but (cible={targetPosition})");
+        // Debug.Log($"🧤 Gardien -> replacement devant son but (cible={targetPosition})");
 
         Vector2 aimWithInaccuracy = AddAimInaccuracy(targetDirection, config.aimInaccuracyDegrees);
         return (aimWithInaccuracy, forceFraction);
@@ -291,7 +291,7 @@ public class BotAIStrategy
         {
             if (goal.DefendingTeam == enemyTeam)
             {
-                Debug.Log($"✅ But adverse trouvé pour l'équipe {botTeam}: {goal.name}");
+                // Debug.Log($"✅ But adverse trouvé pour l'équipe {botTeam}: {goal.name}");
                 return goal;
             }
         }
@@ -320,7 +320,7 @@ public class BotAIStrategy
         {
             if (goal.DefendingTeam == botTeam)
             {
-                Debug.Log($"🧤 But à défendre trouvé pour l'équipe {botTeam}: {goal.name}");
+                //Debug.Log($"🧤 But à défendre trouvé pour l'équipe {botTeam}: {goal.name}");
                 return goal;
             }
         }
@@ -370,7 +370,7 @@ public class BotAIStrategy
             ? bounds.max.x  // But à gauche → extrémité droite
             : bounds.min.x; // But à droite → extrémité gauche
 
-        Debug.Log($"🥅 Goal {goalZone.name}: bounds=[{bounds.min.x}, {bounds.max.x}], front={frontX}");
+        // Debug.Log($"🥅 Goal {goalZone.name}: bounds=[{bounds.min.x}, {bounds.max.x}], front={frontX}");
 
         return new Vector2(frontX, goalZone.transform.position.y);
     }

@@ -133,7 +133,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         NetworkPrefabRef prefab = isPlayer1 ? player1Prefab : player2Prefab;
         Transform[] spawnPoints = isPlayer1 ? player1SpawnPoints : player2SpawnPoints;
 
-        Debug.Log($"[GameSpawner] 🚀 Spawning des billes pour {(isPlayer1 ? "JOUEUR 1" : "JOUEUR 2")} (ID: {localPlayer.PlayerId})");
+        // Debug.Log($"[GameSpawner] 🚀 Spawning des billes pour {(isPlayer1 ? "JOUEUR 1" : "JOUEUR 2")} (ID: {localPlayer.PlayerId})");
 
         if (spawnPoints == null || spawnPoints.Length == 0)
         {
@@ -186,7 +186,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        Debug.Log($"[GameSpawner] ✅ Succès : Toutes les billes du Joueur {localPlayer.PlayerId} ont été créées !");
+        // Debug.Log($"[GameSpawner] ✅ Succès : Toutes les billes du Joueur {localPlayer.PlayerId} ont été créées !");
     }
 
     /// <summary>
@@ -236,7 +236,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
         try
         {
             runner.Spawn(soccerBallPrefab, spawnPos, Quaternion.identity);
-            Debug.Log("[GameSpawner] ⚽ Ballon de football spawné sur le terrain.");
+            // Debug.Log("[GameSpawner] ⚽ Ballon de football spawné sur le terrain.");
         }
         catch (Exception ex)
         {

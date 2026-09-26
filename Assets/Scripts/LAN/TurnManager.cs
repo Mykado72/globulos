@@ -1,14 +1,16 @@
 using Fusion;
-using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// ✅ Mode NETWORK (Fusion) : Implémente ITurnManagerCore
 /// Logique synchronisée serveur/client via RPC et propriétés [Networked]
 public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 {
+    private bool _pendingGoalReset = false;
     [Header("Game Mode Configuration")]
     [SerializeField] private bool defaultTurnBasedMode = true;
 
@@ -202,14 +204,16 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         switch (CurrentState)
         {
             case TurnState.Aiming:
+                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 if (TurnTimer.Expired(Runner))
                 {
                     RPC_ForceStopAiming();
                     ExecuteTurnResolution();
-                }
+                }                
                 break;
 
             case TurnState.Resolution:
+                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 if (!ResolutionSettleTimer.ExpiredOrNotRunning(Runner)) break;
 
                 if (AreAllBallsStopped())
@@ -219,9 +223,10 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
                 break;
 
             case TurnState.CheckResult:
-                CheckGameEnd();
+                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 if (CurrentState == TurnState.CheckResult)
                 {
+                    CheckGameEnd();
                     StartNewTurn();
                 }
                 break;
@@ -231,11 +236,11 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
                 if (CelebrationTimer.Expired(Runner))
                 {
                     Debug.Log($"[TurnManager] 🎉 Fin de célébration → Terminer le jeu (Gagnant: {CelebrationWinnerId})");
-                    EndGameWinBySoccerGoal(CelebrationWinnerId);
                 }
                 break;
 
             default:
+                CheckGameEnd();
                 Debug.LogWarning($"[TurnManager] ⚠️ État non géré : {CurrentState}");
                 break;
         }
@@ -251,7 +256,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         CurrentState = TurnState.Aiming;
         TurnTimer = TickTimer.CreateFromSeconds(Runner, aimDuration);
 
-        Debug.Log($"[TurnManager] 🎮 Tour {CurrentTurnNumber} (Mode NETWORK)");
+        // Debug.Log($"[TurnManager] 🎮 Tour {CurrentTurnNumber} (Mode NETWORK)");
     }
 
     public float GetRemainingTime()
@@ -334,15 +339,24 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
         if (playersWithNoBalls >= 2)
         {
-            Debug.Log("[TurnManager] 🤝 ÉGALITÉ!");
-            // EndGameAsDraw(); // à écrire : CurrentState = Finished, IsTurnBased = false, ReloadSceneAfterDelay("DRAW", ...)
+            Debug.Log("[TurnManager] 🤝 ÉGALITÉ - Les deux joueurs n'ont plus de balles!");
+
+            // ✅ RPC pour que TOUS les clients voient l'animation
+            RPC_PlayDRAWCelebration();
+
+            StartCoroutine(ResetAfterCelebration());
             return;
         }
 
         if (playersWithNoBalls == 1 && lastAlivePlayer >= 0)
         {
-            Debug.Log($"[TurnManager] 🎊 VICTOIRE du Joueur {lastAlivePlayer}!");
-            EndGameWinBySoccerGoal(lastAlivePlayer); // réutilise la méthode existante, déjà correcte
+            string winnerName = GetPlayerName(lastAlivePlayer);
+            Debug.Log($"[TurnManager] 🎊 Joueur {lastAlivePlayer} à tué l'adversaire !");
+
+            // ✅ RPC pour que TOUS les clients voient l'animation
+            RPC_PlayKILLERCelebration(winnerName);
+
+            StartCoroutine(ResetAfterCelebration());
             return;
         }
     }
@@ -379,7 +393,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void RPC_ExecuteAllShots()
     {
-        Debug.Log("[TurnManager] 💥 Passage en Résolution : Exécution des tirs enregistrés !");
+        // Debug.Log("[TurnManager] 💥 Passage en Résolution : Exécution des tirs enregistrés !");
         foreach (var ball in BallAimController.AllBalls)
         {
             if (ball != null)
@@ -392,7 +406,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void RPC_ForceStopAiming()
     {
-        Debug.Log("[TurnManager] ⏰ Timer écoulé - Force l'arrêt du visage");
+        // Debug.Log("[TurnManager] ⏰ Timer écoulé - Force l'arrêt du visage");
         foreach (var ball in BallAimController.AllBalls)
         {
             ball.ForceStopAiming();
@@ -419,10 +433,23 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         // Cela garantit que TOUS les clients (serveur ET clients) attendent exactement le même délai
         CelebrationTimer = TickTimer.CreateFromSeconds(Runner, celebrationDuration);
         CelebrationWinnerId = winnerId;
-
+        
         Debug.Log($"[TurnManager] 🎉 CELEBRATION START - PlayerId: {winnerId}, " +
                   $"Duration: {celebrationDuration}s");
     }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlayDRAWCelebration()
+    {
+        GoalCelebrationUI.Instance?.PlayDRAWCelebration();
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlayKILLERCelebration(string winnerName)
+    {
+        GoalCelebrationUI.Instance?.PlayKILLERCelebration(winnerName);
+    }
+
 
     private bool AreAllBallsStopped()
     {
@@ -479,14 +506,6 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         }
     }
 
-    /// <summary>
-    /// ✅ FIX : ScoreManagerNetwork ne peut pas avoir de vraies propriétés [Networked] (c'est
-    /// un MonoBehaviour, pas un NetworkBehaviour, pour rester compatible avec ScoreManagerBase
-    /// / ScoreManagerLocal). Il transite donc par TurnManager — qui, lui, est un vrai
-    /// NetworkBehaviour déjà fonctionnel — pour diffuser le score à jour à TOUS les clients.
-    /// Sans ça, seul le pair qui a l'autorité sur le ballon voyait son score se mettre à
-    /// jour ; les autres clients restaient bloqués à 0-0.
-    /// </summary>
     public void BroadcastScoreSync(int team1Score, int team2Score)
     {
         RPC_SyncScore(team1Score, team2Score);
@@ -508,30 +527,10 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         }
     }
 
-    private void EndGameWinBySoccerGoal(int winnerId)
+    private IEnumerator ResetAfterCelebration()
     {
-        WinnerPlayerId = winnerId;
-        IsTurnBased = false;
-        CurrentState = TurnState.Finished;
-        string winnerName = GetPlayerName(winnerId);
-        Debug.Log($"[TurnManager] ⚽🎊 BUT ! Gagnant : {winnerName}");
-        StartCoroutine(ReloadSceneAfterDelay("WIN", winnerName));
+        yield return new WaitForSeconds(celebrationDuration);
+        RPC_ResetAllForNewRound();
     }
 
-    private IEnumerator ReloadSceneAfterDelay(string result, string winner)
-    {
-        yield return new WaitForSeconds(2f);
-
-        if (result == "WIN")
-        {
-            Debug.Log($"[TurnManager] 🔄 Reload scene... Gagnant: {winner}");
-        }
-        else if (result == "DRAW")
-        {
-            Debug.Log($"[TurnManager] 🔄 Reload scene... Match nul!");
-        }
-
-        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
-        Runner.LoadScene(SceneRef.FromIndex(currentSceneIndex));
-    }
 }

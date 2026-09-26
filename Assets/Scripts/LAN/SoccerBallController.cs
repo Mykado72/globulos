@@ -52,7 +52,7 @@ public class SoccerBallController : NetworkBehaviour
         if (scorerId < 0) return;
 
         _goalScored = true;
-        Debug.Log($"[SoccerBallController] ⚽ BUT ! Marqué par PlayerId {scorerId}");
+        // Debug.Log($"[SoccerBallController] ⚽ BUT ! Marqué par PlayerId {scorerId}");
 
         // 1. Jouer le son
         if (AudioManager.Instance != null)
@@ -136,7 +136,7 @@ public class SoccerBallController : NetworkBehaviour
     }
 
     /// <summary>
-    /// ✅ FIX : remet le ballon dans son état initial (position, rotation, échelle, couleur,
+    /// remet le ballon dans son état initial (position, rotation, échelle, couleur,
     /// physique, collider, _goalScored) pour la manche suivante, après un but qui ne termine
     /// pas la partie. Appelée localement sur CHAQUE client par
     /// TurnManager.RPC_ResetAllForNewRound(), une fois la célébration de but terminée — même
@@ -156,12 +156,18 @@ public class SoccerBallController : NetworkBehaviour
         if (sr != null) sr.color = _initialColor;
 
         Collider2D col = GetComponent<Collider2D>();
-        if (col != null) col.enabled = true;
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = false;
+        }
 
         Rigidbody2D rb = GetComponent<Rigidbody2D>();
         if (rb != null)
         {
             rb.isKinematic = false;
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.simulated = true;
             rb.velocity = Vector2.zero;
             rb.angularVelocity = 0f;
         }

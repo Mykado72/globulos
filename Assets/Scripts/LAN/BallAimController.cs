@@ -153,6 +153,9 @@ public class BallAimController : NetworkBehaviour
         {
             IsMoving = false;
             _rb.velocity = Vector2.zero;
+            _rb.bodyType = RigidbodyType2D.Dynamic;
+            _rb.isKinematic = false;
+            _rb.simulated = true;
             _rb.angularVelocity = 0f;
         }
 
@@ -463,6 +466,9 @@ public class BallAimController : NetworkBehaviour
         if (_rb != null)
         {
             _rb.velocity = Vector2.zero;
+            _rb.bodyType = RigidbodyType2D.Dynamic;
+            _rb.isKinematic = false;
+            _rb.simulated = true;
             _rb.angularVelocity = 0f;
         }
 

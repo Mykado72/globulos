@@ -23,6 +23,7 @@ public class GoalCelebrationUI : MonoBehaviour
     [Tooltip("Conteneur racine à activer/désactiver (peut inclure le flash et le texte).")]
     [SerializeField] private GameObject celebrationRoot;
     [SerializeField] private TMP_Text goalText;
+
     [Tooltip("Optionnel : affiche le nom du buteur sous le texte 'BUT'.")]
     [SerializeField] private TMP_Text scorerText;
     [Tooltip("Optionnel : image plein écran pour un flash blanc façon appareil photo de stade.")]
@@ -59,7 +60,7 @@ public class GoalCelebrationUI : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            Debug.Log("[GoalCelebrationUI] ✅ Singleton initialisé");
+            // Debug.Log("[GoalCelebrationUI] ✅ Singleton initialisé");
         }
         else
         {
@@ -93,15 +94,15 @@ public class GoalCelebrationUI : MonoBehaviour
         Debug.Log($"[GoalCelebrationUI] 🎬 PlayGoalCelebration appelé (scorer: {scorerName})");
 
         if (_activeCelebration != null) StopCoroutine(_activeCelebration);
-        _activeCelebration = StartCoroutine(CelebrationCoroutine(scorerName));
+        _activeCelebration = StartCoroutine(CelebrationCoroutine("BUUUTTTT !!!", scorerName));
     }
 
-    private IEnumerator CelebrationCoroutine(string scorerName)
+    private IEnumerator CelebrationCoroutine(string Message, string scorerName)
     {
         if (celebrationRoot != null) celebrationRoot.SetActive(true);
         if (goalText != null)
         {
-            goalText.text = "BUUUUT !";
+            goalText.text = Message;
             goalText.transform.localScale = Vector3.zero;
             goalText.transform.localRotation = Quaternion.identity;
             Color c = goalText.color; c.a = 1f; goalText.color = c;
@@ -126,6 +127,22 @@ public class GoalCelebrationUI : MonoBehaviour
 
         if (celebrationRoot != null) celebrationRoot.SetActive(false);
         _activeCelebration = null;
+    }
+
+    public void PlayKILLERCelebration(string scorerName = "")
+    {
+        Debug.Log($"[GoalCelebrationUI] 🎬 PlayKILLERCelebration appelé (scorer: {scorerName})");
+
+        if (_activeCelebration != null) StopCoroutine(_activeCelebration);
+        _activeCelebration = StartCoroutine(CelebrationCoroutine("KILLER !!!", scorerName));
+    }
+
+    public void PlayDRAWCelebration()
+    {
+        Debug.Log($"[GoalCelebrationUI] 🎬 DRAW appelé");
+
+        if (_activeCelebration != null) StopCoroutine(_activeCelebration);
+        _activeCelebration = StartCoroutine(CelebrationCoroutine("MATCH NULL !!!", ""));
     }
 
     /// <summary>1. Le texte surgit avec un léger dépassement élastique (effet "pop").</summary>

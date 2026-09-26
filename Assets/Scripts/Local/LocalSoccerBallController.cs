@@ -117,6 +117,13 @@ public class LocalSoccerBallController : MonoBehaviour
         transform.rotation = Quaternion.identity;
         transform.localScale = Vector3.one;
 
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = false;
+        }
+
         // Réinitialise la vélocité physique
         if (_rb != null)
         {
@@ -154,16 +161,21 @@ public class LocalSoccerBallController : MonoBehaviour
         }
 
         Collider2D col = GetComponent<Collider2D>();
-        if (col != null) col.enabled = true;
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = false;
+        }
 
         if (_rb != null)
         {
             _rb.isKinematic = false;
+            _rb.bodyType = RigidbodyType2D.Dynamic;
             _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;
         }
 
-        Debug.Log("[LocalSoccerBallController] 🔄 Ballon réinitialisé, prêt pour le prochain tour");
+        // Debug.Log("[LocalSoccerBallController] 🔄 Ballon réinitialisé, prêt pour le prochain tour");
     }
 
     private int FindScoringPlayer(GoalZone.GoalTeam defendingTeam)

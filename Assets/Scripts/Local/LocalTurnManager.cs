@@ -44,7 +44,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
     private void Start()
     {
-        Debug.Log($"[LocalTurnManager] ✅ Démarrage du TurnManager (Mode LOCAL)");
+        // Debug.Log($"[LocalTurnManager] ✅ Démarrage du TurnManager (Mode LOCAL)");
         StartNewTurn();
     }
 
@@ -79,6 +79,17 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                 {
                     StartNewTurn();
                 }
+                break;
+            case TurnState.Celebrating:
+                // ✅ FIX : Gestion de l'état Celebrating avec timer synchronisé
+                /*if (CelebrationTimer.Expired(Runner))
+                {
+                    Debug.Log($"[TurnManager] 🎉 Fin de célébration → Terminer le jeu (Gagnant: {CelebrationWinnerId})");
+                }*/
+                break;
+            default:
+                CheckGameEnd();
+                Debug.LogWarning($"[TurnManager] ⚠️ État non géré : {CurrentState}");
                 break;
         }
     }
@@ -202,12 +213,14 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
         if (playersWithNoBalls >= 2)
         {
             Debug.Log("[LocalTurnManager] 🤝 ÉGALITÉ - Les deux joueurs n'ont plus de balles!");
+            GoalCelebrationUI.Instance?.PlayDRAWCelebration();
             EndGame(-1); // Match nul
         }
         else if (playersWithNoBalls == 1 && lastAlivePlayer >= 0)
         {
             string winnerName = GetPlayerName(lastAlivePlayer);
             Debug.Log($"[LocalTurnManager] 🎉 VICTOIRE du joueur {lastAlivePlayer} ({winnerName})!");
+            GoalCelebrationUI.Instance?.PlayKILLERCelebration(winnerName);
             EndGame(lastAlivePlayer);
         }
     }

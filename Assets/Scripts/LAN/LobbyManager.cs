@@ -131,7 +131,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
         // 🔴 Après un VRAI échec (rien n'a jamais confirmé), on informe sans relancer
         // LoadScene par-dessus un chargement peut-être encore actif.
-        Debug.LogError("[LobbyManager] ❌ Le chargement de la scène n'a pas été confirmé après " + generousTimeout + "s.");
+        // Debug.LogError("[LobbyManager] ❌ Le chargement de la scène n'a pas été confirmé après " + generousTimeout + "s.");
         UpdateStatus("❌ Le chargement prend trop de temps. Rechargez la page si besoin.");
         _isLoadingScene = false;
     }
@@ -308,7 +308,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     private void UpdateStatus(string message)
     {
         if (statusText != null) statusText.text = message;
-        Debug.Log($"[LobbyManager] {message}");
+        // Debug.Log($"[LobbyManager] {message}");
     }
 
     private void SetAllButtonsInteractable(bool state)

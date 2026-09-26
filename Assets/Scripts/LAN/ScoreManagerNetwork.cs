@@ -42,7 +42,7 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
         Team2ScoreNet = 0;
         Team1Score = 0;
         Team2Score = 0;
-        Debug.Log("[ScoreManagerNetwork] ✅ ScoreManager initialisé (Mode RÉSEAU)");
+        // Debug.Log("[ScoreManagerNetwork] ✅ ScoreManager initialisé (Mode RÉSEAU)");
     }
 
     public override void AddGoal(int scorerPlayerId)
@@ -54,13 +54,13 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
         {
             Team1ScoreNet += pointsPerGoal;
             Team1Score = Team1ScoreNet;
-            Debug.Log($"[ScoreManagerNetwork] 🎯 BUT ! Équipe Jaune : {Team1ScoreNet} - {Team2ScoreNet}");
+            // Debug.Log($"[ScoreManagerNetwork] 🎯 BUT ! Équipe Jaune : {Team1ScoreNet} - {Team2ScoreNet}");
         }
         else
         {
             Team2ScoreNet += pointsPerGoal;
             Team2Score = Team2ScoreNet;
-            Debug.Log($"[ScoreManagerNetwork] 🎯 BUT ! Équipe Rouge : {Team1ScoreNet} - {Team2ScoreNet}");
+            // Debug.Log($"[ScoreManagerNetwork] 🎯 BUT ! Équipe Rouge : {Team1ScoreNet} - {Team2ScoreNet}");
         }
 
         // Notifier l'UI (sur CE client, celui qui a l'autorité sur le ballon)
@@ -86,7 +86,7 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
     /// </summary>
     protected override void ResetTurnAfterGoal(int scorerPlayerId)
     {
-        Debug.Log($"[ScoreManagerNetwork] 🔄 ResetTurnAfterGoal appelée pour joueur {scorerPlayerId}");
+        // Debug.Log($"[ScoreManagerNetwork] 🔄 ResetTurnAfterGoal appelée pour joueur {scorerPlayerId}");
 
         if (TurnManager.Instance != null)
         {
@@ -161,11 +161,12 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     
-    // Ajout de la méthode manquante pour corriger CS1061
     public void ApplySyncedScore(int team1Score, int team2Score)
     {
         Team1ScoreNet = team1Score;
         Team2ScoreNet = team2Score;
+        Team1Score = team1Score;   // 👈 ajouté : garder les deux jeux de champs cohérents
+        Team2Score = team2Score;   // 👈 ajouté
         NotifyScoreChanged();
     }
 }

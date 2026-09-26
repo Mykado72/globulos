@@ -173,6 +173,7 @@ MonoBehaviour:
     MaxExtrapolationTime: 0.15
     MinLinearDetectedError: 0.02
     MinAngularDetectedError: 3
+    DeadzoneVelocityMode: 0
     MaxLinearError: 0
     MaxAngularError: 0
     LowCorrectionProgressThreshold: 0.015
@@ -201,7 +202,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1dace3796fdcdb94ebddfb6ebc554ec9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxForce: 750
+  maxForce: 1500
   maxDragDistanceFraction: 0.25
   arrowShaftSprite: {fileID: 0}
   arrowHeadSprite: {fileID: 0}

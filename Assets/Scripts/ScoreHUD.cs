@@ -43,7 +43,7 @@ public class ScoreHUD : MonoBehaviour
             ScoreManagerBase.Instance.OnScoreChanged += UpdateScoreDisplay;
             // Affichage initial
             UpdateScoreDisplay(0, 0);
-            Debug.Log("[ScoreHUD] ✅ Abonné aux changements de score");
+            // Debug.Log("[ScoreHUD] ✅ Abonné aux changements de score");
         }
         else
         {
@@ -86,7 +86,7 @@ public class ScoreHUD : MonoBehaviour
 
         scoreText.text = $"{team1Text} <size=80%>-</size> {team2Text}";
 
-        Debug.Log($"[ScoreHUD] 📊 Score mis à jour : Jaune {team1Score} - {team2Score} Rouge");
+        // Debug.Log($"[ScoreHUD] 📊 Score mis à jour : Jaune {team1Score} - {team2Score} Rouge");
 
         // Mise à jour du statut
         if (ScoreManagerBase.Instance != null)

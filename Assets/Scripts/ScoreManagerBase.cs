@@ -32,7 +32,7 @@ public class ScoreManagerBase : MonoBehaviour
         Instance = this;
         Team1Score = 0;
         Team2Score = 0;
-        Debug.Log("[ScoreManager] ✅ ScoreManager initialisé (Mode LOCAL)");
+        // Debug.Log("[ScoreManager] ✅ ScoreManager initialisé (Mode LOCAL)");
     }
 
     public virtual void OnDestroy()

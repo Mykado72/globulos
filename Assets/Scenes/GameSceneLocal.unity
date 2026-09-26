@@ -953,9 +953,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 759540087}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 59a77740163b72f41af9357d5da3e532, type: 3}
+  m_Script: {fileID: 11500000, guid: 7827f14247b3d874989c2a1c4537e132, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ScoreManagerBase
+  m_EditorClassIdentifier: 
   pointsPerGoal: 1
   winConditionPoints: 5
 --- !u!1 &826268227
@@ -2819,14 +2819,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a160d838ff8b4b4693ac20007e008c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_AssetsPPU: 1
-  m_RefResolutionX: 1920
-  m_RefResolutionY: 1080
-  m_UpscaleRT: 0
-  m_PixelSnapping: 0
-  m_CropFrameX: 1
-  m_CropFrameY: 1
-  m_StretchFill: 1
 --- !u!114 &2059892013
 MonoBehaviour:
   m_ObjectHideFlags: 0
