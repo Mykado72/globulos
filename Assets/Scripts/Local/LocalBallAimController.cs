@@ -335,32 +335,21 @@ public class LocalBallAimController : MonoBehaviour
             }
         }
     }
-
     private void StartAimingCheck()
     {
         if (_mainCamera == null) return;
 
-        // 1. Vérifier si une bille bouge encore
-        if (LocalTurnManager.Instance != null && IsAnyBallMoving())
-        {
-            return;
-        }
+        // ... checks existants ...
 
-        // 2. Vérifier si on est bien en phase de visée
-        if (LocalTurnManager.Instance != null && LocalTurnManager.Instance.CurrentState != TurnState.Aiming)
-        {
-            return;
-        }
-
-        Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero);
+        // ✅ Ne passe pas par ScreenToWorldPoint, utilise le raycast directement
+        Vector2 mousePos = Input.mousePosition;
+        RaycastHit2D hit = Physics2D.Raycast(_mainCamera.ScreenToWorldPoint(mousePos), Vector3.back, 100f);
 
         if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
         {
             IsAiming = true;
-            _startDragPos = mouseWorld;
+            _startDragPos = (Vector2)_mainCamera.ScreenToWorldPoint(mousePos);
         }
-        
     }
 
     // Ajouter cette méthode utilitaire dans LocalBallAimController.cs

@@ -145,7 +145,7 @@ public class BallAimController : NetworkBehaviour
     private void FixedUpdate()
     {
         // ✅ FIX : ce bloc modifiait directement le Rigidbody2D (bodyType, isKinematic,
-        // simulated) SANS vérifier HasStateAuthority, donc il s'exécutait aussi sur les
+        // simulated) SANS vérifier HasStateAuthority, donc il s'exécait aussi sur les
         // billes des AUTRES joueurs (proxies). Or avec Physics Forecast désactivé, Fusion
         // met automatiquement ces Rigidbody en kinematic sur les proxies pour piloter leur
         // position uniquement via le réseau. Les repasser en Dynamic + simulated ici
@@ -210,25 +210,16 @@ public class BallAimController : NetworkBehaviour
     {
         if (_mainCamera == null) return;
 
-        // 1. Bloquer la visée si n'importe quelle bille est encore en mouvement
-        if (TurnManager.Instance != null && TurnManager.Instance.IsAnyBallMoving())
-        {
-            return;
-        }
+        // ... checks existants ...
 
-        // 2. Bloquer la visée si le jeu n'est pas en phase de visée (Aiming)
-        if (TurnManager.Instance != null && TurnManager.Instance.CurrentState != TurnState.Aiming)
-        {
-            return;
-        }
-
-        Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero);
+        // ✅ Ne passe pas par ScreenToWorldPoint, utilise le raycast directement
+        Vector2 mousePos = Input.mousePosition;
+        RaycastHit2D hit = Physics2D.Raycast(_mainCamera.ScreenToWorldPoint(mousePos), Vector3.back, 100f);
 
         if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
         {
             IsAiming = true;
-            _startDragPos = mouseWorld;
+            _startDragPos = (Vector2)_mainCamera.ScreenToWorldPoint(mousePos);
         }
     }
 
