@@ -43,30 +43,27 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Networked] private NetworkBool IsPendingGoalReset { get; set; }
 
     // ============================================
-    // 🆕 Handshake "tous les joueurs prêts avant de spawner"
+    // Handshake "tous les joueurs prêts avant de démarrer la partie"
     // ============================================
-    // La scène de jeu est chargée dès que le lobby atteint le nombre de joueurs
-    // requis (voir LobbyManager.CheckPlayersAndStartGame). Mais chaque client charge
-    // sa PROPRE instance de la scène à sa propre vitesse (réseau, mémoire, etc.).
-    // Sans ce garde-fou, GameSpawner spawnait le joueur local dès que SA scène à lui
-    // était chargée, sans attendre que l'autre client ait fini la sienne : la partie
-    // (et le premier tour) pouvait démarrer alors qu'un des deux joueurs n'était pas
-    // encore réellement présent sur le terrain.
+    // Chaque GameSpawner spawne désormais son joueur local IMMÉDIATEMENT dès que sa
+    // scène est chargée, sans plus attendre l'autre client (voir GameSpawner.cs).
+    // Cette synchro ne sert donc plus à retarder le spawn des joueurs, mais
+    // uniquement à déclencher, une fois que TOUS ont spawné et signalé leur
+    // disponibilité, le spawn du ballon (via OnAllPlayersReadyToSpawn côté
+    // GameSpawner) et le vrai début de partie (premier tour, ci-dessous).
     //
-    // Principe : chaque GameSpawner appelle NotifyPlayerReadyToSpawn() dès que sa
-    // scène est chargée et son LocalPlayer valide. Le State Authority (Master) compte
-    // les joueurs prêts ; une fois que tous ont signalé, il diffuse RPC_BeginGameplay
-    // à tout le monde, qui déclenche l'événement statique OnAllPlayersReadyToSpawn.
-    // C'est UNIQUEMENT à ce moment-là que GameSpawner spawn réellement les billes et
-    // le ballon.
+    // Principe : chaque GameSpawner appelle NotifyPlayerReadyToSpawn() juste après
+    // avoir spawné son joueur local. Le State Authority (Master) compte les joueurs
+    // prêts ; une fois que tous ont signalé, il diffuse RPC_BeginGameplay à tout le
+    // monde, qui déclenche l'événement statique OnAllPlayersReadyToSpawn.
     [Networked, Capacity(8)] private NetworkDictionary<PlayerRef, NetworkBool> PlayersReadyToSpawn => default;
     [Networked] private int RequiredPlayersForSpawn { get; set; }
     private bool _gameplayBegun = false;
 
     /// <summary>
-    /// 🆕 Diffusé sur TOUS les clients (y compris le State Authority) une fois que
-    /// tous les joueurs ont signalé être prêts à spawner. GameSpawner s'y abonne pour
-    /// savoir quand spawner réellement le joueur local / le ballon.
+    /// Diffusé sur TOUS les clients (y compris le State Authority) une fois que
+    /// tous les joueurs ont signalé être prêts. GameSpawner s'y abonne pour savoir
+    /// quand spawner réellement le ballon (le spawn des joueurs, lui, est déjà fait).
     /// </summary>
     public static event Action OnAllPlayersReadyToSpawn;
 
@@ -82,11 +79,12 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
             IsTurnBased = defaultTurnBasedMode;
             WinnerPlayerId = -1;
 
-            // 🆕 On ne démarre PAS encore le premier tour ici : on attend que tous les
-            // joueurs aient confirmé être prêts à spawner (voir RPC_BeginGameplay).
+            // On ne démarre PAS encore le premier tour ici : on attend que tous les
+            // joueurs aient spawné et confirmé leur disponibilité (voir
+            // RPC_NotifyPlayerReadyToSpawn → RPC_BeginGameplay).
             RequiredPlayersForSpawn = CountActivePlayers();
 
-            Debug.Log($"[TurnManager] ✅ Serveur initialisé (Mode NETWORK) - en attente de {RequiredPlayersForSpawn} joueur(s) prêt(s) à spawner");
+            Debug.Log($"[TurnManager] ✅ Serveur initialisé (Mode NETWORK) - en attente de {RequiredPlayersForSpawn} joueur(s) prêt(s)");
         }
         else
         {
@@ -116,12 +114,12 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     }
 
     // ============================================
-    // 🆕 Handshake de démarrage - appelé par GameSpawner
+    // Handshake de démarrage - appelé par GameSpawner
     // ============================================
 
     /// <summary>
-    /// 🆕 À appeler par GameSpawner dès que le client local a fini de charger sa scène
-    /// et que son LocalPlayer est valide. N'effectue AUCUN spawn ici : ça ne fait que
+    /// À appeler par GameSpawner juste après avoir spawné son joueur local (ne bloque
+    /// plus le spawn : il a déjà eu lieu). N'effectue AUCUN spawn ici : ça ne fait que
     /// signaler la disponibilité au State Authority.
     /// </summary>
     public void NotifyPlayerReadyToSpawn(PlayerRef player)
@@ -136,7 +134,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
         PlayersReadyToSpawn.Set(player, true);
 
-        Debug.Log($"[TurnManager] 🟢 Joueur {player.PlayerId} prêt à spawner ({PlayersReadyToSpawn.Count}/{RequiredPlayersForSpawn})");
+        Debug.Log($"[TurnManager] 🟢 Joueur {player.PlayerId} prêt ({PlayersReadyToSpawn.Count}/{RequiredPlayersForSpawn})");
 
         if (RequiredPlayersForSpawn > 0 && PlayersReadyToSpawn.Count >= RequiredPlayersForSpawn)
         {
@@ -150,7 +148,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     {
         Debug.Log("[TurnManager] 🚀 Tous les joueurs sont prêts - démarrage effectif de la partie");
 
-        // Prévient GameSpawner (sur CE client) qu'il peut maintenant spawner réellement.
+        // Prévient GameSpawner (sur CE client) qu'il peut maintenant spawner le ballon.
         OnAllPlayersReadyToSpawn?.Invoke();
 
         // Le premier tour ne démarre que maintenant, et uniquement côté State Authority.
@@ -173,7 +171,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         // ✅ CLIENT/SERVER : Seul le serveur gère la logique
         if (!HasStateAuthority || !IsTurnBased) return;
 
-        // 🆕 Tant que tous les joueurs ne sont pas prêts, la logique de tour ne doit
+        // Tant que tous les joueurs ne sont pas prêts, la logique de tour ne doit
         // pas tourner (CurrentState vaut encore sa valeur par défaut / précédente).
         if (!_gameplayBegun) return;
 
