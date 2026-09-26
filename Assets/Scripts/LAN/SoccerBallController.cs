@@ -162,14 +162,24 @@ public class SoccerBallController : NetworkBehaviour
             col.isTrigger = false;
         }
 
+        // ✅ FIX : ne réactiver la simulation physique locale QUE sur l'autorité (le
+        // Master). Sur les proxies (Physics Forecast désactivé), le Rigidbody DOIT
+        // rester kinematic : Fusion pilote sa position via le réseau (NetworkTransform).
+        // Le remettre en Dynamic + simulated sur un proxy faisait tourner une simulation
+        // physique locale en parallèle de la position reçue par le réseau, d'où les
+        // saccades observées côté client non-Master.
         Rigidbody2D rb = GetComponent<Rigidbody2D>();
         if (rb != null)
         {
-            rb.isKinematic = false;
-            rb.bodyType = RigidbodyType2D.Dynamic;
-            rb.simulated = true;
             rb.velocity = Vector2.zero;
             rb.angularVelocity = 0f;
+
+            if (HasStateAuthority)
+            {
+                rb.isKinematic = false;
+                rb.bodyType = RigidbodyType2D.Dynamic;
+                rb.simulated = true;
+            }
         }
 
         Debug.Log("[SoccerBallController] 🔄 Ballon réinitialisé, prêt pour le prochain tour");

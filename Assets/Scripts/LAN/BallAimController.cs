@@ -142,21 +142,31 @@ public class BallAimController : NetworkBehaviour
         _arrow.Hide();
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
-        float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
-        if (_rb.velocity.sqrMagnitude > thresholdSqr)
+        // ✅ FIX : ce bloc modifiait directement le Rigidbody2D (bodyType, isKinematic,
+        // simulated) SANS vérifier HasStateAuthority, donc il s'exécutait aussi sur les
+        // billes des AUTRES joueurs (proxies). Or avec Physics Forecast désactivé, Fusion
+        // met automatiquement ces Rigidbody en kinematic sur les proxies pour piloter leur
+        // position uniquement via le réseau. Les repasser en Dynamic + simulated ici
+        // relançait une simulation physique locale en parallèle de la position reçue par
+        // le réseau, causant les mêmes saccades que sur SoccerBallController.
+        if (HasStateAuthority)
         {
-            IsMoving = true;
-        }
-        else
-        {
-            IsMoving = false;
-            _rb.velocity = Vector2.zero;
-            _rb.bodyType = RigidbodyType2D.Dynamic;
-            _rb.isKinematic = false;
-            _rb.simulated = true;
-            _rb.angularVelocity = 0f;
+            float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
+            if (_rb.velocity.sqrMagnitude > thresholdSqr)
+            {
+                IsMoving = true;
+            }
+            else
+            {
+                IsMoving = false;
+                _rb.velocity = Vector2.zero;
+                _rb.bodyType = RigidbodyType2D.Dynamic;
+                _rb.isKinematic = false;
+                _rb.simulated = true;
+                _rb.angularVelocity = 0f;
+            }
         }
 
         // 🔒 Sécurité : Seul le propriétaire de la bille voit et contrôle sa propre flèche
@@ -168,7 +178,10 @@ public class BallAimController : NetworkBehaviour
             UpdateBotAiming();
             return;
         }
-
+    }
+    private void Update()
+    {
+        if (!HasStateAuthority || IsDead) return; 
         // Si une force est déjà enregistrée en attente, on maintient la flèche affichée localement
         if (_localQueuedForce.sqrMagnitude > 0.01f && !IsAiming)
         {
@@ -463,13 +476,21 @@ public class BallAimController : NetworkBehaviour
         Collider2D col = GetComponent<Collider2D>();
         if (col != null) col.enabled = true;
 
+        // ✅ FIX : même principe que dans Update() — ne repasser le Rigidbody en
+        // Dynamic/simulated que sur l'autorité. Sur un proxy, Fusion doit garder la
+        // main sur le Rigidbody (kinematic) pour piloter sa position via le réseau ;
+        // on se contente d'annuler toute vélocité résiduelle locale par sécurité.
         if (_rb != null)
         {
             _rb.velocity = Vector2.zero;
-            _rb.bodyType = RigidbodyType2D.Dynamic;
-            _rb.isKinematic = false;
-            _rb.simulated = true;
             _rb.angularVelocity = 0f;
+
+            if (HasStateAuthority)
+            {
+                _rb.bodyType = RigidbodyType2D.Dynamic;
+                _rb.isKinematic = false;
+                _rb.simulated = true;
+            }
         }
 
         IsDead = false;
