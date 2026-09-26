@@ -60,7 +60,13 @@
         companyName: "Mykado",
         productName: "New Globulos",
         productVersion: "1.0",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
+        // 🔒 Verrouille la résolution de rendu interne à 1920x1080 (les attributs
+        // width/height du canvas), indépendamment de sa taille d'affichage CSS.
+        // Le terrain, la caméra et les colliders restent donc parfaitement
+        // identiques sur toutes les machines ; seul l'affichage est mis à l'échelle
+        // visuellement (letterboxing géré en CSS), sans jamais toucher à
+        // Screen.width/Screen.height côté Unity.
+        matchWebGLToCanvasSize: false,
         // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
       });
     </script>
