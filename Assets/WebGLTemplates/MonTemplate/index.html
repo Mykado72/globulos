@@ -40,28 +40,47 @@
     </style>
   </head>
   <body>
-    <div id="unity-container">
-      <canvas id="unity-canvas" width="1920" height="1080"></canvas>
-    </div>
-    <script src="Build/docs.loader.js"></script>
-    <script>
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/docs.data",
-        frameworkUrl: "Build/docs.framework.js",
-        codeUrl: "Build/docs.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "Mykado",
-        productName: "New Globulos",
-        productVersion: "1.0",
-        // 🔒 Verrouille la résolution de rendu interne à 1920x1080 (les attributs
-        // width/height du canvas), indépendamment de sa taille d'affichage CSS.
-        // Le terrain, la caméra et les colliders restent donc parfaitement
-        // identiques sur toutes les machines ; seul l'affichage est mis à l'échelle
-        // visuellement (letterboxing géré en CSS), sans jamais toucher à
-        // Screen.width/Screen.height côté Unity.
-        matchWebGLToCanvasSize: false,
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-      });
-    </script>
+      <!-- Affiche un message centré en mode portrait -->
+      <div id="portrait-overlay">
+          <div id="portrait-message">
+              <div id="portrait-icon">📱</div>
+              <h1>Tournez votre appareil</h1>
+              <p>Veuillez passer en mode paysage pour jouer</p>
+          </div>
+      </div>
+      <div id="unity-container">
+          <canvas id="unity-canvas" width="1920" height="1080"></canvas>
+      </div>
+      <script src="Build/docs.loader.js"></script>
+      <script>
+          function checkOrientation() {
+              const isLandscape = window.innerWidth > window.innerHeight;
+
+              if (!isLandscape) {
+                  // 📱 Portrait: affiche overlay + pause
+                  unityInstance.SendMessage("TurnManager", "PauseGame");
+              } else {
+                  // 🏜️ Paysage: cache overlay + reprend
+                  unityInstance.SendMessage("TurnManager", "ResumeGame");
+              }
+          }
+          createUnityInstance(document.querySelector("#unity-canvas"), {
+              dataUrl: "Build/docs.data",
+              frameworkUrl: "Build/docs.framework.js",
+              codeUrl: "Build/docs.wasm",
+              streamingAssetsUrl: "StreamingAssets",
+              companyName: "Mykado",
+              productName: "New Globulos",
+              productVersion: "1.0",
+              // 🔒 Verrouille la résolution de rendu interne à 1920x1080 (les attributs
+              // width/height du canvas), indépendamment de sa taille d'affichage CSS.
+              // Le terrain, la caméra et les colliders restent donc parfaitement
+              // identiques sur toutes les machines ; seul l'affichage est mis à l'échelle
+              // visuellement (letterboxing géré en CSS), sans jamais toucher à
+              // Screen.width/Screen.height côté Unity.
+              matchWebGLToCanvasSize: false,
+              // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
+          });
+      </script>
   </body>
 </html>

@@ -5,12 +5,15 @@ using UnityEngine;
 /// 
 /// Le bot vise vers le BUT ADVERSE au lieu de juste viser le ballon.
 /// Cela évite les buts contre son camp!
+/// 
+/// ✅ NEW : Le bot est OFFENSIF par défaut et ne bascule en DÉFENSIF
+/// que si le ballon menace directement son but (zone proche du but).
 /// </summary>
 public class BotAIStrategy
 {
     public enum AIDifficulty { Easy, Medium, Hard }
 
-    // ✅ NOUVEAU : rôle du bot. Offensive = comportement existant (vise le but adverse).
+    // ✅ Rôle du bot. Offensive = comportement existant (vise le but adverse).
     // Defensive = reste de son côté du terrain, devant son propre but, aligné sur le
     // ballon façon gardien de but.
     public enum BotRole { Offensive, Defensive, Mixte }
@@ -30,6 +33,9 @@ public class BotAIStrategy
     private BotRole _role;
     private PlayerIdConvention _convention;
     public int _ownerPlayerId;
+
+    // ✅ NEW : Rayon de la zone défensive (distance au but en dessous de laquelle le bot défend)
+    private float _defensiveZoneRadius = 550f;
 
     public BotRole Role => _role;
 
@@ -84,6 +90,14 @@ public class BotAIStrategy
         _ownerPlayerId = playerId;
     }
 
+    /// <summary>
+    /// ✅ NEW : Configure le rayon de la zone défensive (distance au but en dessous de laquelle le bot défend)
+    /// </summary>
+    public void SetDefensiveZoneRadius(float radius)
+    {
+        _defensiveZoneRadius = Mathf.Max(50f, radius);  // Min 50 pour éviter zone trop petite
+    }
+
     public (Vector2 direction, float forceFraction) CalculateBotDecision(
        Vector2 botPosition,
        Vector2 ballPosition,
@@ -111,36 +125,42 @@ public class BotAIStrategy
     }
 
     /// <summary>
-    /// Détermine si le bot doit jouer offensif ou défensif selon la position du ballon
+    /// ✅ NEW : Détermine si le bot doit jouer offensif ou défensif selon la distance du ballon à son but.
+    /// Le bot est OFFENSIF par défaut et ne bascule en DÉFENSIF que si le ballon menace directement son but.
     /// </summary>
     private BotRole DetermineBotRole(Vector2 ballPosition, GoalZone ownGoal, GoalZone enemyGoal)
     {
         if (ownGoal == null || enemyGoal == null)
         {
-            return BotRole.Offensive; // Par défaut, attaque
+            return BotRole.Offensive;  // Par défaut: attaque
         }
 
-        // Récupérer les positions réelles des buts
         Vector2 ownGoalPos = GetGoalFrontPosition(ownGoal);
-        Vector2 enemyGoalPos = GetGoalFrontPosition(enemyGoal);
-
-        // Calculer le milieu du terrain
-        float midfield = (ownGoalPos.x + enemyGoalPos.x) / 2f;
-
-        // Si le ballon est du côté du bot → défendre
-        // Si le ballon est du côté adverse → attaquer
-        bool ballIsOnOwnSide = (ownGoalPos.x < enemyGoalPos.x)
-            ? ballPosition.x < midfield      // But du bot à gauche
-            : ballPosition.x > midfield;     // But du bot à droite
-
-        if (ballIsOnOwnSide)
+        
+        // ✅ Distance du ballon au but du bot
+        float distanceToBall = Vector2.Distance(ballPosition, ownGoalPos);
+        
+        // ✅ Zone défensive adaptée par difficulté :
+        // - Easy: défend plus loin (moins agressif)
+        // - Medium: zone moyenne
+        // - Hard: défend très proche (très agressif)
+        float defensiveZoneForThisDifficulty = _difficulty switch
         {
-            // Debug.Log($"🛡️ Ballon du côté du bot ({ballPosition.x}) → DÉFENSIF");
+            AIDifficulty.Easy => _defensiveZoneRadius + 100f,    // +100 = plus défensif
+            AIDifficulty.Medium => _defensiveZoneRadius,         // Zone par défaut
+            AIDifficulty.Hard => _defensiveZoneRadius - 100f,    // -100 = plus offensif
+            _ => _defensiveZoneRadius
+        };
+        
+        // ✅ Le bot défend SEULEMENT si ballon très proche de son but
+        if (distanceToBall < defensiveZoneForThisDifficulty)
+        {
+            Debug.Log($"🛡️ Ballon trop proche du but ({distanceToBall:F1}) → DÉFENSIF");
             return BotRole.Defensive;
         }
         else
         {
-            // Debug.Log($"⚔️ Ballon du côté adverse ({ballPosition.x}) → OFFENSIF");
+            // Debug.Log($"⚔️ Ballon loin du but ({distanceToBall:F1}) → OFFENSIF");
             return BotRole.Offensive;
         }
     }
@@ -202,7 +222,7 @@ public class BotAIStrategy
     }
 
     /// <summary>
-    /// ✅ NOUVEAU : Comportement DÉFENSIF façon gardien de but.
+    /// ✅ Comportement DÉFENSIF façon gardien de but.
     /// Le bot ne cherche jamais à attaquer le ballon : il reste toujours de son côté du
     /// terrain, se replace légèrement devant son propre but, et se cale latéralement sur
     /// la position Y du ballon (dans les limites de sa "cage") pour couvrir les tirs
@@ -301,7 +321,7 @@ public class BotAIStrategy
     }
 
     /// <summary>
-    /// ✅ NOUVEAU : Trouve le GoalZone que ce bot doit DÉFENDER (utilisé par le rôle Defensive).
+    /// ✅ Trouve le GoalZone que ce bot doit DÉFENDRE (utilisé par le rôle Defensive).
     /// Symétrique de FindEnemyGoal.
     /// </summary>
     public GoalZone FindOwnGoal()

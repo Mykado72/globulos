@@ -1,15 +1,20 @@
+using Fusion;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using Fusion;
 
 /// ✅ CLIENT/SERVER & LOCAL
 /// TurnUI est complètement agnostique au mode (Local ou Network).
 /// Il lit simplement les données via ITurnManagerCore.
 public class TurnUI : MonoBehaviour
 {
+    // ✅ Singleton (comme AudioManager, GoalCelebrationUI)
+    public static TurnUI Instance { get; private set; }
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text stateText;
+    [SerializeField] private TextMeshProUGUI pauseMessageText;  // Nouveau
+    [SerializeField] private CanvasGroup pauseMessageGroup;    // Pour fade in/out
 
     [Header("Messages d'événements")]
     [SerializeField] private float ballDownMessageDuration = 2f;
@@ -26,8 +31,27 @@ public class TurnUI : MonoBehaviour
     private Color _timerBaseColor = Color.white;
     private int _timerFontSize = 50;
 
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
     private void Start()
     {
+        // ✅ Cacher le message de pause au départ
+        if (pauseMessageGroup != null)
+            pauseMessageGroup.alpha = 0f;
+
         if (timerText != null)
         {
             _timerBaseScale = timerText.transform.localScale;
@@ -41,6 +65,7 @@ public class TurnUI : MonoBehaviour
             Debug.LogError("[TurnUI] ❌ Aucun ITurnManagerCore trouvé (LocalTurnManager ou TurnManager)!");
         }
     }
+
 
     private void Update()
     {
@@ -152,7 +177,64 @@ public class TurnUI : MonoBehaviour
 
         return true;
     }
-    private void DetectBallDeaths()
+    /// <summary>
+    /// Affiche le message que l'autre joueur a mis en pause
+    /// </summary>
+    public void ShowPauseMessage(string playerName)
+    {
+        if (pauseMessageText == null) return;
+
+        pauseMessageText.text = $"⏸️ {playerName}\na mis en pause";
+
+        // ✅ Animation fade in
+        if (pauseMessageGroup != null)
+        {
+            StopAllCoroutines();
+            StartCoroutine(FadeInPauseMessage());
+        }
+    }
+
+    /// <summary>
+    /// Cache le message de pause
+    /// </summary>
+    public void HidePauseMessage()
+    {
+        if (pauseMessageGroup != null)
+        {
+            StopAllCoroutines();
+            StartCoroutine(FadeOutPauseMessage());
+        }
+    }
+
+    private IEnumerator FadeInPauseMessage()
+    {
+        float duration = 0.3f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;  // ⚠️ unscaled car Time.timeScale = 0
+            pauseMessageGroup.alpha = Mathf.Clamp01(elapsed / duration);
+            yield return null;
+        }
+        pauseMessageGroup.alpha = 1f;
+    }
+
+    private IEnumerator FadeOutPauseMessage()
+    {
+        float duration = 0.3f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;  // ⚠️ unscaled car Time.timeScale = 0
+            pauseMessageGroup.alpha = Mathf.Clamp01(1f - (elapsed / duration));
+            yield return null;
+        }
+        pauseMessageGroup.alpha = 0f;
+    }
+
+private void DetectBallDeaths()
     {
         // Mode Local
         foreach (var ball in LocalBallAimController.AllBalls)

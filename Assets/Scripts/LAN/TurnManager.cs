@@ -10,6 +10,11 @@ using UnityEngine.SceneManagement;
 /// Logique synchronisée serveur/client via RPC et propriétés [Networked]
 public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 {
+    // ✅ NEW: État de pause synchronisé sur le réseau
+    [Networked] public bool IsGamePaused { get; set; }
+
+    // Quel joueur a mis en pause (-1 = personne)
+    [Networked] private int _pausedByPlayerId { get; set; } = -1;
     private bool _pendingGoalReset = false;
     [Header("Game Mode Configuration")]
     [SerializeField] private bool defaultTurnBasedMode = true;
@@ -168,6 +173,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
     public override void FixedUpdateNetwork()
     {
+        if (IsGamePaused) return;
         // ✅ CLIENT/SERVER : Seul le serveur gère la logique
         if (!HasStateAuthority || !IsTurnBased) return;
 
@@ -264,6 +270,62 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
             return TurnTimer.RemainingTime(Runner) ?? 0f;
         }
         return 0f;
+    }
+
+    /// <summary>
+    /// Appelée par PauseManager quand l'appareil passe en portrait (réseau)
+    /// </summary>
+    public void PauseGameNetwork(int playerId)
+    {
+        if (HasStateAuthority)
+        {
+            // ✅ Seul le Master peut modifier [Networked]
+            IsGamePaused = true;
+            _pausedByPlayerId = playerId;
+
+            // ✅ RPC pour notifier tous les clients
+            RPC_NotifyPauseStatus(playerId);
+        }
+    }
+
+    /// <summary>
+    /// Appelée par PauseManager quand l'appareil revient en paysage (réseau)
+    /// </summary>
+    public void ResumeGameNetwork()
+    {
+        if (HasStateAuthority)
+        {
+            IsGamePaused = false;
+            _pausedByPlayerId = -1;
+
+            // ✅ RPC pour notifier tous les clients
+            RPC_NotifyResumeStatus();
+        }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_NotifyPauseStatus(int playerId)
+    {
+        string playerName = GetPlayerName(playerId);
+        Debug.Log($"⏸️ {playerName} a mis le jeu en pause");
+
+        // ✅ Afficher UI avec message
+        if (TurnUI.Instance != null)
+        {
+            TurnUI.Instance.ShowPauseMessage(playerName);
+        }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_NotifyResumeStatus()
+    {
+        Debug.Log("▶️ Le jeu reprend");
+
+        // ✅ Cacher le message de pause
+        if (TurnUI.Instance != null)
+        {
+            TurnUI.Instance.HidePauseMessage();
+        }
     }
 
     public string GetPlayerName(int playerId)
