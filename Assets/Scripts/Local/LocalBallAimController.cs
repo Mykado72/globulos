@@ -282,6 +282,22 @@ public class LocalBallAimController : MonoBehaviour
 
     public void ForceStopAiming()
     {
+        // ✅ FIX : si on est encore en train de glisser (IsAiming) quand le tir est forcé
+        // (bouton "Shoot" ou fin du timer), on capture la force actuelle au lieu de la
+        // perdre. Avant ce fix, seule FinishAiming() (relâchement souris) enregistrait
+        // _localQueuedForce : un tir forcé pendant un glissé en cours n'appliquait donc
+        // aucune force, la bille ne bougeait jamais, et le tour repartait aussitôt avec
+        // un nouveau timer complet (d'où l'impression que "le timer continue").
+        if (IsAiming && _mainCamera != null)
+        {
+            Vector2 currentMousePos = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
+            Vector2 forceToApply = ComputeClampedForce(currentMousePos);
+            if (forceToApply.sqrMagnitude > 0.1f)
+            {
+                _localQueuedForce = forceToApply;
+            }
+        }
+
         IsAiming = false;
         _arrow.Hide();
     }
@@ -426,6 +442,9 @@ public class LocalBallAimController : MonoBehaviour
             {
                 _rb.AddForce(_localQueuedForce, ForceMode2D.Impulse);
                 AudioManager.Instance?.PlayShoot(transform.position);
+                // ✅ FIX : signale immédiatement que la bille est en mouvement, sans attendre
+                // que le prochain FixedUpdate ait mis à jour _rb.velocity (AddForce est différé).
+                IsMoving = true;
             }
             _localQueuedForce = Vector2.zero;
         }

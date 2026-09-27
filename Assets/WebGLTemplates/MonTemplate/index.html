@@ -101,11 +101,23 @@
           let unityInstance = null;
           let isPortrait = false;
 
+          // ✅ DEBUG : confirme que ce script s'exécute bien (à retirer une fois le bug résolu).
+          // Si vous ne voyez JAMAIS ce log dans la console mobile (via un debugger distant type
+          // chrome://inspect ou Eruda), c'est que ce fichier n'est pas celui réellement servi —
+          // vérifiez votre WebGLTemplate / le cache du navigateur.
+          console.log("[Orientation] Script chargé");
+
           // Fonction pour vérifier l'orientation
           function checkOrientation() {
-              const isLandscape = window.innerWidth > window.innerHeight;
+              // ✅ FIX : matchMedia est plus fiable que innerWidth/innerHeight sur mobile,
+              // où la barre d'adresse qui apparaît/disparaît peut fausser innerHeight.
+              const isLandscape = window.matchMedia("(orientation: landscape)").matches
+                  || window.innerWidth > window.innerHeight;
               const overlay = document.getElementById("portrait-overlay");
-              
+
+              console.log("[Orientation] check → landscape =", isLandscape,
+                  "(", window.innerWidth, "x", window.innerHeight, ")");
+
               if (!isLandscape) {
                   // 📱 Portrait détecté
                   if (!isPortrait) {
@@ -134,11 +146,19 @@
           // Écouter les changements d'orientation
           window.addEventListener("orientationchange", checkOrientation);
           window.addEventListener("resize", checkOrientation);
+          // ✅ FIX : matchMedia expose aussi son propre événement de changement, plus fiable
+          // que resize/orientationchange seuls sur certains navigateurs mobiles.
+          if (window.matchMedia) {
+              window.matchMedia("(orientation: landscape)").addEventListener("change", checkOrientation);
+          }
 
           // Vérification initiale au chargement
           window.addEventListener("load", () => {
               setTimeout(checkOrientation, 100);
           });
+          // ✅ FIX : appel immédiat aussi (sans attendre "load"), au cas où l'overlay doive
+          // s'afficher avant même la fin du chargement des assets Unity.
+          checkOrientation();
 
           createUnityInstance(document.querySelector("#unity-canvas"), {
               dataUrl: "Build/docs.data",

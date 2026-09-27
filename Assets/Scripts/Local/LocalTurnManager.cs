@@ -15,6 +15,9 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     [Tooltip("Durée de l'état Celebrating (voir GoalCelebrationUI) avant de passer en Finished. Doit correspondre à peu près à la durée totale de l'animation de célébration.")]
     [SerializeField] private float celebrationDuration = 2.2f;
 
+    [Tooltip("✅ FIX : délai minimum (en secondes) en phase Resolution avant de commencer à vérifier si les billes sont arrêtées. AddForce() n'applique la vélocité qu'au FixedUpdate suivant, donc sans ce délai, AreAllBallsStopped() pouvait renvoyer 'true' avant même que la bille n'ait commencé à bouger, ce qui relançait aussitôt un nouveau tour avec un timer neuf.")]
+    [SerializeField] private float minResolutionCheckDelay = 0.2f;
+
     public TurnState CurrentState { get; private set; }
     public int CurrentTurnNumber { get; private set; }
     public int WinnerPlayerId { get; private set; } = -1;
@@ -22,6 +25,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     public static LocalTurnManager Instance { get; private set; }
 
     private float _timer;
+    private float _resolutionElapsed;
 
     // ✅ FIX : fige la progression normale de Update() (Resolution -> CheckResult -> Aiming)
     // pendant que la célébration de but ("BUT !") est affichée, sans toucher à CurrentState
@@ -75,8 +79,13 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
             case TurnState.Resolution:
                 if (_pendingGoalReset) break;
 
-                // ✅ Simplifié: dès que tout s'arrête, on check le résultat
-                if (AreAllBallsStopped())
+                // ✅ FIX : on laisse passer un court délai avant de considérer que les
+                // billes sont arrêtées, le temps que la physique applique réellement
+                // l'impulsion du tir (AddForce ne met à jour la vélocité qu'au FixedUpdate
+                // suivant). Sans ça, un tir pouvait être "vu" comme déjà terminé avant
+                // même d'avoir commencé, et le tour repartait instantanément.
+                _resolutionElapsed += Time.deltaTime;
+                if (_resolutionElapsed >= minResolutionCheckDelay && AreAllBallsStopped())
                 {
                     CurrentState = TurnState.CheckResult;
                 }
@@ -121,10 +130,9 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
     public void OnShootButtonPressed()
     {
-        Debug.Log("🎯 Tir prématuré via bouton");
         if (CurrentState != TurnState.Aiming)
         {
-            Debug.Log("🎯 Tir prématuré via bouton");
+            Debug.Log("🎯 Tir prématuré via bouton ignoré (pas en phase de visée)");
             return;
         }
         else
@@ -282,6 +290,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     private void ExecuteTurnResolution()
     {
         CurrentState = TurnState.Resolution;
+        _resolutionElapsed = 0f; // ✅ FIX : redémarre le délai de grâce à chaque nouvelle résolution
 
         foreach (var ball in LocalBallAimController.AllBalls)
         {
