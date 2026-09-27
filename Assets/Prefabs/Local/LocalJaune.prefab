@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3466911630951486384}
   m_Layer: 3
   m_Name: TouchZone
-  m_TagString: Untagged
+  m_TagString: TouchZone
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

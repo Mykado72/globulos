@@ -2,14 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 /// ✅ Mode LOCAL : Implémente ITurnManagerCore
 /// Gestion directe sans Fusion, Update classique
 public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 {
+    [SerializeField] private Button shootButton;
     [Header("Paramètres")]
     [SerializeField] private float aimDuration = 15f;
-    [SerializeField] private float resolutionSettleDuration = 0.2f;
 
     [Tooltip("Durée de l'état Celebrating (voir GoalCelebrationUI) avant de passer en Finished. Doit correspondre à peu près à la durée totale de l'animation de célébration.")]
     [SerializeField] private float celebrationDuration = 2.2f;
@@ -21,7 +22,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     public static LocalTurnManager Instance { get; private set; }
 
     private float _timer;
-    private float _settleTimer;
 
     // ✅ FIX : fige la progression normale de Update() (Resolution -> CheckResult -> Aiming)
     // pendant que la célébration de but ("BUT !") est affichée, sans toucher à CurrentState
@@ -44,7 +44,15 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
     private void Start()
     {
-        // Debug.Log($"[LocalTurnManager] ✅ Démarrage du TurnManager (Mode LOCAL)");
+        if (shootButton != null)
+        {
+            shootButton.onClick.AddListener(OnShootButtonPressed);
+            Debug.Log("[LocalTurnManager] shootButton assigné !");
+        }    
+        else
+        {
+            Debug.LogWarning("[LocalTurnManager] shootButton n'est pas assigné !");
+        }
         StartNewTurn();
     }
 
@@ -61,15 +69,18 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                     ForceStopAiming();
                     ExecuteTurnResolution();
                 }
+                UpdateShootButtonState();
                 break;
 
             case TurnState.Resolution:
-                if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
-                _settleTimer -= Time.deltaTime;
-                if (_settleTimer <= 0f && AreAllBallsStopped())
+                if (_pendingGoalReset) break;
+
+                // ✅ Simplifié: dès que tout s'arrête, on check le résultat
+                if (AreAllBallsStopped())
                 {
                     CurrentState = TurnState.CheckResult;
                 }
+                UpdateShootButtonState();
                 break;
 
             case TurnState.CheckResult:
@@ -79,6 +90,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                 {
                     StartNewTurn();
                 }
+                UpdateShootButtonState();
                 break;
             case TurnState.Celebrating:
                 // ✅ FIX : Gestion de l'état Celebrating avec timer synchronisé
@@ -86,11 +98,40 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
                 {
                     Debug.Log($"[TurnManager] 🎉 Fin de célébration → Terminer le jeu (Gagnant: {CelebrationWinnerId})");
                 }*/
+                UpdateShootButtonState();
                 break;
             default:
+                UpdateShootButtonState();
                 CheckGameEnd();
                 Debug.LogWarning($"[TurnManager] ⚠️ État non géré : {CurrentState}");
                 break;
+        }
+    }
+
+    /// <summary>
+    /// ✅ SIMPLE: Actif SEULEMENT si on est en phase Aiming
+    /// </summary>
+    private void UpdateShootButtonState()
+    {
+        if (shootButton != null)
+        {
+            shootButton.interactable = (CurrentState == TurnState.Aiming);
+        }
+    }
+
+    public void OnShootButtonPressed()
+    {
+        Debug.Log("🎯 Tir prématuré via bouton");
+        if (CurrentState != TurnState.Aiming)
+        {
+            Debug.Log("🎯 Tir prématuré via bouton");
+            return;
+        }
+        else
+        {
+            Debug.Log("🎯 Tir via bouton");
+            ForceStopAiming();
+            ExecuteTurnResolution();
         }
     }
 
@@ -241,8 +282,6 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     private void ExecuteTurnResolution()
     {
         CurrentState = TurnState.Resolution;
-        _settleTimer = resolutionSettleDuration;
-
 
         foreach (var ball in LocalBallAimController.AllBalls)
         {

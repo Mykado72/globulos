@@ -188,9 +188,9 @@ public class LocalBallAimController : MonoBehaviour
         {
             _enemyGoal = _botAI.FindEnemyGoal();
             // Debug.Log("🤖 Bot " + OwnerPlayerId + " IA PlayerId=" + _botAI._ownerPlayerId);
-            if (_enemyGoal != null)
-                Debug.Log("✅ But adverse trouvé: " + _enemyGoal.name);
-            else
+            if (_enemyGoal == null)
+                // Debug.Log("✅ But adverse trouvé: " + _enemyGoal.name);
+            //else
                 Debug.Log("❌ But adverse NULL!");
         }
 
@@ -466,6 +466,10 @@ public class LocalBallAimController : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
+        if (collision.CompareTag("TouchZone"))
+        {               
+            return;
+        }
         if (collision.CompareTag("Goal") && !IsDead)
         {
             IsAiming = false;

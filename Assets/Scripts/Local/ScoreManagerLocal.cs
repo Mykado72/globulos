@@ -18,7 +18,7 @@ public class ScoreManagerLocal : ScoreManagerBase
         Instance = this;
         Team1Score = 0;
         Team2Score = 0;
-        Debug.Log("[ScoreManagerLocal] ✅ ScoreManager initialisé (Mode LOCAL)");
+        // Debug.Log("[ScoreManagerLocal] ✅ ScoreManager initialisé (Mode LOCAL)");
     }
 
     /// <summary>
