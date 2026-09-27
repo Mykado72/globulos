@@ -6,36 +6,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
     <title>Unity WebGL Player | New Globulos</title>
     <style>
-      html, body {
+      * {
         margin: 0;
         padding: 0;
-        border: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
         width: 100%;
         height: 100%;
         background: #231F20;
         overflow: hidden;
       }
 
-        #unity-container {
-            width: 100%;
-            height: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-        }
+      #unity-container {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
 
-      /* Le canvas garde son ratio interne 1920x1080 (16:9, défini par les
-         attributs width/height ci-dessous, PAS par ce CSS) et se redimensionne
-         pour tenir entièrement dans la fenêtre (object-fit: contain = jamais
-         de recadrage, léger letterboxing si le ratio de la fenêtre diffère
-         du 16:9). C'est ce qui remplace le style fixe "width:1920px;
-         height:1080px" qui débordait de toute fenêtre plus petite. */
       #unity-canvas {
         width: 100%;
         height: 100%;
-        max-width: 100vw;
-        max-height: 100vh;
+        display: block;
         background: #231F20;
+      }
+
+      /* ✅ Overlay pour mode portrait - centré, semi-transparent */
+      #portrait-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+      }
+
+      #portrait-overlay.show {
+        display: flex;
+      }
+
+      #portrait-message {
+        background: rgba(35, 31, 32, 0.95);
+        padding: 40px 30px;
+        border-radius: 16px;
+        text-align: center;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        max-width: 85%;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      #portrait-message h1 {
+        font-size: 28px;
+        margin-bottom: 15px;
+        color: #FFD700;
+        font-weight: 600;
+      }
+
+      #portrait-message p {
+        font-size: 16px;
+        margin-bottom: 8px;
+        line-height: 1.6;
+      }
+
+      #portrait-icon {
+        font-size: 56px;
+        margin-bottom: 15px;
       }
     </style>
   </head>
@@ -53,17 +97,49 @@
       </div>
       <script src="Build/docs.loader.js"></script>
       <script>
+          // ✅ Gestion de l'orientation (paysage/portrait)
+          let unityInstance = null;
+          let isPortrait = false;
+
+          // Fonction pour vérifier l'orientation
           function checkOrientation() {
               const isLandscape = window.innerWidth > window.innerHeight;
-
+              const overlay = document.getElementById("portrait-overlay");
+              
               if (!isLandscape) {
-                  // 📱 Portrait: affiche overlay + pause
-                  unityInstance.SendMessage("TurnManager", "PauseGame");
+                  // 📱 Portrait détecté
+                  if (!isPortrait) {
+                      isPortrait = true;
+                      overlay.classList.add("show");
+                      // ✅ Appeler PauseManager au lieu de TurnManager
+                      if (unityInstance) {
+                          unityInstance.SendMessage("PauseManager", "PauseGame");
+                      }
+                      console.log("📱 Mode portrait détecté → Pause activée");
+                  }
               } else {
-                  // 🏜️ Paysage: cache overlay + reprend
-                  unityInstance.SendMessage("TurnManager", "ResumeGame");
+                  // 🏜️ Paysage détecté
+                  if (isPortrait) {
+                      isPortrait = false;
+                      overlay.classList.remove("show");
+                      // ✅ Appeler PauseManager au lieu de TurnManager
+                      if (unityInstance) {
+                          unityInstance.SendMessage("PauseManager", "ResumeGame");
+                      }
+                      console.log("🏜️ Mode paysage détecté → Jeu repris");
+                  }
               }
           }
+
+          // Écouter les changements d'orientation
+          window.addEventListener("orientationchange", checkOrientation);
+          window.addEventListener("resize", checkOrientation);
+
+          // Vérification initiale au chargement
+          window.addEventListener("load", () => {
+              setTimeout(checkOrientation, 100);
+          });
+
           createUnityInstance(document.querySelector("#unity-canvas"), {
               dataUrl: "Build/docs.data",
               frameworkUrl: "Build/docs.framework.js",
@@ -72,14 +148,12 @@
               companyName: "Mykado",
               productName: "New Globulos",
               productVersion: "1.0",
-              // 🔒 Verrouille la résolution de rendu interne à 1920x1080 (les attributs
-              // width/height du canvas), indépendamment de sa taille d'affichage CSS.
-              // Le terrain, la caméra et les colliders restent donc parfaitement
-              // identiques sur toutes les machines ; seul l'affichage est mis à l'échelle
-              // visuellement (letterboxing géré en CSS), sans jamais toucher à
-              // Screen.width/Screen.height côté Unity.
+              // 🔒 Verrouille la résolution de rendu interne à 1920x1080
               matchWebGLToCanvasSize: false,
-              // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
+          }).then((instance) => {
+              unityInstance = instance;
+              // Vérifier l'orientation après le chargement d'Unity
+              setTimeout(checkOrientation, 200);
           });
       </script>
   </body>
