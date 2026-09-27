@@ -181,7 +181,30 @@ public class BallAimController : NetworkBehaviour
     }
     private void Update()
     {
-        if (!HasStateAuthority || IsDead) return; 
+        if (!HasStateAuthority || IsDead) return;
+
+        // ✅ DEBUG : affiche le raycast en continu
+        if (_mainCamera != null)
+        {
+            Vector3 mouseScreenPos = Input.mousePosition;
+            mouseScreenPos.z = -_mainCamera.transform.position.z;
+            Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(mouseScreenPos);
+
+            // La croix rouge s'affiche tant que tu ne bouges pas la souris
+            Debug.DrawLine(
+                mouseWorld + Vector3.left * 200.2f,
+                mouseWorld + Vector3.right * 200.2f,
+                Color.red
+            );
+            Debug.DrawLine(
+                mouseWorld + Vector3.down * 200.2f,
+                mouseWorld + Vector3.up * 200.2f,
+                Color.red
+            );
+        }
+
+
+
         // Si une force est déjà enregistrée en attente, on maintient la flèche affichée localement
         if (_localQueuedForce.sqrMagnitude > 0.01f && !IsAiming)
         {
@@ -215,6 +238,7 @@ public class BallAimController : NetworkBehaviour
         // ✅ Ne passe pas par ScreenToWorldPoint, utilise le raycast directement
         Vector2 mousePos = Input.mousePosition;
         RaycastHit2D hit = Physics2D.Raycast(_mainCamera.ScreenToWorldPoint(mousePos), Vector3.back, 100f);
+
 
         if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
         {

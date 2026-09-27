@@ -155,6 +155,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                 if (ballObj != null)
                 {
                     ballObj.name = $"Player_{localPlayer.PlayerId}_Ball_{index}";
+                    ballObj.transform.parent = spawnPoint;
 
                     if (ballObj.TryGetComponent(out BallAimController aimController))
                     {
@@ -166,6 +167,7 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                         playerData.RPC_SetPlayerInfo(nickname, localPlayer.PlayerId);
                     }
                 }
+
             }
             catch (Exception ex)
             {

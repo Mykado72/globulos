@@ -294,6 +294,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3501495a57baee94294e2d904ddf959e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  debugSphere: {fileID: 0}
   maxForce: 1500
   maxDragDistanceFraction: 0.3
   arrowShaftSprite: {fileID: 0}

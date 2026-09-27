@@ -43,6 +43,7 @@ public class LocalGameSpawner : MonoBehaviour
 
             GameObject ballObj = Instantiate(player1Prefab, spawnPoint.position, Quaternion.identity);
             ballObj.name = $"Player 1_Ball{i}";
+            ballObj.transform.parent = spawnPoint;
 
             if (ballObj.TryGetComponent(out LocalBallAimController ballController))
             {

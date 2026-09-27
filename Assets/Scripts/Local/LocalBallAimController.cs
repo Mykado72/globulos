@@ -6,6 +6,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class LocalBallAimController : MonoBehaviour
 {
+    [SerializeField] private GameObject debugSphere;
     [Header("Aim Settings")]
     [SerializeField] private float maxForce = 15f;
     [SerializeField, Range(0.25f, 10.0f)] private float maxDragDistanceFraction = 0.5f;
@@ -79,6 +80,7 @@ public class LocalBallAimController : MonoBehaviour
 
     private void Awake()
     {
+        // debugSphere= Instantiate(debugSphere, new Vector3(0, 0, 0), Quaternion.identity);
         _rb = GetComponent<Rigidbody2D>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _originalScale = transform.localScale;
@@ -89,14 +91,15 @@ public class LocalBallAimController : MonoBehaviour
         _botAI.SetRole(aiRole);
     }
 
+
     // ======================== ✅ FIX : RESET APRÈS UN BUT ========================
-    /// <summary>
-    /// Replace la bille à sa position de spawn et annule tout effet de "mort"
-    /// (IsDead, animation de chute, collider désactivé, etc.). Appelée par
-    /// LocalGameSpawner.ResetAllToSpawnPoints() quand un but au foot est marqué
-    /// et que la partie continue (avant, RIEN ne repositionnait les billes en
-    /// mode Local, contrairement au mode réseau qui rechargeait toute la scène).
-    /// </summary>
+        /// <summary>
+        /// Replace la bille à sa position de spawn et annule tout effet de "mort"
+        /// (IsDead, animation de chute, collider désactivé, etc.). Appelée par
+        /// LocalGameSpawner.ResetAllToSpawnPoints() quand un but au foot est marqué
+        /// et que la partie continue (avant, RIEN ne repositionnait les billes en
+        /// mode Local, contrairement au mode réseau qui rechargeait toute la scène).
+        /// </summary>
     public void ResetForNewRound(Vector3 position)
     {
         StopAllCoroutines(); // stoppe une éventuelle animation de chute (BallImpactEffects.Fall) en cours
@@ -286,6 +289,32 @@ public class LocalBallAimController : MonoBehaviour
     private void Update()
     {
         if (IsDead) return;
+
+        // ✅ DEBUG : affiche le raycast en continu
+        if (_mainCamera != null)
+        {
+            Vector3 mouseScreenPos = Input.mousePosition;
+            mouseScreenPos.z = -_mainCamera.transform.position.z;
+            Vector3 mouseWorld = _mainCamera.ScreenToWorldPoint(mouseScreenPos);
+
+            // ✅ Debug visuel pour WebGL aussi
+            if (debugSphere != null)
+            {
+                debugSphere.transform.position = mouseWorld;
+                debugSphere.SetActive(true);
+            }
+            // La croix rouge s'affiche tant que tu ne bouges pas la souris
+            Debug.DrawLine(
+                mouseWorld + Vector3.left * 200.2f,
+                mouseWorld + Vector3.right * 200.2f,
+                Color.red
+            );
+            Debug.DrawLine(
+                mouseWorld + Vector3.down * 200.2f,
+                mouseWorld + Vector3.up * 200.2f,
+                Color.red
+            );
+        }
 
         // Mise à jour de l'état du mouvement
         if (_rb != null)
