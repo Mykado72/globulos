@@ -32,7 +32,8 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     private void OnEnable()
     {
         // Abonnement à l'événement diffusé par TurnManager (via RPC) quand TOUS les
-        // clients ont signalé être prêts. Ne déclenche plus que le spawn du ballon.
+        // clients ont signalé être prêts. Ne sert plus que pour déclencher le spawn
+        // du ballon.
         TurnManager.OnAllPlayersReadyToSpawn += HandleAllPlayersReadyToSpawn;
     }
 
@@ -66,9 +67,10 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"[GameSpawner] 🎬 Scène chargée pour LocalPlayer ID : {runner.LocalPlayer.PlayerId}");
 
-        // ✅ Le spawn du joueur local est immédiat et ne dépend plus des autres
-        // clients. Le ballon, lui, ne spawn QUE via HandleAllPlayersReadyToSpawn,
-        // une fois que TurnManager confirme que tout le monde a spawné.
+        // ✅ Chaque client spawn TOUJOURS sa propre bille (obligatoire en Shared Mode
+        // pour que l'Input Authority soit correctement attribuée à ce joueur - voir
+        // BallAimController.Spawned(), qui transfère ensuite la State Authority au Master
+        // via RequestStateAuthority() pour centraliser la physique).
         _ = TrySpawnLocalPlayerWithRetry();
     }
 
@@ -128,14 +130,6 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
-        // Récupération du pseudo
-        string nickname = $"Joueur {localPlayer.PlayerId}";
-        byte[] token = _runner.GetPlayerConnectionToken(localPlayer);
-        if (token != null && token.Length > 0)
-        {
-            nickname = System.Text.Encoding.UTF8.GetString(token);
-        }
-
         int index = 0;
         foreach (Transform spawnPoint in spawnPoints)
         {
@@ -144,7 +138,11 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
             try
             {
-                // Spawn des billes avec Input Authority attribué au joueur local
+                // Spawn des billes avec Input Authority attribué au joueur local. C'est
+                // TOUJOURS le joueur lui-même qui spawn sa propre bille (Shared Mode) :
+                // c'est ce qui garantit une Input Authority correcte. La State Authority,
+                // elle, est reprise juste après par le Master (voir
+                // BallAimController.Spawned() → RequestStateAuthority()).
                 NetworkObject ballObj = await _runner.SpawnAsync(
                     prefab,
                     spawnPoint.position,
@@ -162,10 +160,10 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
                         aimController.SetOwner(localPlayer.PlayerId);
                     }
 
-                    if (ballObj.TryGetComponent(out PlayerData playerData))
-                    {
-                        playerData.RPC_SetPlayerInfo(nickname, localPlayer.PlayerId);
-                    }
+                    // ℹ️ Le pseudo (RPC_SetPlayerInfo) n'est plus envoyé ici : c'est
+                    // désormais BallAimController.Spawned() qui s'en charge lui-même dès
+                    // qu'il détecte HasInputAuthority, pour rester valide même une fois la
+                    // State Authority transférée au Master.
                 }
 
             }

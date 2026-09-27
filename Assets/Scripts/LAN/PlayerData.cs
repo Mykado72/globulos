@@ -19,7 +19,7 @@ public class PlayerData : NetworkBehaviour
     /// Remplace les deux anciennes méthodes SetNickname() et RPC_SetNickname()
     /// 
     /// Appelé depuis:
-    /// - GameSpawner.TrySpawnLocalPlayer() → playerData.RPC_SetPlayerInfo(nickname, playerId)
+    /// - BallAimController.Spawned() (propriétaire réel, Input Authority) → playerData.RPC_SetPlayerInfo(nickname, playerId)
     /// - PlayerDataSpawner.OnPlayerJoined() → playerData.RPC_SetPlayerInfo(nickname, playerId)
     /// </summary>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]

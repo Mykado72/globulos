@@ -54,9 +54,16 @@ public class BallAimController : NetworkBehaviour
     public PlayerRef Owner => _networkObject.StateAuthority;
 
     [Networked] public int OwnerPlayerId { get; set; }
-    [Networked] public bool IsAiming { get; set; }
     [Networked] public bool IsDead { get; set; }
     [Networked] public bool IsMoving { get; set; }
+
+    // ✅ FIX (centralisation physique) : IsAiming n'est lu/écrit que par le propriétaire de
+    // la bille (Input Authority) et n'est jamais consulté depuis un autre script/instance :
+    // ça n'a donc jamais eu besoin d'être répliqué. Le garder [Networked] serait même
+    // dangereux maintenant que la State Authority passe au Master : une écriture faite par
+    // un pair qui n'a pas la State Authority se ferait écraser par la resynchronisation
+    // réseau (qui, elle, ne change jamais cette valeur côté Master).
+    private bool IsAiming;
 
     private bool _isBotControlled = false;
     private bool _botHasQueuedThisTurn = false;
@@ -112,6 +119,37 @@ public class BallAimController : NetworkBehaviour
         if (_mainCamera == null) _mainCamera = FindAnyObjectByType<Camera>();
 
         if (!AllBalls.Contains(this)) AllBalls.Add(this);
+
+        // ✅ FIX (centralisation physique) : en Shared Mode, l'Input Authority n'est
+        // correctement attribuée que si CHAQUE joueur spawn sa propre bille (voir
+        // GameSpawner) — un pair ne peut pas spawner "pour" un autre joueur en lui donnant
+        // son Input Authority de façon fiable. La bille appartient donc encore, à l'instant
+        // du spawn, à son propriétaire (Input ET State Authority).
+        // C'est pourquoi le Master reprend ici la State Authority de TOUTE bille qui ne lui
+        // appartient pas déjà, via RequestStateAuthority() : lui seul doit ensuite simuler
+        // la physique, pour éviter que deux pairs résolvent différemment la même collision.
+        // ⚠️ Nécessite "Allow State Authority Override" coché dans les Shared Mode Settings
+        // du NetworkObject, sur les DEUX prefabs de bille (réglage à faire dans l'éditeur
+        // Unity, sur le prefab — impossible à changer après le spawn).
+        if (Runner != null && Runner.IsSharedModeMasterClient && !HasStateAuthority)
+        {
+            Object.RequestStateAuthority();
+        }
+
+        // ✅ FIX (centralisation physique) : RPC_SetPlayerInfo exige l'Input Authority pour
+        // être appelée (voir PlayerData). C'est donc chaque propriétaire réel qui envoie
+        // lui-même son pseudo, dès qu'il reçoit sa bille — reste valide même une fois la
+        // State Authority reprise par le Master juste au-dessus.
+        if (HasInputAuthority && TryGetComponent(out PlayerData playerData))
+        {
+            string nickname = $"Joueur {Object.InputAuthority.PlayerId}";
+            byte[] token = Runner.GetPlayerConnectionToken(Runner.LocalPlayer);
+            if (token != null && token.Length > 0)
+            {
+                nickname = System.Text.Encoding.UTF8.GetString(token);
+            }
+            playerData.RPC_SetPlayerInfo(nickname, Object.InputAuthority.PlayerId);
+        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -181,7 +219,12 @@ public class BallAimController : NetworkBehaviour
     }
     private void Update()
     {
-        if (!HasStateAuthority || IsDead) return;
+        // ✅ FIX (centralisation physique) : la lecture de la souris doit rester chez le
+        // propriétaire réel de la bille (Input Authority), même si la State Authority
+        // (qui pilote désormais la physique) appartient au Master. Une bille pilotée par
+        // l'IA n'a pas d'Input Authority humaine : elle ne passe jamais ici (voir
+        // UpdateBotAiming, appelé depuis FixedUpdate côté State Authority).
+        if (!HasInputAuthority || IsDead) return;
 
         // ✅ DEBUG : affiche le raycast en continu
         if (_mainCamera != null)
@@ -347,17 +390,33 @@ public class BallAimController : NetworkBehaviour
         }
     }
 
-    // ✅ Appelé par le TurnManager au début de la phase Resolution
+    // ✅ Appelé par le TurnManager au début de la phase Resolution, sur CHAQUE client
+    // (voir RPC_ExecuteAllShots). Seul le propriétaire réel (Input Authority) a calculé
+    // une force localement : c'est donc lui qui doit la transmettre.
     public void ExecuteQueuedShot()
     {
-        if (HasStateAuthority && _localQueuedForce.sqrMagnitude > 0.01f)
+        // ✅ FIX (centralisation physique) : avant, seule la State Authority (le
+        // propriétaire de la bille) appliquait la force. Maintenant que la State Authority
+        // est toujours le Master, c'est l'Input Authority (le vrai propriétaire, qui a
+        // calculé _localQueuedForce depuis sa souris) qui doit la DEMANDER au Master via
+        // RPC_RequestApplyImpulse, au lieu de l'appliquer lui-même.
+        if (HasInputAuthority && _localQueuedForce.sqrMagnitude > 0.01f)
         {
-            // Transmission et application de la force au Rigidbody
-            RPC_ApplyImpulse(_localQueuedForce);
+            RPC_RequestApplyImpulse(_localQueuedForce);
             _localQueuedForce = Vector2.zero;
         }
 
         _arrow.Hide();
+    }
+
+    // ✅ NOUVEAU : relais Input Authority → State Authority, même principe que
+    // TurnManager.RPC_RequestWinBySoccerGoal / RPC_RequestTurnReset. Le propriétaire de la
+    // bille (qui n'a plus la State Authority) demande au Master d'appliquer la force ;
+    // celui-ci est le seul à réellement simuler la physique de cette bille.
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_RequestApplyImpulse(Vector2 force)
+    {
+        RPC_ApplyImpulse(force);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]

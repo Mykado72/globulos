@@ -191,7 +191,7 @@ MonoBehaviour:
   SortKey: 4106463900
   SendPriority: 1
   EnableInterpolation: 1
-  Flags: 258
+  Flags: 524546
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: -3370815397027541577}
@@ -322,7 +322,6 @@ MonoBehaviour:
   flashDuration: 0.08
   stationaryVelocityThreshold: 2
   _OwnerPlayerId: 0
-  _IsAiming: 0
   _IsDead: 0
   _IsMoving: 0
   aiDifficulty: 1
