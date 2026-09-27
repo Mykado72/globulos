@@ -142,12 +142,26 @@ public class BallAimController : NetworkBehaviour
         // State Authority reprise par le Master juste au-dessus.
         if (HasInputAuthority && TryGetComponent(out PlayerData playerData))
         {
-            string nickname = $"Joueur {Object.InputAuthority.PlayerId}";
-            byte[] token = Runner.GetPlayerConnectionToken(Runner.LocalPlayer);
-            if (token != null && token.Length > 0)
+            // ✨ FIX: Utiliser PlayerNamesManager en priorité pour obtenir le vrai pseudo
+            string nickname = PlayerNamesManager.Instance?.GetPlayerName(Object.InputAuthority.PlayerId);
+
+            // Fallback 1: extraire du token de connexion
+            if (string.IsNullOrEmpty(nickname))
             {
-                nickname = System.Text.Encoding.UTF8.GetString(token);
+                byte[] token = Runner.GetPlayerConnectionToken(Runner.LocalPlayer);
+                if (token != null && token.Length > 0)
+                {
+                    nickname = System.Text.Encoding.UTF8.GetString(token);
+                }
             }
+
+            // Fallback 2: générer avec PlayerId si tout le reste échoue
+            if (string.IsNullOrEmpty(nickname))
+            {
+                nickname = $"Joueur_{Object.InputAuthority.PlayerId}";
+            }
+
+            Debug.Log($"[BallAimController] 🎯 Pseudo défini pour local player: {nickname}");
             playerData.RPC_SetPlayerInfo(nickname, Object.InputAuthority.PlayerId);
         }
     }

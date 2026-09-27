@@ -141,66 +141,10 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         UpdateStatus("❌ Le chargement prend trop de temps. Rechargez la page si besoin.");
         _isLoadingScene = false;
     }
-    /*
-    private async Task StartGameSceneForMaster()
+    private void Awake()
     {
-        // Attente de sécurité pour laisser Fusion stabiliser l'autorité Shared Mode
-        await Task.Delay(1000);
-
-        if (_currentRunner == null || !_currentRunner.IsRunning) return;
-
-        if (_currentRunner.IsSharedModeMasterClient)
-        {
-            _sceneLoadConfirmed = false;
-            _sceneLoadRetryCount = 0;
-            await AttemptLoadSceneWithRetry();
-        }
-    }
-    */
-
-    private async Task AttemptLoadSceneWithRetry()
-    {
-        int sceneIndex = SceneUtility.GetBuildIndexByScenePath("GameSceneLAN");
-        if (sceneIndex < 0)
-        {
-            sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/GameSceneLAN.unity");
-        }
-
-        if (sceneIndex < 0)
-        {
-            Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
-            UpdateStatus("❌ Erreur de configuration : scène introuvable.");
-            _isLoadingScene = false;
-            return;
-        }
-
-        // 🔴 On ne lance LoadScene qu'UNE fois, ici, avant la boucle.
-        _currentRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
-        Debug.Log($"[LobbyManager] 🚀 Chargement scène index {sceneIndex}...");
-        UpdateStatus("Chargement de la partie...");
-
-        float elapsed = 0f;
-        const float pollInterval = 0.25f;
-        const float generousTimeout = 30f; // 🔴 Bien plus généreux, adapté à une mémoire contrainte
-
-        while (elapsed < generousTimeout && !_sceneLoadConfirmed)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(pollInterval));
-            elapsed += pollInterval;
-
-            if (_currentRunner == null || !_currentRunner.IsRunning) return;
-        }
-
-        if (_sceneLoadConfirmed)
-        {
-            Debug.Log("[LobbyManager] ✅ Scène chargée avec succès.");
-            return;
-        }
-        // 🔴 Après un VRAI échec (rien n'a jamais confirmé), on informe sans relancer
-        // LoadScene par-dessus un chargement peut-être encore actif.
-        // Debug.LogError("[LobbyManager] ❌ Le chargement de la scène n'a pas été confirmé après " + generousTimeout + "s.");
-        UpdateStatus("❌ Le chargement prend trop de temps. Rechargez la page si besoin.");
-        _isLoadingScene = false;
+        _playerNickname = PlayerPrefs.GetString("playerNickname", "");
+        if (playerNicknameInput != null) playerNicknameInput.text = _playerNickname;
     }
     private async void Start()
     {
@@ -214,12 +158,18 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             joinRoomButton.onClick.AddListener(OnJoinCogepRoomPressed);
             joinRoomButton.interactable = false;
         }
+        _playerNickname = playerNicknameInput.text;
+                
+        // Si pas de pseudo sauvegardé, générer un unique
+        if (string.IsNullOrEmpty(_playerNickname))
+        {
+            _playerNickname = $"Joueur_{System.Guid.NewGuid().ToString().Substring(0, 5).ToUpper()}";
+        }        
 
-        _playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
-        if (playerNicknameInput != null) playerNicknameInput.text = _playerNickname;
         if (roomNameInput != null) roomNameInput.text = defaultRoomName;
 
-        UpdateStatus("Connexion au réseau Fusion...");
+        UpdateStatus($"{_playerNickname} connexion au réseau Fusion...");
+        Debug.Log($"[LobbyManager] Connexion au réseau Fusion avec pseudo '{_playerNickname}'...");
         await JoinLobbySessionList();
     }
 
@@ -246,7 +196,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         if (result.Ok)
         {       
-            UpdateStatus("Connecté au Lobby. Recherche de sessions...");
+            UpdateStatus($"{_playerNickname} connecté au Lobby. Recherche de sessions...");
         }
         else
         {
@@ -285,11 +235,15 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         if (playerNicknameInput != null && !string.IsNullOrWhiteSpace(playerNicknameInput.text))
         {
-            _playerNickname = playerNicknameInput.text.Trim();
+            _playerNickname = playerNicknameInput.text;
         }
         else
         {
-            _playerNickname = "Joueur";
+            // ✨ FIX: Générer un pseudo unique au lieu de "Joueur" générique
+            if (string.IsNullOrEmpty(_playerNickname) || _playerNickname.StartsWith("Joueur_"))
+            {
+                _playerNickname = $"Joueur_{System.Guid.NewGuid().ToString().Substring(0, 5).ToUpper()}";
+            }
         }
 
         PlayerPrefs.SetString("playerNickname", _playerNickname);
@@ -297,7 +251,8 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         string roomName = GetTargetRoomName();
 
-        UpdateStatus($"Connexion à la room '{roomName}'...");
+        UpdateStatus($"{_playerNickname} Connexion à la room '{roomName}'...");
+        Debug.Log($"[LobbyManager] Connexion à la room '{roomName}' avec pseudo '{_playerNickname}'...");
 
         // 🔴 CRUCIAL : Quitter le Lobby proprement avant de lancer la session de jeu
         if (_currentRunner != null && _currentRunner.IsRunning)

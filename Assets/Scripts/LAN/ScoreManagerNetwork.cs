@@ -105,7 +105,36 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
 
     public override string GetScoreDisplay()
     {
-        return $"Jaune {Team1ScoreNet} - {Team2ScoreNet} Rouge";
+        // ✨ FIX: Afficher les pseudonymes des joueurs au lieu de "Jaune" et "Rouge"
+        string team1Name = "Équipe 1";
+        string team2Name = "Équipe 2";
+
+        // Chercher un joueur de chaque équipe pour récupérer leur pseudo
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null)
+        {
+            foreach (PlayerRef player in runner.ActivePlayers)
+            {
+                bool isTeam1 = (player.PlayerId % 2 != 0);
+                if (isTeam1)
+                {
+                    team1Name = PlayerNamesManager.Instance?.GetPlayerName(player.PlayerId) ?? "Équipe Jaune";
+                    break;  // On n'a besoin que d'un représentant de l'équipe
+                }
+            }
+
+            foreach (PlayerRef player in runner.ActivePlayers)
+            {
+                bool isTeam1 = (player.PlayerId % 2 != 0);
+                if (!isTeam1)
+                {
+                    team2Name = PlayerNamesManager.Instance?.GetPlayerName(player.PlayerId) ?? "Équipe Rouge";
+                    break;  // On n'a besoin que d'un représentant de l'équipe
+                }
+            }
+        }
+
+        return $"{team1Name} {Team1ScoreNet} - {Team2ScoreNet} {team2Name}";
     }
 
     public override void ResetScores()
@@ -160,7 +189,7 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-    
+
     public void ApplySyncedScore(int team1Score, int team2Score)
     {
         Team1ScoreNet = team1Score;

@@ -99,9 +99,10 @@ public class TurnUI : MonoBehaviour
 
             if (stateText != null)
             {
+                // ✨ FIX: Afficher simplement le pseudo sans "Joueur" redondant
                 stateText.text = isDraw
                     ? "Match nul !"
-                    : $"🎉 Victoire du Joueur {winnerName} !";
+                    : $"🎉 Victoire de {winnerName} !";
             }
 
             return;
@@ -234,7 +235,7 @@ public class TurnUI : MonoBehaviour
         pauseMessageGroup.alpha = 0f;
     }
 
-private void DetectBallDeaths()
+    private void DetectBallDeaths()
     {
         // Mode Local
         foreach (var ball in LocalBallAimController.AllBalls)
@@ -247,7 +248,7 @@ private void DetectBallDeaths()
 
             if (isDeadNow && !wasDead)
             {
-                int ownerId = ball.OwnerPlayerId; 
+                int ownerId = ball.OwnerPlayerId;
                 string ownerName = _turnManager.GetPlayerName(ownerId);
                 _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !";
                 _eventMessageTimer = ballDownMessageDuration;

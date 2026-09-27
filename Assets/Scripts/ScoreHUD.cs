@@ -1,5 +1,6 @@
-using UnityEngine;
+using Fusion;
 using TMPro;
+using UnityEngine;
 
 /// <summary>
 /// ✅ HUD Score Avancé
@@ -64,6 +65,7 @@ public class ScoreHUD : MonoBehaviour
 
     /// <summary>
     /// Callback appelé quand le score change
+    /// ✨ FIX: Afficher les pseudonymes des joueurs au lieu de "Jaune" et "Rouge"
     /// </summary>
     private void UpdateScoreDisplay(int team1Score, int team2Score)
     {
@@ -80,13 +82,17 @@ public class ScoreHUD : MonoBehaviour
         lastTeam1Score = team1Score;
         lastTeam2Score = team2Score;
 
-        // Formater avec couleurs
-        string team1Text = $"<color=#{ColorUtility.ToHtmlStringRGB(team1Color)}><b>Jaune {team1Score}</b></color>";
-        string team2Text = $"<color=#{ColorUtility.ToHtmlStringRGB(team2Color)}><b>Rouge {team2Score}</b></color>";
+        // ✨ FIX: Récupérer les pseudonymes des deux équipes
+        string team1Name = GetTeamName(0);  // PlayerId impair = Team1
+        string team2Name = GetTeamName(1);  // PlayerId pair = Team2
+
+        // Formater avec couleurs et pseudonymes
+        string team1Text = $"<color=#{ColorUtility.ToHtmlStringRGB(team1Color)}><b>{team1Name} {team1Score}</b></color>";
+        string team2Text = $"<color=#{ColorUtility.ToHtmlStringRGB(team2Color)}><b>{team2Name} {team2Score}</b></color>";
 
         scoreText.text = $"{team1Text} <size=80%>-</size> {team2Text}";
 
-        // Debug.Log($"[ScoreHUD] 📊 Score mis à jour : Jaune {team1Score} - {team2Score} Rouge");
+        // Debug.Log($"[ScoreHUD] 📊 Score mis à jour : {team1Name} {team1Score} - {team2Score} {team2Name}");
 
         // Mise à jour du statut
         if (ScoreManagerBase.Instance != null)
@@ -95,20 +101,47 @@ public class ScoreHUD : MonoBehaviour
 
             if (team1Score >= winCondition)
             {
-                UpdateStatus($"🎉 Victoire Équipe Jaune ! ({team1Score}/{winCondition})");
+                UpdateStatus($"🎉 Victoire {team1Name} ! ({team1Score}/{winCondition})");
             }
             else if (team2Score >= winCondition)
             {
-                UpdateStatus($"🎉 Victoire Équipe Rouge ! ({team2Score}/{winCondition})");
+                UpdateStatus($"🎉 Victoire {team2Name} ! ({team2Score}/{winCondition})");
             }
             else
             {
                 // Afficher la progression
                 int remainingTeam1 = winCondition - team1Score;
                 int remainingTeam2 = winCondition - team2Score;
-                UpdateStatus($"Jaune à {remainingTeam1} point(s) | Rouge à {remainingTeam2} point(s)");
+                UpdateStatus($"{team1Name} à {remainingTeam1} point(s) | {team2Name} à {remainingTeam2} point(s)");
             }
         }
+    }
+
+    /// <summary>
+    /// ✨ FIX: Récupère le pseudonyme du joueur représentant l'équipe
+    /// teamIndex 0 = Team1 (PlayerId impair), 1 = Team2 (PlayerId pair)
+    /// </summary>
+    private string GetTeamName(int teamIndex)
+    {
+        var runner = FindFirstObjectByType<NetworkRunner>();
+        if (runner != null)
+        {
+            foreach (PlayerRef player in runner.ActivePlayers)
+            {
+                bool isTeam1 = (player.PlayerId % 2 != 0);
+                bool isTargetTeam = (teamIndex == 0) ? isTeam1 : !isTeam1;
+
+                if (isTargetTeam)
+                {
+                    string pseudo = PlayerNamesManager.Instance?.GetPlayerName(player.PlayerId);
+                    if (!string.IsNullOrEmpty(pseudo))
+                        return pseudo;
+                }
+            }
+        }
+
+        // Fallback si aucun joueur trouvé
+        return teamIndex == 0 ? "Équipe Jaune" : "Équipe Rouge";
     }
 
     /// <summary>

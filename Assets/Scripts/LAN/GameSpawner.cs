@@ -126,7 +126,12 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
         if (spawnPoints == null || spawnPoints.Length == 0)
         {
-            Debug.LogError($"[GameSpawner] ❌ Erreur : SpawnPoints non assignés pour {(isPlayer1 ? "Joueur 1" : "Joueur 2")} !");
+            // ✨ FIX: Utiliser le vrai pseudo au lieu de "Joueur 1" / "Joueur 2"
+            localPlayer = _runner.LocalPlayer;
+            string playerName = PlayerNamesManager.Instance?.GetPlayerName(localPlayer.PlayerId) 
+                              ?? $"Joueur_{localPlayer.PlayerId}";
+            
+            Debug.LogError($"[GameSpawner] ❌ Erreur : SpawnPoints non assignés pour {playerName}!");
             return;
         }
 
@@ -173,7 +178,10 @@ public class GameSpawner : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        Debug.Log("[GameSpawner] ✅ Joueur local spawné. Notification de disponibilité à TurnManager (arrière-plan)...");
+        // ✨ FIX: Afficher le vrai pseudo au lieu de "Joueur local"
+        string localPlayerName = PlayerNamesManager.Instance?.GetPlayerName(_runner.LocalPlayer.PlayerId) 
+                               ?? $"Joueur_{_runner.LocalPlayer.PlayerId}";
+        Debug.Log($"[GameSpawner] ✅ {localPlayerName} spawné. Notification de disponibilité à TurnManager...");
 
         // ✅ Fire-and-forget : cet appel ne bloque plus rien ici. Il ne sert qu'à
         // faire avancer le compteur de TurnManager (PlayersReadyToSpawn) pour que
