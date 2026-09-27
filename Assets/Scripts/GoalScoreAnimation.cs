@@ -49,7 +49,12 @@ public static class GoalScoreAnimation
         {
             rb.velocity = Vector2.zero;
             rb.angularVelocity = 0f;
-            rb.isKinematic = true;
+            // ✅ FIX : isKinematic = true a été retiré. Il n'était pas nécessaire (le collider
+            // est déjà désactivé ci-dessus et l'animation pilote transform directement, sans
+            // physique), et il obligeait chaque appelant à penser à le remettre à false plus
+            // tard. C'est précisément ce qui causait le bug "ballon bloqué en Kinematic" en
+            // local (ResetForNewRound() interrompait la coroutine via StopAllCoroutines()
+            // avant qu'elle n'atteigne ResetBall(), qui seul remettait isKinematic = false).
         }
     }
 }

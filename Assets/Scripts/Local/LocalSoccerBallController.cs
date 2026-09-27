@@ -129,6 +129,14 @@ public class LocalSoccerBallController : MonoBehaviour
         {
             _rb.velocity = Vector2.zero;
             _rb.angularVelocity = 0f;
+            // ✅ FIX : GoalScoreAnimation.Run() met le ballon en Kinematic à la fin de
+            // l'animation de but, et seul ResetBall() (appelé par la coroutine interne du
+            // ballon) le remettait en Dynamic. Comme StopAllCoroutines() ci-dessus interrompt
+            // cette coroutine si elle n'est pas encore arrivée jusque-là, le ballon restait
+            // bloqué en Kinematic pour le reste de la partie. On restaure donc l'état physique
+            // ici aussi, pour que ResetForNewRound() soit fiable indépendamment du timing.
+            _rb.isKinematic = false;
+            _rb.bodyType = RigidbodyType2D.Dynamic;
         }
 
         // Réinitialise la couleur si nécessaire

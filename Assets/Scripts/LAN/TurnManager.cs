@@ -273,34 +273,47 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     }
 
     /// <summary>
-    /// Appelée par PauseManager quand l'appareil passe en portrait (réseau)
+    /// Appelée par PauseManager quand l'appareil passe en portrait (réseau).
+    /// ✅ FIX : convertie en simple relais vers une RPC ciblant l'autorité. Avant, le
+    /// "if (HasStateAuthority)" bloquait silencieusement tout appel venant d'un client qui
+    /// n'est pas l'hôte : la pause ne fonctionnait donc que pour le joueur ayant l'autorité
+    /// réseau. Désormais, n'importe quel pair peut déclencher la RPC ; Fusion garantit que
+    /// son corps ne s'exécute que sur l'autorité, qui peut alors modifier IsGamePaused
+    /// ([Networked]) et notifier tout le monde.
     /// </summary>
     public void PauseGameNetwork(int playerId)
     {
-        if (HasStateAuthority)
-        {
-            // ✅ Seul le Master peut modifier [Networked]
-            IsGamePaused = true;
-            _pausedByPlayerId = playerId;
-
-            // ✅ RPC pour notifier tous les clients
-            RPC_NotifyPauseStatus(playerId);
-        }
+        RPC_RequestPause(playerId);
     }
 
     /// <summary>
-    /// Appelée par PauseManager quand l'appareil revient en paysage (réseau)
+    /// Appelée par PauseManager quand l'appareil revient en paysage (réseau).
+    /// ✅ FIX : même correctif que PauseGameNetwork ci-dessus.
     /// </summary>
     public void ResumeGameNetwork()
     {
-        if (HasStateAuthority)
-        {
-            IsGamePaused = false;
-            _pausedByPlayerId = -1;
+        RPC_RequestResume();
+    }
 
-            // ✅ RPC pour notifier tous les clients
-            RPC_NotifyResumeStatus();
-        }
+    /// <summary>
+    /// ✅ FIX : RPC envoyée par N'IMPORTE QUEL pair (RpcSources.All) mais dont le corps ne
+    /// s'exécute que sur l'autorité (RpcTargets.StateAuthority) — c'est le pont manquant
+    /// qui permettait à l'hôte de mettre en pause mais pas au client.
+    /// </summary>
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RPC_RequestPause(int playerId)
+    {
+        IsGamePaused = true;
+        _pausedByPlayerId = playerId;
+        RPC_NotifyPauseStatus(playerId);
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RPC_RequestResume()
+    {
+        IsGamePaused = false;
+        _pausedByPlayerId = -1;
+        RPC_NotifyResumeStatus();
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
