@@ -180,6 +180,8 @@ public class TurnUI : MonoBehaviour
     }
     /// <summary>
     /// Affiche le message que l'autre joueur a mis en pause
+    /// 
+    /// 
     /// </summary>
     public void ShowPauseMessage(string playerName)
     {
@@ -193,6 +195,7 @@ public class TurnUI : MonoBehaviour
             StopAllCoroutines();
             StartCoroutine(FadeInPauseMessage());
         }
+        Time.timeScale = 0f;
     }
 
     /// <summary>
@@ -205,6 +208,7 @@ public class TurnUI : MonoBehaviour
             StopAllCoroutines();
             StartCoroutine(FadeOutPauseMessage());
         }
+        Time.timeScale = 1f;
     }
 
     private IEnumerator FadeInPauseMessage()

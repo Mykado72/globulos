@@ -227,6 +227,13 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     private async void SaveNicknameAndStart()
     {
         SetAllButtonsInteractable(false);
+        if (_isVsAIMode)
+        {
+            // Mode solo → Charger la scène locale SANS Fusion
+            GameModeManager.Instance.IsVsAI = true;
+            SceneManager.LoadScene("GameSceneLocal");
+            return;  // 🔴 CRUCIAL : sortir d'ici, pas de code Fusion
+        }
 
         // 🔴 Attendre que le join du lobby soit bien terminé avant de toucher au runner
         if (_lobbyJoinTask != null && !_lobbyJoinTask.IsCompleted)

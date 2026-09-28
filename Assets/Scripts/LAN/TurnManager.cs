@@ -321,6 +321,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     {
         string playerName = GetPlayerName(playerId);
         Debug.Log($"⏸️ {playerName} a mis le jeu en pause");
+        
 
         // ✅ Afficher UI avec message
         if (TurnUI.Instance != null)
