@@ -344,22 +344,8 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
     public string GetPlayerName(int playerId)
     {
-        // ✅ Cherche d'abord dans les PlayerData réseau
-        foreach (var player in FindObjectsByType<PlayerData>(FindObjectsSortMode.None))
-        {
-            if (player.Object != null && player.Object.InputAuthority.PlayerId == playerId)
-            {
-                return player.Nickname;
-            }
-        }
-
-        // ✨ Fallback : nom enregistré localement (pour le bot en vs IA réseau)
-        if (PlayerNamesManager.Instance != null)
-        {
-            return PlayerNamesManager.Instance.GetPlayerName(playerId);
-        }
-
-        return $"Joueur {playerId}";
+        // ✅ Résolution centralisée (PlayerData réseau → PlayerNamesManager → fallback)
+        return PlayerNameHelper.GetPlayerName(playerId);
     }
 
     public void RequestWinBySoccerGoal(int winnerId)

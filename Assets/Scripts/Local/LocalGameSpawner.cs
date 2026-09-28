@@ -32,7 +32,7 @@ public class LocalGameSpawner : MonoBehaviour
 
     private void SpawnLocalGame()
     {
-        string playerNickname = PlayerPrefs.GetString("playerNickname", "Joueur");
+        string playerNickname = (!string.IsNullOrWhiteSpace(PlayerNameHelper.LocalNickname) ? PlayerNameHelper.LocalNickname : PlayerPrefs.GetString("playerNickname", "Joueur"));
 
         // 1. Spawn des billes du Joueur Humain (Joueur 1)
         int i = 0;

@@ -64,7 +64,14 @@ public class PlayerDataSpawner : MonoBehaviour, INetworkRunnerCallbacks
 
             PlayerData playerData = spawnedPlayerData.GetComponent<PlayerData>();
 
-            string playerNickname = lobbyManager != null ? lobbyManager.playerNickname : "Joueur";
+            string playerNickname = PlayerNameHelper.LocalNickname;
+            if (string.IsNullOrEmpty(playerNickname))
+                playerNickname = lobbyManager?.playerNickname;
+            if (string.IsNullOrEmpty(playerNickname))
+                playerNickname = $"Joueur_{player.PlayerId}";
+
+            // ✨ Le joueur local connaît son propre pseudo immédiatement (avant tout aller-retour réseau)
+            PlayerNamesManager.Instance?.SetPlayerName(player.PlayerId, playerNickname);
 
             if (playerData != null)
             {

@@ -54,6 +54,10 @@ public class BallAimController : NetworkBehaviour
     public PlayerRef Owner => _networkObject.StateAuthority;
 
     [Networked] public int OwnerPlayerId { get; set; }
+
+    // ✨ Pseudo du propriétaire, répliqué avec la bille (lu par PlayerNameHelper / Render)
+    [Networked, Capacity(32)] public string OwnerNickname { get; set; }
+    private string _lastPushedOwnerNickname;
     [Networked] public bool IsDead { get; set; }
     [Networked] public bool IsMoving { get; set; }
 
@@ -140,30 +144,70 @@ public class BallAimController : NetworkBehaviour
         // être appelée (voir PlayerData). C'est donc chaque propriétaire réel qui envoie
         // lui-même son pseudo, dès qu'il reçoit sa bille — reste valide même une fois la
         // State Authority reprise par le Master juste au-dessus.
-        if (HasInputAuthority && TryGetComponent(out PlayerData playerData))
+        // ✨ FIX v2 : le pseudo voyage maintenant AVEC LA BILLE (OwnerNickname, [Networked]) :
+        // plus besoin que le prefab de bille porte un PlayerData ni que PlayerDataSpawner ait tourné.
+        if (HasInputAuthority)
         {
-            // ✨ FIX: Utiliser PlayerNamesManager en priorité pour obtenir le vrai pseudo
-            string nickname = PlayerNamesManager.Instance?.GetPlayerName(Object.InputAuthority.PlayerId);
+            string nickname = ResolveLocalNickname();
+            int ownerId = Object.InputAuthority.PlayerId;
 
-            // Fallback 1: extraire du token de connexion
-            if (string.IsNullOrEmpty(nickname))
+            // Le joueur local connaît immédiatement son propre pseudo
+            PlayerNamesManager.Instance?.SetPlayerName(ownerId, nickname);
+
+            // Publier le pseudo sur la bille (on est encore State Authority à cet instant)
+            if (HasStateAuthority) OwnerNickname = nickname;
+
+            // Compatibilité : si la bille porte aussi un PlayerData, on l'alimente également
+            if (TryGetComponent(out PlayerData playerData))
             {
-                byte[] token = Runner.GetPlayerConnectionToken(Runner.LocalPlayer);
-                if (token != null && token.Length > 0)
-                {
-                    nickname = System.Text.Encoding.UTF8.GetString(token);
-                }
+                playerData.RPC_SetPlayerInfo(nickname, ownerId);
             }
-
-            // Fallback 2: générer avec PlayerId si tout le reste échoue
-            if (string.IsNullOrEmpty(nickname))
-            {
-                nickname = $"Joueur_{Object.InputAuthority.PlayerId}";
-            }
-
-            Debug.Log($"[BallAimController] 🎯 Pseudo défini pour local player: {nickname}");
-            playerData.RPC_SetPlayerInfo(nickname, Object.InputAuthority.PlayerId);
         }
+    }
+
+    /// <summary>
+    /// Pseudo du joueur local : PlayerNamesManager (si VRAI pseudo) → PlayerPrefs (écrit par le Lobby
+    /// avant StartGame) → token de connexion → "Joueur_X".
+    /// </summary>
+    private string ResolveLocalNickname()
+    {
+        int id = Object.InputAuthority.PlayerId;
+
+        // 1️⃣ Pseudo en mémoire de CETTE instance (posé par LobbyManager)
+        if (!string.IsNullOrWhiteSpace(PlayerNameHelper.LocalNickname))
+            return PlayerNameHelper.LocalNickname;
+
+        // 2️⃣ Pseudo déjà connu localement pour ce joueur
+        if (PlayerNamesManager.Instance != null &&
+            PlayerNamesManager.Instance.TryGetPlayerName(id, out string known) &&
+            !PlayerNameHelper.IsPlaceholder(id, known))
+            return known;
+
+        // 3️⃣ Token de connexion (le Lobby y met le pseudo)
+        if (Runner != null)
+        {
+            byte[] token = Runner.GetPlayerConnectionToken(Runner.LocalPlayer);
+            if (token != null && token.Length > 0)
+            {
+                string fromToken = System.Text.Encoding.UTF8.GetString(token);
+                if (!string.IsNullOrWhiteSpace(fromToken)) return fromToken;
+            }
+        }
+
+        // ℹ️ PlayerPrefs n'est volontairement PAS utilisé ici : il ne sert qu'à pré-remplir le
+        // champ du Lobby (et peut être partagé entre deux instances lancées sur la même machine).
+        return $"Joueur_{id}";
+    }
+
+    /// <summary>Chaque client recopie le pseudo répliqué de la bille dans son PlayerNamesManager local.</summary>
+    public override void Render()
+    {
+        if (_lastPushedOwnerNickname == OwnerNickname) return;
+        _lastPushedOwnerNickname = OwnerNickname;
+
+        if (string.IsNullOrWhiteSpace(OwnerNickname) || PlayerNamesManager.Instance == null) return;
+        int id = OwnerPlayerId != 0 ? OwnerPlayerId : (Object != null ? Object.InputAuthority.PlayerId : 0);
+        if (id != 0) PlayerNamesManager.Instance.SetPlayerName(id, OwnerNickname);
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -174,6 +218,8 @@ public class BallAimController : NetworkBehaviour
     public void SetOwner(int playerId)
     {
         OwnerPlayerId = playerId;
+        if (HasStateAuthority && HasInputAuthority && string.IsNullOrEmpty(OwnerNickname))
+            OwnerNickname = ResolveLocalNickname();
         _botAI?.SetOwnerPlayerId(playerId);
     }
 

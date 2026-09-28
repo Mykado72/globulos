@@ -8,11 +8,48 @@ using UnityEngine;
 /// Raison: Évite les risques de désynchronisation entre l'état local et réseau
 public class PlayerData : NetworkBehaviour
 {
-    [Networked]
+    [Networked, Capacity(32)]
     public string Nickname { get; private set; }
 
     [Networked]
     public int PlayerId { get; private set; }
+
+    /// <summary>Registre statique de tous les PlayerData vivants (évite FindObjectsByType à chaque affichage).</summary>
+    public static readonly List<PlayerData> All = new List<PlayerData>();
+
+    private string _lastPushedNickname;
+
+    public override void Spawned()
+    {
+        if (!All.Contains(this)) All.Add(this);
+        PushNameToManager();
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        All.Remove(this);
+    }
+
+    /// <summary>
+    /// ✨ FIX PRINCIPAL : Nickname est [Networked] donc répliqué chez tout le monde, mais le
+    /// PlayerNamesManager n'était rempli que côté StateAuthority (dans le RPC).
+    /// Ici CHAQUE client recopie le pseudo répliqué dans son PlayerNamesManager local.
+    /// </summary>
+    public override void Render()
+    {
+        if (Nickname != _lastPushedNickname) PushNameToManager();
+    }
+
+    private void PushNameToManager()
+    {
+        _lastPushedNickname = Nickname;
+        if (Object == null || PlayerNamesManager.Instance == null) return;
+
+        // Clé = InputAuthority (fiable dès le spawn), PlayerId networké n'est parfois pas encore arrivé
+        int id = Object.InputAuthority.IsNone ? PlayerId : Object.InputAuthority.PlayerId;
+        if (!PlayerNameHelper.IsPlaceholder(id, Nickname))
+            PlayerNamesManager.Instance.SetPlayerName(id, Nickname);
+    }
 
     /// <summary>
     /// ✨ FIX: RPC unique pour définir les infos du joueur
@@ -29,11 +66,8 @@ public class PlayerData : NetworkBehaviour
         PlayerId = playerId;
 
 
-        // ✅ Mise à jour immédiate du PlayerNamesManager local
-        if (PlayerNamesManager.Instance != null && !string.IsNullOrEmpty(Nickname))
-        {
-            PlayerNamesManager.Instance.SetPlayerName(PlayerId, Nickname);
-        }
+        // ✅ Mise à jour immédiate du PlayerNamesManager local (les autres clients passent par Render())
+        PushNameToManager();
     }
 
     /// <summary>

@@ -204,6 +204,30 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    /// <summary>
+    /// ✨ Lit le pseudo dans playerNicknameInput (source de vérité), le nettoie, génère un pseudo
+    /// si le champ est vide, puis le mémorise :
+    ///  - PlayerNameHelper.LocalNickname : en mémoire, propre à CETTE instance (utilisé en jeu)
+    ///  - PlayerPrefs : uniquement pour PRÉ-REMPLIR le champ au prochain lancement
+    /// </summary>
+    private void CommitNicknameFromInput()
+    {
+        string typed = playerNicknameInput != null ? playerNicknameInput.text : null;
+        typed = typed?.Trim();
+
+        if (string.IsNullOrEmpty(typed))
+        {
+            typed = $"Joueur_{System.Guid.NewGuid().ToString().Substring(0, 5).ToUpper()}";
+            if (playerNicknameInput != null) playerNicknameInput.text = typed;
+        }
+
+        _playerNickname = typed;
+        PlayerNameHelper.LocalNickname = _playerNickname;
+
+        PlayerPrefs.SetString("playerNickname", _playerNickname);
+        PlayerPrefs.Save();
+    }
+
     private void OnPlayButtonPressed()
     {
         _isVsAIMode = false;
@@ -227,6 +251,10 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     private async void SaveNicknameAndStart()
     {
         SetAllButtonsInteractable(false);
+
+        // ✨ Le pseudo vient TOUJOURS du champ de saisie (PlayerPrefs ne sert qu'à le pré-remplir)
+        CommitNicknameFromInput();
+
         if (_isVsAIMode)
         {
             // Mode solo → Charger la scène locale SANS Fusion
@@ -240,21 +268,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             await _lobbyJoinTask;
         _isInLobby = false;
 
-        if (playerNicknameInput != null && !string.IsNullOrWhiteSpace(playerNicknameInput.text))
-        {
-            _playerNickname = playerNicknameInput.text;
-        }
-        else
-        {
-            // ✨ FIX: Générer un pseudo unique au lieu de "Joueur" générique
-            if (string.IsNullOrEmpty(_playerNickname) || _playerNickname.StartsWith("Joueur_"))
-            {
-                _playerNickname = $"Joueur_{System.Guid.NewGuid().ToString().Substring(0, 5).ToUpper()}";
-            }
-        }
-
-        PlayerPrefs.SetString("playerNickname", _playerNickname);
-        PlayerPrefs.Save();
+        // (pseudo déjà lu dans playerNicknameInput par CommitNicknameFromInput() plus haut)
 
         string roomName = GetTargetRoomName();
 

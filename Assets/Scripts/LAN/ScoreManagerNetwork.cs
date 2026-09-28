@@ -118,7 +118,7 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
                 bool isTeam1 = (player.PlayerId % 2 != 0);
                 if (isTeam1)
                 {
-                    team1Name = PlayerNamesManager.Instance?.GetPlayerName(player.PlayerId) ?? "Équipe Jaune";
+                    team1Name = PlayerNameHelper.TryGetRealName(player.PlayerId, out string n1) ? n1 : "Équipe Jaune";
                     break;  // On n'a besoin que d'un représentant de l'équipe
                 }
             }
@@ -128,7 +128,7 @@ public class ScoreManagerNetwork : ScoreManagerBase, INetworkRunnerCallbacks
                 bool isTeam1 = (player.PlayerId % 2 != 0);
                 if (!isTeam1)
                 {
-                    team2Name = PlayerNamesManager.Instance?.GetPlayerName(player.PlayerId) ?? "Équipe Rouge";
+                    team2Name = PlayerNameHelper.TryGetRealName(player.PlayerId, out string n2) ? n2 : "Équipe Rouge";
                     break;  // On n'a besoin que d'un représentant de l'équipe
                 }
             }

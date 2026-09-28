@@ -113,7 +113,7 @@ public class SoccerBallController : NetworkBehaviour
             transform, GetComponent<SpriteRenderer>(), GetComponent<Rigidbody2D>(), GetComponent<Collider2D>(),
             fallDuration, totalRotation, targetScaleFraction, goalGrayColor));
 
-        string scorerName = TurnManager.Instance != null ? TurnManager.Instance.GetPlayerName(scorerId) : $"Joueur {scorerId}";
+        string scorerName = PlayerNameHelper.GetPlayerName(scorerId);
         if (GoalCelebrationUI.Instance == null)
         {
             Debug.LogWarning("[SoccerBallController] ⚠️ GoalCelebrationUI.Instance est null — as-tu bien un GameObject avec ce script dans la scène ?");

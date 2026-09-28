@@ -26,6 +26,10 @@ public class ScoreHUD : MonoBehaviour
     [SerializeField] private bool enableAnimation = true;
     [SerializeField] private float animationDuration = 0.3f;
 
+    private string _shownTeam1Name;
+    private string _shownTeam2Name;
+    private float _nameRefreshTimer;
+
     private int lastTeam1Score = -1;
     private int lastTeam2Score = -1;
 
@@ -44,6 +48,9 @@ public class ScoreHUD : MonoBehaviour
             ScoreManagerBase.Instance.OnScoreChanged += UpdateScoreDisplay;
             // Affichage initial
             UpdateScoreDisplay(0, 0);
+            // ✨ Rafraîchir le HUD quand un pseudo arrive (il peut arriver APRÈS le premier affichage)
+            if (PlayerNamesManager.Instance != null)
+                PlayerNamesManager.Instance.OnNameChanged += OnPlayerNameChanged;
             // Debug.Log("[ScoreHUD] ✅ Abonné aux changements de score");
         }
         else
@@ -54,8 +61,33 @@ public class ScoreHUD : MonoBehaviour
         UpdateStatus("Jeu commencé");
     }
 
+    // ✨ Filet de sécurité : les pseudos peuvent arriver après l'affichage (répliqués par Fusion),
+    // on revérifie 2 fois par seconde et on redessine seulement si un nom a changé.
+    private void Update()
+    {
+        _nameRefreshTimer -= Time.unscaledDeltaTime;
+        if (_nameRefreshTimer > 0f) return;
+        _nameRefreshTimer = 0.5f;
+
+        if (ScoreManagerBase.Instance == null) return;
+        if (GetTeamName(0) == _shownTeam1Name && GetTeamName(1) == _shownTeam2Name) return;
+
+        var (t1, t2) = ScoreManagerBase.Instance.GetScores();
+        UpdateScoreDisplay(t1, t2);
+    }
+
+    private void OnPlayerNameChanged(int playerId, string name)
+    {
+        if (ScoreManagerBase.Instance == null) return;
+        var (t1, t2) = ScoreManagerBase.Instance.GetScores();
+        UpdateScoreDisplay(t1, t2);
+    }
+
     private void OnDestroy()
     {
+        if (PlayerNamesManager.Instance != null)
+            PlayerNamesManager.Instance.OnNameChanged -= OnPlayerNameChanged;
+
         // Se désabonner pour éviter les memory leaks
         if (ScoreManagerBase.Instance != null)
         {
@@ -85,6 +117,8 @@ public class ScoreHUD : MonoBehaviour
         // ✨ FIX: Récupérer les pseudonymes des deux équipes
         string team1Name = GetTeamName(0);  // PlayerId impair = Team1
         string team2Name = GetTeamName(1);  // PlayerId pair = Team2
+        _shownTeam1Name = team1Name;
+        _shownTeam2Name = team2Name;
 
         // Formater avec couleurs et pseudonymes
         string team1Text = $"<color=#{ColorUtility.ToHtmlStringRGB(team1Color)}><b>{team1Name} {team1Score}</b></color>";
@@ -133,8 +167,7 @@ public class ScoreHUD : MonoBehaviour
 
                 if (isTargetTeam)
                 {
-                    string pseudo = PlayerNamesManager.Instance?.GetPlayerName(player.PlayerId);
-                    if (!string.IsNullOrEmpty(pseudo))
+                    if (PlayerNameHelper.TryGetRealName(player.PlayerId, out string pseudo))
                         return pseudo;
                 }
             }
