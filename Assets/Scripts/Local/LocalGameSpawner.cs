@@ -76,7 +76,7 @@ public class LocalGameSpawner : MonoBehaviour
         {
             GameModeManager.Instance.BotPlayerId = botPlayerId;
         }
-        PlayerNamesManager.Instance?.SetPlayerName(botPlayerId, "🤖 IA");
+        PlayerNamesManager.Instance?.SetPlayerName(botPlayerId, "IA");
 
         // 3. Spawn du ballon de football
         if (soccerBallPrefab != null)

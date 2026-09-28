@@ -118,7 +118,15 @@ public class SoccerBallController : NetworkBehaviour
         {
             Debug.LogWarning("[SoccerBallController] ⚠️ GoalCelebrationUI.Instance est null — as-tu bien un GameObject avec ce script dans la scène ?");
         }
-        GoalCelebrationUI.Instance?.PlayGoalCelebration(scorerName);
+
+        // ✨ Cette RPC s'exécute chez TOUS les clients : chacun décide pour LUI-MÊME.
+        // Célébration si son équipe a marqué (même parité de PlayerId = même équipe, voir
+        // FindScoringPlayer), animation "LOOSER" sinon.
+        bool localPlayerScored = Runner != null &&
+            (Runner.LocalPlayer.PlayerId == scorerId ||
+             Runner.LocalPlayer.PlayerId % 2 == scorerId % 2);
+        Debug.Log($"[SoccerBallController] 🎬 RPC but reçue : scorerId={scorerId}, localPlayerId={(Runner != null ? Runner.LocalPlayer.PlayerId : -1)}, localPlayerScored={localPlayerScored}, GoalCelebrationUI={(GoalCelebrationUI.Instance != null)}");
+        GoalCelebrationUI.Instance?.PlayGoalOutcome(scorerName, localPlayerScored);
     }
 
     /// 

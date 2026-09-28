@@ -107,7 +107,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         if (sceneIndex < 0)
         {
             Debug.LogError("❌ Scène 'GameSceneLAN' non trouvée dans les Build Settings !");
-            UpdateStatus("❌ Erreur de configuration : scène introuvable.");
+            UpdateStatus("Erreur de configuration : scène introuvable.");
             _isLoadingScene = false;
             yield break;
         }
@@ -138,7 +138,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
         // 🔴 Après un VRAI échec (rien n'a jamais confirmé), on informe sans relancer
         // LoadScene par-dessus un chargement peut-être encore actif.
-        UpdateStatus("❌ Le chargement prend trop de temps. Rechargez la page si besoin.");
+        UpdateStatus("Le chargement prend trop de temps. Rechargez la page si besoin.");
         _isLoadingScene = false;
     }
     private void Awake()
@@ -200,7 +200,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
         else
         {
-            UpdateStatus($"❌ Échec de connexion au Lobby : {result.ShutdownReason}");
+            UpdateStatus($"Échec de connexion au Lobby : {result.ShutdownReason}");
         }
     }
 
@@ -335,7 +335,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
         }
         else
         {
-            UpdateStatus($"❌ Échec : {result.ShutdownReason}");
+            UpdateStatus($"Échec : {result.ShutdownReason}");
 
             // 🔴 FIX : si on échoue et qu'on revient au lobby, il faut redonner la main
             // à la logique de lobby (boutons + OnSessionListUpdated) explicitement.
@@ -369,7 +369,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             if (joinRoomButton != null) joinRoomButton.interactable = true;
 
             if (roomStatusText != null)
-                roomStatusText.text = $"🟢 Room '{GetTargetRoomName()}' disponible !";
+                roomStatusText.text = $"Room '{GetTargetRoomName()}' disponible !";
         }
         else
         {
@@ -377,7 +377,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
             if (joinRoomButton != null) joinRoomButton.interactable = false;
 
             if (roomStatusText != null)
-                roomStatusText.text = $"⚪ Aucune partie '{GetTargetRoomName()}' en cours";
+                roomStatusText.text = $"Aucune partie '{GetTargetRoomName()}' en cours";
         }
     }
 

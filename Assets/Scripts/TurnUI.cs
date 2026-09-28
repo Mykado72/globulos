@@ -102,7 +102,7 @@ public class TurnUI : MonoBehaviour
                 // ✨ FIX: Afficher simplement le pseudo sans "Joueur" redondant
                 stateText.text = isDraw
                     ? "Match nul !"
-                    : $"🎉 Victoire de {winnerName} !";
+                    : $"Victoire de {winnerName} !";
             }
 
             return;
@@ -123,7 +123,7 @@ public class TurnUI : MonoBehaviour
             }
             else if (stateText != null)
             {
-                stateText.text = "⚽ GOAAALLLLL !!!!!!";
+                stateText.text = "GOAAALLLLL !!!!!!";
             }
 
             return;
@@ -187,7 +187,7 @@ public class TurnUI : MonoBehaviour
     {
         if (pauseMessageText == null) return;
 
-        pauseMessageText.text = $"⏸️ {playerName}\na mis en pause";
+        pauseMessageText.text = $"{playerName}\na mis en pause";
 
         // ✅ Animation fade in
         if (pauseMessageGroup != null)
@@ -254,7 +254,7 @@ public class TurnUI : MonoBehaviour
             {
                 int ownerId = ball.OwnerPlayerId;
                 string ownerName = _turnManager.GetPlayerName(ownerId);
-                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !";
+                _eventMessage = $"Une bille de {ownerName} est tombée dans un but !";
                 _eventMessageTimer = ballDownMessageDuration;
             }
 
@@ -274,7 +274,7 @@ public class TurnUI : MonoBehaviour
             {
                 int ownerId = ball.OwnerPlayerId;
                 string ownerName = _turnManager.GetPlayerName(ownerId);
-                _eventMessage = $"💥 Une bille de {ownerName} est tombée dans un but !";
+                _eventMessage = $"Une bille de {ownerName} est tombée dans un but !";
                 _eventMessageTimer = ballDownMessageDuration;
             }
 

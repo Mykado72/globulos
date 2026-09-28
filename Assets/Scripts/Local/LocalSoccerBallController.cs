@@ -58,7 +58,9 @@ public class LocalSoccerBallController : MonoBehaviour
         {
             Debug.LogWarning("[LocalSoccerBallController] ⚠️ GoalCelebrationUI.Instance est null — as-tu bien un GameObject avec ce script dans la scène ?");
         }
-        GoalCelebrationUI.Instance?.PlayGoalCelebration(TurnManagerFactory.GetPlayerName(scorerId));
+        // ✨ Mode Local : le joueur humain est toujours le Joueur 1 (voir LocalGameSpawner) ;
+        // si c'est l'IA qui marque, on affiche l'animation "LOOSER" au lieu de la célébration.
+        GoalCelebrationUI.Instance?.PlayGoalOutcome(TurnManagerFactory.GetPlayerName(scorerId), scorerId == 1);
 
         // ✅ FIX : Ajouter le point au lieu de terminer immédiatement
         if (ScoreManagerLocal.Instance != null)

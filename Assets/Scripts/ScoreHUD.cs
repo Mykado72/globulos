@@ -135,11 +135,11 @@ public class ScoreHUD : MonoBehaviour
 
             if (team1Score >= winCondition)
             {
-                UpdateStatus($"🎉 Victoire {team1Name} ! ({team1Score}/{winCondition})");
+                UpdateStatus($"Victoire {team1Name} ! ({team1Score}/{winCondition})");
             }
             else if (team2Score >= winCondition)
             {
-                UpdateStatus($"🎉 Victoire {team2Name} ! ({team2Score}/{winCondition})");
+                UpdateStatus($"Victoire {team2Name} ! ({team2Score}/{winCondition})");
             }
             else
             {
