@@ -2009,21 +2009,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bdc110ff4c66a44388b49815ea07597, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shootClips: []
-  bounceClips: []
+  shootClips:
+  - {fileID: 8300000, guid: 0ce4b02978565dd4ea41d9daeea9d7d0, type: 3}
+  bounceClips:
+  - {fileID: 8300000, guid: 0ce4b02978565dd4ea41d9daeea9d7d0, type: 3}
   ballDeathClip: {fileID: 0}
-  soccerGoalClip: {fileID: 0}
+  soccerGoalClip: {fileID: 8300000, guid: ebeb82711ab094048ba066bbc080bbb7, type: 3}
   winClip: {fileID: 0}
   drawClip: {fileID: 0}
   timerTickClip: {fileID: 0}
-  timerCountdownClip: {fileID: 0}
-  timeUpClip: {fileID: 0}
+  timerCountdownClip: {fileID: 8300000, guid: d0c229a20768eac4da3e7b5092b866d3, type: 3}
+  timeUpClip: {fileID: 8300000, guid: ccd720c37b37b22498518871e89059b9, type: 3}
   tickFromSeconds: 10
   countdownFromSeconds: 3
   timerVolume: 0.8
   loserClip: {fileID: 0}
   goalCrowdClip: {fileID: 0}
-  crowdVolume: 0.6
+  crowdVolume: 0.097
   crowdFadeOutSeconds: 1
   sfxVolume: 1
 --- !u!1 &1275673256
