@@ -139,6 +139,9 @@ public class GoalCelebrationUI : MonoBehaviour
     {
         Debug.Log($"[GoalCelebrationUI] 🎬 PlayGoalCelebration appelé (scorer: {scorerName})");
 
+        AudioManager.Instance?.PlaySoccerGoal(); // "GOOOAL" : réservé au buteur
+        AudioManager.Instance?.PlayGoalCrowd(popDuration + holdDuration + fadeOutDuration);
+
         if (_activeCelebration != null) StopCoroutine(_activeCelebration);
         _activeCelebration = StartCoroutine(CelebrationCoroutine("BUUUTTTT !!!", scorerName));
     }
@@ -157,6 +160,9 @@ public class GoalCelebrationUI : MonoBehaviour
     public void PlayLoserCelebration(string scorerName = "")
     {
         Debug.Log($"[GoalCelebrationUI] PlayLoserCelebration appelé (buteur adverse: {scorerName}) - message='{loserMessage}'");
+
+        AudioManager.Instance?.PlayLoser();
+        AudioManager.Instance?.PlayGoalCrowd((popDuration + holdDuration) * loserSlowFactor + fadeOutDuration);
 
         if (_activeCelebration != null) StopCoroutine(_activeCelebration);
         _activeCelebration = StartCoroutine(CelebrationCoroutine(loserMessage, scorerName, true));

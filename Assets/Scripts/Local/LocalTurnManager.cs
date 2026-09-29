@@ -70,6 +70,7 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
 
                 if (_timer <= 0f)
                 {
+                    AudioManager.Instance?.PlayTimeUp();
                     ForceStopAiming();
                     ExecuteTurnResolution();
                 }

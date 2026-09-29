@@ -2015,6 +2015,16 @@ MonoBehaviour:
   soccerGoalClip: {fileID: 0}
   winClip: {fileID: 0}
   drawClip: {fileID: 0}
+  timerTickClip: {fileID: 0}
+  timerCountdownClip: {fileID: 0}
+  timeUpClip: {fileID: 0}
+  tickFromSeconds: 10
+  countdownFromSeconds: 3
+  timerVolume: 0.8
+  loserClip: {fileID: 0}
+  goalCrowdClip: {fileID: 0}
+  crowdVolume: 0.6
+  crowdFadeOutSeconds: 1
   sfxVolume: 1
 --- !u!1 &1275673256
 GameObject:

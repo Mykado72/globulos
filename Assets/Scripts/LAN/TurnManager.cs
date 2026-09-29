@@ -211,6 +211,7 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
                 if (_pendingGoalReset) break; // ✅ FIX : figé pendant la célébration de but
                 if (TurnTimer.Expired(Runner))
                 {
+                    RPC_PlayTimeUpSound();
                     RPC_ForceStopAiming();
                     ExecuteTurnResolution();
                 }                
@@ -461,6 +462,13 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
                 ball.ExecuteQueuedShot();
             }
         }
+    }
+
+    // ✅ Son "temps écoulé" chez tous les clients (RPC_ForceStopAiming est aussi appelé hors expiration du timer)
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlayTimeUpSound()
+    {
+        AudioManager.Instance?.PlayTimeUp();
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]

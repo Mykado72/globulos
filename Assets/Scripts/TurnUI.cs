@@ -24,6 +24,7 @@ public class TurnUI : MonoBehaviour
     private float _eventMessageTimer = 0f;
     private string _eventMessage = "";
     private bool _endGameSoundPlayed = false;
+    private int _lastTimerSecond = -1; // dernier chiffre affiché du timer (pour le tic-tac)
 
     // ✅ Valeurs d'origine du timer, capturées une fois, pour pouvoir y revenir après le
     // pulse d'urgence (voir TimerPulseEffect).
@@ -66,6 +67,29 @@ public class TurnUI : MonoBehaviour
         }
     }
 
+
+    /// <summary>
+    /// Tic-tac / compte à rebours : un son à chaque seconde qui passe pendant la phase de visée.
+    /// Le son "temps écoulé" est joué par les TurnManager (seul endroit où l'on sait que le timer
+    /// a vraiment expiré, et pas que les joueurs ont simplement tiré avant la fin).
+    /// </summary>
+    private void HandleTimerSounds(float remaining)
+    {
+        if (_turnManager.CurrentState != TurnState.Aiming)
+        {
+            _lastTimerSecond = -1;
+            return;
+        }
+
+        int second = Mathf.CeilToInt(remaining);
+        if (second == _lastTimerSecond) return;
+
+        // Pas de son au tout premier affichage d'un tour, ni quand le timer repart à la hausse.
+        if (_lastTimerSecond > 0 && second < _lastTimerSecond)
+            AudioManager.Instance?.PlayTimerTick(second);
+
+        _lastTimerSecond = second;
+    }
 
     private void Update()
     {
@@ -131,6 +155,7 @@ public class TurnUI : MonoBehaviour
 
         // Chrono
         float remaining = _turnManager.GetRemainingTime();
+        HandleTimerSounds(remaining);
         if (timerText != null)
         {
             timerText.text = Mathf.CeilToInt(remaining).ToString();
