@@ -172,6 +172,12 @@
               matchWebGLToCanvasSize: false,
           }).then((instance) => {
               unityInstance = instance;
+              // ✨ FIX clavier mobile WebGL : `unityInstance` est déclaré avec `let`, donc
+              // jamais posé sur `window`. Un plugin jslib (ex: WebGLInput / Elringus) qui a
+              // besoin d'appeler unityInstance.SendMessage(...) pour synchroniser le texte du
+              // clavier virtuel cherche généralement `window.unityInstance` — on l'expose donc
+              // explicitement ici, en plus de la variable locale déjà utilisée plus haut.
+              window.unityInstance = instance;
               // Vérifier l'orientation après le chargement d'Unity
               setTimeout(checkOrientation, 200);
           });
