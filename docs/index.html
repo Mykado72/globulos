@@ -101,12 +101,6 @@
           let unityInstance = null;
           let isPortrait = false;
 
-          // ✅ DEBUG : confirme que ce script s'exécute bien (à retirer une fois le bug résolu).
-          // Si vous ne voyez JAMAIS ce log dans la console mobile (via un debugger distant type
-          // chrome://inspect ou Eruda), c'est que ce fichier n'est pas celui réellement servi —
-          // vérifiez votre WebGLTemplate / le cache du navigateur.
-          console.log("[Orientation] Script chargé");
-
           // Fonction pour vérifier l'orientation
           function checkOrientation() {
               // ✅ FIX : matchMedia est plus fiable que innerWidth/innerHeight sur mobile,
@@ -138,7 +132,7 @@
                       if (unityInstance) {
                           unityInstance.SendMessage("PauseManager", "ResumeGame");
                       }
-                      console.log("🏜️ Mode paysage détecté → Jeu repris");
+                      // console.log("🏜️ Mode paysage détecté → Jeu repris");
                   }
               }
           }
@@ -173,7 +167,7 @@
           }).then((instance) => {
               unityInstance = instance;
               // ✨ FIX clavier mobile WebGL : `unityInstance` est déclaré avec `let`, donc
-              // jamais posé sur `window`. Un plugin jslib (ex: WebGLInput / Elringus) qui a
+              // jamais posé sur `window`. Un plugin jslib (ex: WebGLInput  qui a
               // besoin d'appeler unityInstance.SendMessage(...) pour synchroniser le texte du
               // clavier virtuel cherche généralement `window.unityInstance` — on l'expose donc
               // explicitement ici, en plus de la variable locale déjà utilisée plus haut.

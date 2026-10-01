@@ -156,7 +156,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.5452881, y: 0.024597168}
+  m_AnchoredPosition: {x: -0.54541016, y: 0.024658203}
   m_SizeDelta: {x: 0.5452, y: 0.024292}
   m_Pivot: {x: 0, y: 1}
 --- !u!61 &170272869
@@ -384,7 +384,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 28.156372, y: 12.6698}
+  m_AnchoredPosition: {x: 28.15625, y: 12.6698}
   m_SizeDelta: {x: 362.299, y: 100.2044}
   m_Pivot: {x: 0, y: 0}
 --- !u!114 &331956919
@@ -639,7 +639,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.00048828125, y: -0.000061035156}
+  m_AnchoredPosition: {x: -0.00048828125, y: 0}
   m_SizeDelta: {x: 155.6399, y: 79.961}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &355830482
@@ -1411,7 +1411,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.97003174}
+  m_AnchoredPosition: {x: 0, y: -0.9699707}
   m_SizeDelta: {x: 0.5457, y: -0.97009}
   m_Pivot: {x: 1, y: 1}
 --- !u!61 &826268229
@@ -2012,12 +2012,15 @@ MonoBehaviour:
   shootClips:
   - {fileID: 8300000, guid: 0ce4b02978565dd4ea41d9daeea9d7d0, type: 3}
   bounceClips:
-  - {fileID: 8300000, guid: 0ce4b02978565dd4ea41d9daeea9d7d0, type: 3}
+  - {fileID: 8300000, guid: e5e907d33f1f8f84a91c63a93c68ea11, type: 3}
+  - {fileID: 8300000, guid: 6a83302973000b140a7cf6dc368de9d2, type: 3}
+  - {fileID: 8300000, guid: 4fedff531ba84e24b8f57bfcd2245ffe, type: 3}
+  - {fileID: 8300000, guid: fc2c48e3281451f47be2b67c07217492, type: 3}
   ballDeathClip: {fileID: 0}
   soccerGoalClip: {fileID: 8300000, guid: ebeb82711ab094048ba066bbc080bbb7, type: 3}
   winClip: {fileID: 0}
   drawClip: {fileID: 0}
-  timerTickClip: {fileID: 0}
+  timerTickClip: {fileID: 8300000, guid: 02dbe1a3e6a1656439194547c270ba13, type: 3}
   timerCountdownClip: {fileID: 8300000, guid: d0c229a20768eac4da3e7b5092b866d3, type: 3}
   timeUpClip: {fileID: 8300000, guid: ccd720c37b37b22498518871e89059b9, type: 3}
   tickFromSeconds: 10
@@ -2290,7 +2293,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.00012207031, y: -0.21496582}
+  m_AnchoredPosition: {x: 0, y: -0.21496582}
   m_SizeDelta: {x: 0, y: -0.4301}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!61 &1643793859
@@ -2768,7 +2771,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.00024414062, y: 0.000061035156}
+  m_AnchoredPosition: {x: -0.00024414062, y: 0}
   m_SizeDelta: {x: 0.5452, y: -0.96997}
   m_Pivot: {x: 1, y: 0}
 --- !u!61 &1872501549
@@ -3307,7 +3310,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.010131836, y: -0.48498535}
+  m_AnchoredPosition: {x: 0.010253906, y: -0.48498535}
   m_SizeDelta: {x: -0.0103, y: -0.97058}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!61 &2065637041
@@ -3371,7 +3374,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.00012207031, y: -0.21508789}
+  m_AnchoredPosition: {x: 0, y: -0.21508789}
   m_SizeDelta: {x: 0.00024414, y: -0.4299}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!61 &2092777419
@@ -3583,7 +3586,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.08630371, y: 447.41}
+  m_AnchoredPosition: {x: -0.08642578, y: 447.41003}
   m_SizeDelta: {x: 0.1973, y: -894.78}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2137044208
