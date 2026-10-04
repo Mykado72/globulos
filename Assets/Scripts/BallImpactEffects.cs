@@ -44,7 +44,7 @@ public static class BallImpactEffects
         AnimationCurve fallCurve, AnimationCurve rotateCurve, float totalRotation,
         System.Action onFallStarted = null)
     {
-        rb.isKinematic = true;
+        // rb.isKinematic = true;
         rb.velocity = Vector2.zero;
 
         onFallStarted?.Invoke();
