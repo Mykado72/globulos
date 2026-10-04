@@ -154,6 +154,52 @@
           // s'afficher avant même la fin du chargement des assets Unity.
           checkOrientation();
 
+          // ===== Musique de fond (gérée côté page, pilotée par Unity) =====
+          const music = new Audio();
+          music.loop = true;
+          music.volume = 0.5;
+          let currentMusicUrl = "";
+          let musicWanted = false;
+
+          function tryPlayMusic() {
+              if (!musicWanted || !music.src) return;
+              const p = music.play();
+              if (p) p.catch(() => { /* autoplay bloqué : on attend un geste */ });
+          }
+
+          // Appelées depuis Unity (via le .jslib)
+          window.playMusic = function (url, loop) {
+              music.loop = loop;
+              if (url !== currentMusicUrl) {
+                  currentMusicUrl = url;
+                  music.src = url;
+              }
+              musicWanted = true;
+              tryPlayMusic();
+          };
+          window.stopMusic = function () {
+              musicWanted = false;
+              music.pause();
+              music.currentTime = 0;
+          };
+          window.setMusicVolume = function (v) {
+              music.volume = Math.min(1, Math.max(0, v));
+          };
+
+          // Morceau par défaut dès l'ouverture de la page
+          window.playMusic("StreamingAssets/Music/menu.mp3", true);
+
+          // Si l'autoplay est bloqué, on démarre au premier geste de l'utilisateur
+          ["pointerdown", "touchend", "keydown", "click"].forEach((evt) => {
+              window.addEventListener(evt, function unlock() {
+                  tryPlayMusic();
+                  if (!music.paused) {
+                      ["pointerdown", "touchend", "keydown", "click"].forEach((e) =>
+                          window.removeEventListener(e, unlock));
+                  }
+              }, { passive: true });
+          });
+
           createUnityInstance(document.querySelector("#unity-canvas"), {
               dataUrl: "Build/docs.data",
               frameworkUrl: "Build/docs.framework.js",

@@ -485,6 +485,12 @@ public class BallAimController : NetworkBehaviour
         if (_rb != null)
         {
             _rb.AddForce(force, ForceMode2D.Impulse);
+
+            // ✅ FIX : le son de tir est joué ici, au même instant que l'impulsion, sur TOUS les
+            // clients (RpcTargets.All). Avant, RPC_PlayShootSound n'était appelé nulle part : le
+            // tir restait muet en LAN. Comme les rebonds ne peuvent arriver qu'après l'impulsion,
+            // le tir est garanti d'être le premier son.
+            AudioManager.Instance?.PlayShoot(transform.position);
         }
     }
 
@@ -516,12 +522,6 @@ public class BallAimController : NetworkBehaviour
             float thresholdSqr = stationaryVelocityThreshold * stationaryVelocityThreshold;
             IsMoving = !IsDead && _rb.velocity.sqrMagnitude > thresholdSqr;
         }
-    }
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_PlayShootSound()
-    {
-        AudioManager.Instance?.PlayShoot(transform.position);
     }
 
     // ✅ NOUVEAU : Gestion des collisions pour les effets de rebond

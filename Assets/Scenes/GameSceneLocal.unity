@@ -1082,7 +1082,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 560914515}
-  - component: {fileID: 560914516}
   m_Layer: 0
   m_Name: Music
   m_TagString: Untagged
@@ -1105,102 +1104,6 @@ Transform:
   m_Father: {fileID: 1233709326}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &560914516
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 560914514}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: acf014a39452a4e47bb36bc2bdfb27bb, type: 3}
-  m_PlayOnAwake: 1
-  m_Volume: 0.75
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 128
-  DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
-  Pan2D: 0
-  rolloffMode: 0
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!1 &615587326
 GameObject:
   m_ObjectHideFlags: 0
@@ -2139,27 +2042,36 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shootClips:
-  - {fileID: 8300000, guid: 0ce4b02978565dd4ea41d9daeea9d7d0, type: 3}
+  - {fileID: 8300000, guid: c3b4fe5f3714e684b868a3cf7777f0d2, type: 3}
   bounceClips:
-  - {fileID: 8300000, guid: e5e907d33f1f8f84a91c63a93c68ea11, type: 3}
+  - {fileID: 8300000, guid: 99fd38cebec4eb843bbe073b8836659b, type: 3}
   - {fileID: 8300000, guid: 6a83302973000b140a7cf6dc368de9d2, type: 3}
   - {fileID: 8300000, guid: 4fedff531ba84e24b8f57bfcd2245ffe, type: 3}
   - {fileID: 8300000, guid: fc2c48e3281451f47be2b67c07217492, type: 3}
-  ballDeathClip: {fileID: 0}
+  ballDeathClip: {fileID: 8300000, guid: 0e5528da3f4abbf47a6bc7c3dc8413eb, type: 3}
   soccerGoalClip: {fileID: 8300000, guid: ebeb82711ab094048ba066bbc080bbb7, type: 3}
   winClip: {fileID: 0}
   drawClip: {fileID: 0}
   timerTickClip: {fileID: 8300000, guid: 02dbe1a3e6a1656439194547c270ba13, type: 3}
-  timerCountdownClip: {fileID: 8300000, guid: d0c229a20768eac4da3e7b5092b866d3, type: 3}
+  timerCountdownClip: {fileID: 8300000, guid: becb6092e3d08e44580632a2f3460d80, type: 3}
   timeUpClip: {fileID: 8300000, guid: ccd720c37b37b22498518871e89059b9, type: 3}
   tickFromSeconds: 10
   countdownFromSeconds: 3
-  timerVolume: 0.5
-  loserClip: {fileID: 0}
+  timerVolume: 0.6
+  loserClip: {fileID: 8300000, guid: 4e5fe858f3a7f554f92e9be3a30a1a20, type: 3}
   goalCrowdClip: {fileID: 0}
-  crowdVolume: 0.097
+  crowdVolume: 1
   crowdFadeOutSeconds: 1
-  sfxVolume: 0.25
+  musicTracks:
+  - displayName: Level1
+    fileName: Level1.mp3
+  playMusicOnStart: 1
+  startTrackIndex: 0
+  musicVolume: 0.5
+  musicLoop: 1
+  sfxVolume: 1
+  marblePoolSize: 8
+  marbleVolume: 1
 --- !u!1 &1275673256
 GameObject:
   m_ObjectHideFlags: 0

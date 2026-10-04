@@ -11,6 +11,15 @@ using UnityEngine;
 /// Place ce script sur un GameObject unique dans ta scène (Lobby ou GameScene,
 /// peu importe grâce au DontDestroyOnLoad + pattern singleton) et assigne tes
 /// clips audio dans l'inspecteur.
+[System.Serializable]
+public class MusicTrack
+{
+    [Tooltip("Nom affiché dans l'interface (menu de sélection).")]
+    public string displayName;
+    [Tooltip("Chemin du mp3 depuis StreamingAssets, ex : Music/game.mp3")]
+    public string fileName;
+}
+
 public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
@@ -56,11 +65,34 @@ public class AudioManager : MonoBehaviour
     [Tooltip("Durée du fondu de sortie de la foule, à la fin de l'animation.")]
     [SerializeField, Min(0f)] private float crowdFadeOutSeconds = 1f;
 
+    [Header("Musique de fond (lue par la page web via WebMusic)")]
+    [Tooltip("Morceaux disponibles. 'File Name' = chemin depuis Assets/StreamingAssets/ (ex : Music/game.mp3).")]
+    [SerializeField] private MusicTrack[] musicTracks;
+    [Tooltip("Index du morceau joué au démarrage si aucun choix n'a été sauvegardé. Laisser décoché si la page index.html lance déjà son morceau par défaut.")]
+    [SerializeField] private bool playMusicOnStart = false;
+    [SerializeField, Min(0)] private int startTrackIndex = 0;
+    [SerializeField, Range(0f, 1f)] private float musicVolume = 0.5f;
+    [SerializeField] private bool musicLoop = true;
+
+    private const string MusicIndexPrefKey = "AudioManager.MusicTrackIndex";
+    private const string MusicVolumePrefKey = "AudioManager.MusicVolume";
+    private int _currentMusicIndex = -1;
+
     [Header("Réglages généraux")]
     [SerializeField, Range(0f, 1f)] private float sfxVolume = 1f;
 
+    [Header("Sons de bille (tir / rebond / chute)")]
+    [Tooltip("Nombre de sources 2D en rotation pour les sons de bille. Augmenter si des sons se coupent.")]
+    [SerializeField, Min(2)] private int marblePoolSize = 8;
+    [Tooltip("Multiplicateur de volume des sons de bille (rebonds, tir, chute). Volume FIXE : ne dépend ni de la distance ni de la vitesse.")]
+    [SerializeField, Range(0f, 2f)] private float marbleVolume = 1f;
+
     // AudioSource dédié aux sons globaux (non positionnels), doit survivre au reload de scène.
     private AudioSource _globalSource;
+
+    // Pool de sources 2D pour les sons de bille (remplace PlayClipAtPoint, qui est en 3D).
+    private AudioSource[] _marblePool;
+    private int _marblePoolIndex;
 
     // AudioSource dédié à la foule : volume et fondu indépendants des autres sons.
     private AudioSource _crowdSource;
@@ -81,6 +113,17 @@ public class AudioManager : MonoBehaviour
             _crowdSource.playOnAwake = false;
             _crowdSource.loop = false;
             _crowdSource.spatialBlend = 0f;
+
+            _marblePool = new AudioSource[marblePoolSize];
+            for (int i = 0; i < _marblePool.Length; i++)
+            {
+                AudioSource src = gameObject.AddComponent<AudioSource>();
+                src.playOnAwake = false;
+                src.loop = false;
+                src.spatialBlend = 0f; // 2D : aucune atténuation selon la distance à la caméra
+                src.priority = 0;      // priorité max : jamais volé par un autre son
+                _marblePool[i] = src;
+            }
         }
         else
         {
@@ -185,6 +228,98 @@ public class AudioManager : MonoBehaviour
         _crowdRoutine = null;
     }
 
+    // --- Musique de fond ---
+
+    private void Start()
+    {
+        if (PlayerPrefs.HasKey(MusicVolumePrefKey))
+            musicVolume = PlayerPrefs.GetFloat(MusicVolumePrefKey);
+        WebMusic.SetVolume(musicVolume);
+
+        // Un choix sauvegardé est restauré. Sinon, on ne lance un morceau que si demandé :
+        // index.html joue déjà son propre morceau par défaut dès l'ouverture de la page.
+        if (PlayerPrefs.HasKey(MusicIndexPrefKey))
+            PlayMusic(PlayerPrefs.GetInt(MusicIndexPrefKey), save: false);
+        else if (playMusicOnStart)
+            PlayMusic(startTrackIndex, save: false);
+    }
+
+    public int MusicTrackCount => musicTracks != null ? musicTracks.Length : 0;
+    public int CurrentMusicIndex => _currentMusicIndex;
+    public float MusicVolume => musicVolume;
+
+    /// <summary>Nom affiché d'un morceau (pour remplir un Dropdown, par exemple).</summary>
+    public string GetMusicTrackName(int index)
+    {
+        if (index < 0 || index >= MusicTrackCount) return string.Empty;
+        MusicTrack t = musicTracks[index];
+        return string.IsNullOrEmpty(t.displayName) ? t.fileName : t.displayName;
+    }
+
+    /// <summary>Joue le morceau d'index donné. Le choix est sauvegardé (PlayerPrefs).</summary>
+    public void PlayMusic(int index) => PlayMusic(index, save: true);
+
+    private void PlayMusic(int index, bool save)
+    {
+        if (index < 0 || index >= MusicTrackCount)
+        {
+            Debug.LogWarning($"[AudioManager] Index de musique invalide : {index}");
+            return;
+        }
+
+        MusicTrack track = musicTracks[index];
+        if (string.IsNullOrEmpty(track.fileName)) return;
+
+        _currentMusicIndex = index;
+        WebMusic.Play(track.fileName, musicLoop);
+        WebMusic.SetVolume(musicVolume);
+
+        if (save)
+        {
+            PlayerPrefs.SetInt(MusicIndexPrefKey, index);
+            PlayerPrefs.Save();
+        }
+    }
+
+    /// <summary>Joue un morceau d'après son nom affiché ou son fichier.</summary>
+    public void PlayMusic(string nameOrFile)
+    {
+        for (int i = 0; i < MusicTrackCount; i++)
+        {
+            if (musicTracks[i].displayName == nameOrFile || musicTracks[i].fileName == nameOrFile)
+            {
+                PlayMusic(i);
+                return;
+            }
+        }
+        Debug.LogWarning($"[AudioManager] Morceau introuvable : {nameOrFile}");
+    }
+
+    public void NextMusic()
+    {
+        if (MusicTrackCount == 0) return;
+        PlayMusic((_currentMusicIndex + 1 + MusicTrackCount) % MusicTrackCount);
+    }
+
+    public void PreviousMusic()
+    {
+        if (MusicTrackCount == 0) return;
+        int prev = _currentMusicIndex <= 0 ? MusicTrackCount - 1 : _currentMusicIndex - 1;
+        PlayMusic(prev);
+    }
+
+    public void StopMusic()
+    {
+        WebMusic.Stop();
+    }
+
+    public void SetMusicVolume(float volume01)
+    {
+        musicVolume = Mathf.Clamp01(volume01);
+        WebMusic.SetVolume(musicVolume);
+        PlayerPrefs.SetFloat(MusicVolumePrefKey, musicVolume);
+    }
+
     // --- Implémentation ---
 
     private void PlayGlobal(AudioClip clip, float volumeMultiplier = 1f)
@@ -193,10 +328,18 @@ public class AudioManager : MonoBehaviour
         _globalSource.PlayOneShot(clip, sfxVolume * volumeMultiplier);
     }
 
+    // ✅ FIX : AudioSource.PlayClipAtPoint crée une source 3D (spatialBlend = 1). Dans un jeu 2D
+    // dont la caméra est à z = -10, le son subit donc une atténuation par la distance (~1/10 du
+    // volume), qui varie en plus selon la position X/Y de la bille. D'où des sons trop faibles
+    // et à volume variable. On passe par un pool de sources 2D : volume constant et audible.
+    // 'position' est conservé dans la signature pour ne pas toucher aux appelants.
     private void PlayOneAtPoint(AudioClip clip, Vector3 position)
     {
-        if (clip == null) return;
-        AudioSource.PlayClipAtPoint(clip, position, sfxVolume);
+        if (clip == null || _marblePool == null) return;
+
+        AudioSource src = _marblePool[_marblePoolIndex];
+        _marblePoolIndex = (_marblePoolIndex + 1) % _marblePool.Length;
+        src.PlayOneShot(clip, sfxVolume * marbleVolume);
     }
 
     private void PlayRandomAtPoint(AudioClip[] clips, Vector3 position)
