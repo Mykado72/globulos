@@ -98,6 +98,11 @@ public class BallAimController : NetworkBehaviour
 
     // ✅ Stockage local de la force sur le client propriétaire de la bille
     private Vector2 _localQueuedForce = Vector2.zero;
+
+    // ✅ FIX (tirs simultanés) : force connue du Master (State Authority). Elle est envoyée par
+    // l'Input Authority dès qu'elle relâche la souris (RPC_SubmitShot), pendant la phase Aiming,
+    // pour que le Master applique TOUTES les impulsions dans la même frame à la fin du timer.
+    private Vector2 _masterQueuedForce = Vector2.zero;
     private Vector3 originalScale;
 
     // ✅ FIX : position/couleur d'origine mémorisées pour pouvoir remettre la bille en jeu
@@ -397,6 +402,7 @@ public class BallAimController : NetworkBehaviour
 
         float force = Mathf.Lerp(maxForce * 0.3f, maxForce, forceFraction);
         _localQueuedForce = direction * force;
+        _masterQueuedForce = _localQueuedForce; // le bot tourne sur le Master
         _botHasQueuedThisTurn = true;
     }
 
@@ -440,43 +446,51 @@ public class BallAimController : NetworkBehaviour
 
         if (forceToApply.sqrMagnitude > 0.1f)
         {
-            // ✅ Enregistrement de la force localement
+            // ✅ Enregistrement de la force localement (affichage de la flèche)
             _localQueuedForce = forceToApply;
+            // ✅ FIX : transmis immédiatement au Master (appliqué plus tard, simultanément)
+            RPC_SubmitShot(forceToApply);
         }
         else
         {
             _localQueuedForce = Vector2.zero;
+            RPC_SubmitShot(Vector2.zero); // tir annulé
             _arrow.Hide();
         }
     }
 
-    // ✅ Appelé par le TurnManager au début de la phase Resolution, sur CHAQUE client
-    // (voir RPC_ExecuteAllShots). Seul le propriétaire réel (Input Authority) a calculé
-    // une force localement : c'est donc lui qui doit la transmettre.
-    public void ExecuteQueuedShot()
+    // ✅ FIX (tirs simultanés) : l'Input Authority envoie sa force au Master dès qu'elle la valide
+    // (relâchement de la souris), et non plus au moment de la résolution. Ainsi, quand le timer
+    // expire, le Master dispose déjà des forces de TOUS les joueurs et peut les appliquer dans la
+    // même frame, sans dépendre de la latence de chaque client.
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_SubmitShot(Vector2 force)
     {
-        // ✅ FIX (centralisation physique) : avant, seule la State Authority (le
-        // propriétaire de la bille) appliquait la force. Maintenant que la State Authority
-        // est toujours le Master, c'est l'Input Authority (le vrai propriétaire, qui a
-        // calculé _localQueuedForce depuis sa souris) qui doit la DEMANDER au Master via
-        // RPC_RequestApplyImpulse, au lieu de l'appliquer lui-même.
-        if (HasInputAuthority && _localQueuedForce.sqrMagnitude > 0.01f)
-        {
-            RPC_RequestApplyImpulse(_localQueuedForce);
-            _localQueuedForce = Vector2.zero;
-        }
-
-        _arrow.Hide();
+        _masterQueuedForce = force; // Vector2.zero = tir annulé
     }
 
-    // ✅ NOUVEAU : relais Input Authority → State Authority, même principe que
-    // TurnManager.RPC_RequestWinBySoccerGoal / RPC_RequestTurnReset. Le propriétaire de la
-    // bille (qui n'a plus la State Authority) demande au Master d'appliquer la force ;
-    // celui-ci est le seul à réellement simuler la physique de cette bille.
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    private void RPC_RequestApplyImpulse(Vector2 force)
+    /// <summary>
+    /// Appelée UNIQUEMENT par le Master (TurnManager.ExecuteTurnResolution), pour toutes les
+    /// billes dans la même boucle, donc dans la même frame : toutes les impulsions partent
+    /// avant le même pas de physique.
+    /// </summary>
+    public void ApplyQueuedShotOnAuthority()
     {
-        RPC_ApplyImpulse(force);
+        if (!HasStateAuthority || IsDead) return;
+
+        if (_masterQueuedForce.sqrMagnitude > 0.01f)
+        {
+            RPC_ApplyImpulse(_masterQueuedForce);
+            _masterQueuedForce = Vector2.zero;
+        }
+    }
+
+    // ✅ Appelé sur CHAQUE client par TurnManager.RPC_ExecuteAllShots : nettoyage visuel seulement
+    // (l'impulsion, elle, est appliquée par le Master via ApplyQueuedShotOnAuthority).
+    public void ExecuteQueuedShot()
+    {
+        _localQueuedForce = Vector2.zero;
+        _arrow.Hide();
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -594,6 +608,7 @@ public class BallAimController : NetworkBehaviour
         StopAllCoroutines();
 
         _localQueuedForce = Vector2.zero;
+        _masterQueuedForce = Vector2.zero;
         _botHasQueuedThisTurn = false;
         IsAiming = false;
         _arrow?.Hide();

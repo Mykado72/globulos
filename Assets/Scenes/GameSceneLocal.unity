@@ -2064,7 +2064,7 @@ MonoBehaviour:
   crowdFadeOutSeconds: 1
   musicTracks:
   - displayName: Level1
-    fileName: Level1.mp3
+    fileName: Music\Level1.mp3
   playMusicOnStart: 1
   startTrackIndex: 0
   musicVolume: 0.5

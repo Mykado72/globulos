@@ -15,6 +15,16 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
 
     // Quel joueur a mis en pause (-1 = personne)
     [Networked] private int _pausedByPlayerId { get; set; } = -1;
+
+    // ✅ FIX PAUSE : un TickTimer est une échéance ABSOLUE en ticks Fusion. Les ticks continuent
+    // d'avancer pendant la pause (Time.timeScale = 0 ne les arrête pas, et le 'return' de
+    // FixedUpdateNetwork ne gèle pas le TickTimer) : le chrono affiché continuait donc de
+    // descendre et expirait à la reprise. On mémorise le temps restant de chaque timer au moment
+    // de la pause (-1 = timer non actif) et on recrée les timers à la reprise.
+    [Networked] private float _pausedTurnRemaining { get; set; } = -1f;
+    [Networked] private float _pausedSettleRemaining { get; set; } = -1f;
+    [Networked] private float _pausedCelebrationRemaining { get; set; } = -1f;
+    [Networked] private float _pausedGoalResetRemaining { get; set; } = -1f;
     private bool _pendingGoalReset = false;
     [Header("Game Mode Configuration")]
     [SerializeField] private bool defaultTurnBasedMode = true;
@@ -22,6 +32,9 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Header("Turn-Based Settings")]
     [SerializeField] private float aimDuration = 15f;
     [SerializeField] private float resolutionSettleDuration = 0.2f;
+
+    [Tooltip("Marge (s) ajoutée après la fin du timer affiché, pour laisser arriver au Master les tirs relâchés à la dernière seconde (latence réseau). Identique pour tous les joueurs.")]
+    [SerializeField] private float shotGraceDuration = 0.3f;
 
     [Tooltip("Durée de l'état Celebrating (voir GoalCelebrationUI) avant de passer en Finished. Doit correspondre à peu près à la durée totale de l'animation de célébration.")]
     [SerializeField] private float celebrationDuration = 2.2f;
@@ -259,16 +272,24 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     {
         CurrentTurnNumber++;
         CurrentState = TurnState.Aiming;
-        TurnTimer = TickTimer.CreateFromSeconds(Runner, aimDuration);
+        TurnTimer = TickTimer.CreateFromSeconds(Runner, aimDuration + shotGraceDuration);
 
         // Debug.Log($"[TurnManager] 🎮 Tour {CurrentTurnNumber} (Mode NETWORK)");
     }
 
     public float GetRemainingTime()
     {
+        // ✅ FIX PAUSE : pendant la pause, on affiche la valeur figée (valable sur tous les clients
+        // car _pausedTurnRemaining est [Networked])
+        if (IsGamePaused && _pausedTurnRemaining >= 0f)
+        {
+            return Mathf.Max(0f, _pausedTurnRemaining - shotGraceDuration);
+        }
+
         if (IsTurnBased && TurnTimer.IsRunning)
         {
-            return TurnTimer.RemainingTime(Runner) ?? 0f;
+            // La marge de grâce est masquée : l'UI affiche 0 pendant shotGraceDuration
+            return Mathf.Max(0f, (TurnTimer.RemainingTime(Runner) ?? 0f) - shotGraceDuration);
         }
         return 0f;
     }
@@ -301,9 +322,32 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     /// s'exécute que sur l'autorité (RpcTargets.StateAuthority) — c'est le pont manquant
     /// qui permettait à l'hôte de mettre en pause mais pas au client.
     /// </summary>
+    /// <summary>Temps restant d'un timer (en s), ou -1 s'il n'est pas actif.</summary>
+    private float FreezeTimer(TickTimer timer)
+    {
+        if (!timer.IsRunning) return -1f;
+        return Mathf.Max(0f, timer.RemainingTime(Runner) ?? 0f);
+    }
+
+    /// <summary>Recrée un timer à partir du temps restant mémorisé (inchangé si -1).</summary>
+    private TickTimer RestoreTimer(float remaining, TickTimer current)
+    {
+        if (remaining < 0f) return current;
+        return TickTimer.CreateFromSeconds(Runner, remaining);
+    }
+
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
     private void RPC_RequestPause(int playerId)
     {
+        // ✅ FIX PAUSE : déjà en pause -> ne pas re-mémoriser (les timers sont déjà figés)
+        if (IsGamePaused) return;
+
+        // ✅ FIX PAUSE : figer tous les timers AVANT de passer en pause
+        _pausedTurnRemaining = FreezeTimer(TurnTimer);
+        _pausedSettleRemaining = FreezeTimer(ResolutionSettleTimer);
+        _pausedCelebrationRemaining = FreezeTimer(CelebrationTimer);
+        _pausedGoalResetRemaining = FreezeTimer(GoalResetTimer);
+
         IsGamePaused = true;
         _pausedByPlayerId = playerId;
         RPC_NotifyPauseStatus(playerId);
@@ -312,6 +356,18 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
     private void RPC_RequestResume()
     {
+        if (!IsGamePaused) return;
+
+        // ✅ FIX PAUSE : relancer les timers avec le temps restant mémorisé
+        TurnTimer = RestoreTimer(_pausedTurnRemaining, TurnTimer);
+        ResolutionSettleTimer = RestoreTimer(_pausedSettleRemaining, ResolutionSettleTimer);
+        CelebrationTimer = RestoreTimer(_pausedCelebrationRemaining, CelebrationTimer);
+        GoalResetTimer = RestoreTimer(_pausedGoalResetRemaining, GoalResetTimer);
+        _pausedTurnRemaining = -1f;
+        _pausedSettleRemaining = -1f;
+        _pausedCelebrationRemaining = -1f;
+        _pausedGoalResetRemaining = -1f;
+
         IsGamePaused = false;
         _pausedByPlayerId = -1;
         RPC_NotifyResumeStatus();
@@ -447,7 +503,15 @@ public partial class TurnManager : NetworkBehaviour, ITurnManagerCore
         TurnTimer = TickTimer.None;
         ResolutionSettleTimer = TickTimer.CreateFromSeconds(Runner, resolutionSettleDuration);
 
-        // ✅ Déclenche l'application simultanée des forces préparées sur tous les clients
+        // ✅ FIX (tirs simultanés) : le Master applique les impulsions de TOUTES les billes dans
+        // la même boucle, donc dans la même frame. Les forces ont déjà été transmises pendant la
+        // phase de visée (BallAimController.RPC_SubmitShot) : plus aucun aller-retour réseau ici.
+        foreach (var ball in BallAimController.AllBalls)
+        {
+            if (ball != null) ball.ApplyQueuedShotOnAuthority();
+        }
+
+        // Nettoyage visuel (flèches de visée) sur tous les clients
         RPC_ExecuteAllShots();
     }
 

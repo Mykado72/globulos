@@ -621,7 +621,7 @@ MonoBehaviour:
   crowdFadeOutSeconds: 1
   musicTracks:
   - displayName: Level1
-    fileName: Level1.mp3
+    fileName: Music\Level1.mp3
   playMusicOnStart: 1
   startTrackIndex: 0
   musicVolume: 0.5
@@ -787,6 +787,7 @@ MonoBehaviour:
   defaultTurnBasedMode: 1
   aimDuration: 8
   resolutionSettleDuration: 0.25
+  shotGraceDuration: 0.3
   celebrationDuration: 2.2
   _IsTurnBased:
     RawValue: 1

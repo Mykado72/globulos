@@ -167,16 +167,22 @@
               if (p) p.catch(() => { /* autoplay bloqué : on attend un geste */ });
           }
 
-          // Appelées depuis Unity (via le .jslib)
-          window.playMusic = function (url, loop) {
-              music.loop = loop;
-              if (url !== currentMusicUrl) {
-                  currentMusicUrl = url;
-                  music.src = url;
-              }
-              musicWanted = true;
-              tryPlayMusic();
-          };
+            music.addEventListener("error", () => {
+                const codes = { 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED (404 ou MIME)" };
+                console.error("[Music] Échec de chargement :", music.src,
+                    "→ code", music.error && music.error.code, codes[music.error && music.error.code]);
+            });
+
+            window.playMusic = function (url, loop) {
+                music.loop = loop;
+                const absUrl = new URL(url, document.baseURI).href; // même forme que celle d'Unity
+                if (absUrl !== currentMusicUrl) {
+                    currentMusicUrl = absUrl;
+                    music.src = absUrl;
+                }
+                musicWanted = true;
+                tryPlayMusic();
+            };
           window.stopMusic = function () {
               musicWanted = false;
               music.pause();
