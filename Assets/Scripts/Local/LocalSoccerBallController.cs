@@ -37,6 +37,26 @@ public class LocalSoccerBallController : MonoBehaviour
         _initialColor = _spriteRenderer != null ? _spriteRenderer.color : Color.white;
     }
 
+    // ✅ NEW : son de rebond du ballon de foot (mode Local : pas de réseau, on joue directement).
+    [Header("Bounce Sound")]
+    [Tooltip("Vitesse d'impact minimale pour déclencher le son de rebond.")]
+    [SerializeField] private float bounceSoundMinSpeed = 1f;
+    [Tooltip("Délai minimum entre deux sons de rebond.")]
+    [SerializeField] private float bounceSoundMinInterval = 0.1f;
+    private float _lastBounceSoundTime = -10f;
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        // Une bille qui tape le ballon joue déjà son propre son de rebond (LocalBallAimController) : pas de doublon.
+        if (collision.collider.GetComponentInParent<LocalBallAimController>() != null) return;
+
+        if (collision.relativeVelocity.magnitude < bounceSoundMinSpeed) return;
+        if (Time.time - _lastBounceSoundTime < bounceSoundMinInterval) return;
+        _lastBounceSoundTime = Time.time;
+
+        AudioManager.Instance?.PlaySoccerBounce(collision.GetContact(0).point);
+    }
+
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (_goalScored || !collision.CompareTag("Goal")) return;

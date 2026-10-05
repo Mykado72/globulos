@@ -68,6 +68,9 @@ public class LocalGameSpawner : MonoBehaviour
             {
                 ballController.SetOwner(botPlayerId);
                 ballController.SetBotControlled(true);
+                // ✅ Réglages de stratégie propres à CE bot (composant BotSpawnPoint sur son point de spawn)
+                if (spawnPoint.TryGetComponent(out BotSpawnPoint botSettings))
+                    ballController.ApplyBotSettings(botSettings);
                 _ballSpawnPositions[ballController] = spawnPoint.position; // ✅ FIX
             }
         }

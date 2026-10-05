@@ -19,6 +19,8 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private TMP_InputField roomNameInput;
     [SerializeField] private Button playButton;
     [SerializeField] private Button playVsAIButton;
+    [Tooltip("✅ Campagne solo : bouton qui reprend la campagne via CampaignManager.ContinueCampaign() (optionnel)")]
+    [SerializeField] private Button playCampaignButton;
     [SerializeField] private Button joinRoomButton;
 
     [Header("UI References - Status")]
@@ -152,6 +154,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
 
         if (playButton != null) playButton.onClick.AddListener(OnPlayButtonPressed);
         if (playVsAIButton != null) playVsAIButton.onClick.AddListener(OnPlayVsAIButtonPressed);
+        if (playCampaignButton != null) playCampaignButton.onClick.AddListener(OnPlayCampaignButtonPressed);
 
         if (joinRoomButton != null)
         {
@@ -238,6 +241,21 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         _isVsAIMode = true;
         SaveNicknameAndStart();
+    }
+
+    // ✅ Campagne solo : même prise en compte du pseudo que le mode solo classique, puis
+    // CampaignManager charge la scène du niveau (reprise au dernier niveau débloqué).
+    private void OnPlayCampaignButtonPressed()
+    {
+        if (CampaignManager.Instance == null)
+        {
+            Debug.LogWarning("[LobbyManager] ⚠️ CampaignManager absent de la scène du Lobby !");
+            return;
+        }
+
+        SetAllButtonsInteractable(false);
+        CommitNicknameFromInput();
+        CampaignManager.Instance.ContinueCampaign();
     }
 
     public void OnJoinCogepRoomPressed()
@@ -358,6 +376,7 @@ public class LobbyManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (playButton != null) playButton.interactable = state;
         if (playVsAIButton != null) playVsAIButton.interactable = state;
+        if (playCampaignButton != null) playCampaignButton.interactable = state;
         if (joinRoomButton != null) joinRoomButton.interactable = state;
     }
 

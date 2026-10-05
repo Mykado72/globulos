@@ -37,7 +37,19 @@ public class BotAIStrategy
     // ✅ NEW : Rayon de la zone défensive (distance au but en dessous de laquelle le bot défend)
     private float _defensiveZoneRadius = 550f;
 
+    // ✅ NEW : paramètres du rôle Defensive (gardien), réglables par bot (voir BotSpawnPoint)
+    private float _defenseDepth = 180f;
+    private float _maxLateralRange = 60f;
+    private float _snapDistance = 120f;
+
     public BotRole Role => _role;
+
+    public void SetGoalkeeperParams(float defenseDepth, float maxLateralRange, float snapDistance)
+    {
+        _defenseDepth = defenseDepth;
+        _maxLateralRange = maxLateralRange;
+        _snapDistance = Mathf.Max(0f, snapDistance);
+    }
 
     // Configuration par difficulté
     private readonly struct DifficultyConfig
@@ -120,7 +132,7 @@ public class BotAIStrategy
         else // Defensive
         {
             if (ownGoal == null) ownGoal = FindOwnGoal();
-            return CalculateDefensiveShot(botPosition, ballPosition, ownGoal, enemyGoal);
+            return CalculateDefensiveShot(botPosition, ballPosition, ownGoal, enemyGoal, _defenseDepth, _maxLateralRange, _snapDistance);
         }
     }
 

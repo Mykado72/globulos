@@ -32,6 +32,10 @@ public class AudioManager : MonoBehaviour
     [Tooltip("Un ou plusieurs clips, un est choisi au hasard à chaque rebond.")]
     [SerializeField] private AudioClip[] bounceClips;
 
+    [Header("Ballon de foot : Rebond")]
+    [Tooltip("Clips de rebond du ballon de foot (un au hasard à chaque rebond). Si vide, les clips de rebond des billes sont utilisés.")]
+    [SerializeField] private AudioClip[] soccerBounceClips;
+
     [Header("Bille : Chute dans un but")]
     [SerializeField] private AudioClip ballDeathClip;
 
@@ -141,6 +145,12 @@ public class AudioManager : MonoBehaviour
     public void PlayBounce(Vector3 position)
     {
         PlayRandomAtPoint(bounceClips, position);
+    }
+
+    // ✅ NEW : rebond du ballon de foot (clips dédiés, sinon ceux des billes)
+    public void PlaySoccerBounce(Vector3 position)
+    {
+        PlayRandomAtPoint((soccerBounceClips != null && soccerBounceClips.Length > 0) ? soccerBounceClips : bounceClips, position);
     }
 
     public void PlayBallDeath(Vector3 position)

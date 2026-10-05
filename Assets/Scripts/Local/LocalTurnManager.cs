@@ -341,6 +341,15 @@ public class LocalTurnManager : MonoBehaviour, ITurnManagerCore
     private IEnumerator ReloadSceneAfterDelay()
     {
         yield return new WaitForSeconds(2f);
+
+        // ✅ CAMPAGNE : en mode campagne, CampaignManager décide du niveau suivant (victoire)
+        // ou du rechargement du niveau courant (défaite / égalité). Le joueur humain est le Joueur 1.
+        if (CampaignManager.Instance != null && CampaignManager.Instance.IsCampaign)
+        {
+            CampaignManager.Instance.OnLevelFinished(WinnerPlayerId == 1);
+            yield break;
+        }
+
         Debug.Log("[LocalTurnManager] 🔄 Rechargement de la scène...");
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }

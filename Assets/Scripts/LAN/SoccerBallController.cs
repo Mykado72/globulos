@@ -40,6 +40,36 @@ public class SoccerBallController : NetworkBehaviour
         if (Instance == this) Instance = null;
     }
 
+    // ✅ NEW : son de rebond du ballon de foot.
+    // Détecté UNIQUEMENT sur l'autorité (le Rigidbody2D du ballon est kinematic sur les proxies, donc
+    // pas de contacts fiables ni de vélocité chez les clients), puis diffusé à tous par RPC.
+    [Header("Bounce Sound")]
+    [Tooltip("Vitesse d'impact minimale pour déclencher le son de rebond.")]
+    [SerializeField] private float bounceSoundMinSpeed = 1f;
+    [Tooltip("Délai minimum entre deux sons de rebond (évite la rafale de sons et de RPC).")]
+    [SerializeField] private float bounceSoundMinInterval = 0.1f;
+    private float _lastBounceSoundTime = -10f;
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (!HasStateAuthority) return;
+
+        // Une bille qui tape le ballon joue déjà son propre son de rebond (BallAimController) : on évite le doublon.
+        if (collision.collider.GetComponentInParent<BallAimController>() != null) return;
+
+        if (collision.relativeVelocity.magnitude < bounceSoundMinSpeed) return;
+        if (Time.time - _lastBounceSoundTime < bounceSoundMinInterval) return;
+        _lastBounceSoundTime = Time.time;
+
+        RPC_PlaySoccerBounce(collision.GetContact(0).point);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlaySoccerBounce(Vector2 position)
+    {
+        AudioManager.Instance?.PlaySoccerBounce(position);
+    }
+
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (!HasStateAuthority || _goalScored) return;

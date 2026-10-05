@@ -3352,6 +3352,7 @@ MonoBehaviour:
   roomNameInput: {fileID: 549194908}
   playButton: {fileID: 1703565070}
   playVsAIButton: {fileID: 598512567}
+  playCampaignButton: {fileID: 598512567}
   joinRoomButton: {fileID: 1966878812}
   statusText: {fileID: 1150031957}
   roomStatusText: {fileID: 1150031957}

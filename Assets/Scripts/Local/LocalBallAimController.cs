@@ -155,6 +155,25 @@ public class LocalBallAimController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ✅ NEW : applique les réglages de stratégie propres à CE bot (composant BotSpawnPoint posé
+    /// sur son point de spawn). À appeler après SetOwner().
+    /// </summary>
+    public void ApplyBotSettings(BotSpawnPoint s)
+    {
+        if (s == null) return;
+
+        botReactionDelaySeconds = s.reactionDelaySeconds;
+        SetBotDifficulty(s.difficulty);
+        SetBotRole(s.role);
+
+        if (_botAI != null)
+        {
+            _botAI.SetDefensiveZoneRadius(s.defensiveZoneRadius);
+            _botAI.SetGoalkeeperParams(s.defenseDepth, s.maxLateralRange, s.snapDistance);
+        }
+    }
+
 
     // ======================== UPDATE BOT AIMING - VERSION SIMPLIFIÉE ========================
     private void UpdateBotAiming()
