@@ -18,6 +18,11 @@ public static class GoalScoreAnimation
             rb.angularVelocity /= 5f;
         }
 
+        // ✅ FIX : on ne désactive plus le collider de la balle ici. Avant, il était coupé dès le but,
+        // donc la balle traversait les colliders 2D du fond, du haut et du bas du but.
+        // Pas de risque de double score : _goalScored (SoccerBallController / LocalSoccerBallController)
+        // bloque déjà un second OnTriggerEnter2D, et ResetBall / ResetForNewRound remettent tout en place.
+
         float elapsedTime = 0f;
         Vector3 initialScale = t.localScale;
         Quaternion initialRotation = t.rotation;

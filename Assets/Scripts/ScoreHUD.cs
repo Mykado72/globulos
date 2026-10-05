@@ -173,6 +173,17 @@ public class ScoreHUD : MonoBehaviour
             }
         }
 
+        // ✅ FIX mode SOLO : il n'y a pas de NetworkRunner actif, donc la boucle ci-dessus ne trouvait
+        // jamais personne et le HUD retombait sur "Équipe Jaune" / "Équipe Rouge". En Local, la
+        // convention (voir LocalGameSpawner) est : Joueur 1 = humain = Team1, Joueur 2 = IA = Team2,
+        // et leurs pseudos sont dans PlayerNamesManager (lu par PlayerNameHelper).
+        if (runner == null || !runner.IsRunning)
+        {
+            int localPlayerId = (teamIndex == 0) ? 1 : 2;
+            if (PlayerNameHelper.TryGetRealName(localPlayerId, out string localPseudo))
+                return localPseudo;
+        }
+
         // Fallback si aucun joueur trouvé
         return teamIndex == 0 ? "Équipe Jaune" : "Équipe Rouge";
     }
